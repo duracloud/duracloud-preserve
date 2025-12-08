@@ -4,10 +4,9 @@ use apputils::StackName;
 use aws_sdk_s3::Client;
 use tokio::io::AsyncBufReadExt;
 
-pub const MAX_BUCKETS_PER_REQUEST: usize = 5;
-pub const MAX_BUCKETS_REQUEST_FILE_SIZE: i64 = 32;
+pub const MAX_BUCKETS_PER_REQUEST: u8 = 5;
+pub const MAX_BUCKETS_REQUEST_FILE_SIZE: u8 = 32;
 
-const MANAGED_SUFFIX: &str = "-managed";
 const PUBLIC_SUFFIX: &str = "-public";
 const REPLICATION_SUFFIX: &str = "-repl";
 
@@ -18,11 +17,11 @@ pub async fn get_request_names(config: &Client, file: &File) -> Result<Vec<Strin
     };
 
     if let Some(len) = r.content_length()
-        && len > MAX_BUCKETS_REQUEST_FILE_SIZE
+        && len > MAX_BUCKETS_REQUEST_FILE_SIZE as i64
     {
         return Err(RequestError::FileTooLarge {
             actual: len,
-            max: MAX_BUCKETS_REQUEST_FILE_SIZE,
+            max: MAX_BUCKETS_REQUEST_FILE_SIZE as i64,
         });
     }
 
@@ -32,7 +31,7 @@ pub async fn get_request_names(config: &Client, file: &File) -> Result<Vec<Strin
 
     while let Ok(Some(line)) = buf_reader.next_line().await {
         names.push(line);
-        if names.len() >= MAX_BUCKETS_PER_REQUEST {
+        if names.len() >= MAX_BUCKETS_PER_REQUEST as usize {
             break;
         }
     }
@@ -100,12 +99,6 @@ pub struct RequestConfig {
     pub stack: StackName,
 }
 
-impl RequestConfig {
-    pub fn managed_bucket(&self) -> String {
-        format!("{}-{}", self.stack.as_str(), MANAGED_SUFFIX)
-    }
-}
-
 /// Custom error type for bucket requests
 #[derive(Debug)]
 pub enum RequestError {
@@ -148,7 +141,7 @@ mod tests {
     async fn test_get_request_names() {
         let content = "123\n456\n789\n234\n567\n890";
         let file = File::new("test-bucket".to_string(), "files/buckets.txt".to_string());
-        let client = test_client(file.http_url(), SdkBody::from(content), None);
+        let client = test_client(file.http_url(), SdkBody::from(content));
 
         let names = get_request_names(&client, &file).await.unwrap();
 
@@ -163,17 +156,16 @@ mod tests {
     #[tokio::test]
     async fn test_get_request_names_exceeds_size_limit() {
         let content = "a".repeat((MAX_BUCKETS_REQUEST_FILE_SIZE + 1) as usize);
-        let content_length = Some(MAX_BUCKETS_REQUEST_FILE_SIZE + 1);
         let file = File::new("test-bucket".to_string(), "files/buckets.txt".to_string());
-        let client = test_client(file.http_url(), SdkBody::from(content), content_length);
+        let client = test_client(file.http_url(), SdkBody::from(content));
 
         let result = get_request_names(&client, &file).await;
 
         assert!(result.is_err());
         match result {
             Err(RequestError::FileTooLarge { actual, max }) => {
-                assert_eq!(actual, MAX_BUCKETS_REQUEST_FILE_SIZE + 1);
-                assert_eq!(max, MAX_BUCKETS_REQUEST_FILE_SIZE);
+                assert_eq!(actual, (MAX_BUCKETS_REQUEST_FILE_SIZE + 1) as i64);
+                assert_eq!(max, MAX_BUCKETS_REQUEST_FILE_SIZE as i64);
             }
             _ => panic!("Expected FileTooLarge error"),
         }
@@ -189,41 +181,41 @@ mod tests {
 
     #[test]
     fn test_request_primary_bucket_standard() {
-        let stack = StackName::new("duracloud-ex").unwrap();
-        let standard = Name::new("test").unwrap();
+        let stack = StackName::new("test-stack").unwrap();
+        let standard = Name::new("example").unwrap();
 
         let result = Request::primary_bucket(&stack, &standard).unwrap();
-        assert_eq!(result.0.as_str(), "duracloud-ex-test");
+        assert_eq!(result.0.as_str(), "test-stack-example");
         assert_eq!(result.1, Type::Standard);
     }
 
     #[test]
     fn test_request_primary_bucket_public() {
-        let stack = StackName::new("duracloud-ex").unwrap();
-        let public = Name::new("test-public").unwrap();
+        let stack = StackName::new("test-stack").unwrap();
+        let public = Name::new("example-public").unwrap();
 
         let result = Request::primary_bucket(&stack, &public).unwrap();
-        assert_eq!(result.0.as_str(), "duracloud-ex-test-public");
+        assert_eq!(result.0.as_str(), "test-stack-example-public");
         assert_eq!(result.1, Type::Public);
     }
 
     #[test]
     fn test_request_replication_bucket_standard() {
-        let stack = StackName::new("duracloud-ex").unwrap();
-        let standard = Name::new("test").unwrap();
+        let stack = StackName::new("test-stack").unwrap();
+        let standard = Name::new("example").unwrap();
 
         let result = Request::replication_bucket(&stack, &standard).unwrap();
-        assert_eq!(result.0.as_str(), "duracloud-ex-test-repl");
+        assert_eq!(result.0.as_str(), "test-stack-example-repl");
         assert_eq!(result.1, Type::Replication);
     }
 
     #[test]
     fn test_request_replication_bucket_public() {
-        let stack = StackName::new("duracloud-ex").unwrap();
-        let public = Name::new("test-public").unwrap();
+        let stack = StackName::new("test-stack").unwrap();
+        let public = Name::new("example-public").unwrap();
 
         let result = Request::replication_bucket(&stack, &public).unwrap();
-        assert_eq!(result.0.as_str(), "duracloud-ex-test-public-repl");
+        assert_eq!(result.0.as_str(), "test-stack-example-public-repl");
         assert_eq!(result.1, Type::Replication);
     }
 }

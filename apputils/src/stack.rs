@@ -1,3 +1,6 @@
+const MANAGED_SUFFIX: &str = "-managed";
+const REQUEST_SUFFIX: &str = "-bucket-request";
+
 /// A type wrapper to ensure name conforms to minimal expectations.
 #[derive(Debug, Clone)]
 pub struct Name(String);
@@ -15,6 +18,16 @@ impl Name {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// Get managed bucket name for stack
+    pub fn managed_bucket(&self) -> String {
+        format!("{}{}", &self.as_str(), MANAGED_SUFFIX)
+    }
+
+    /// Get request bucket name for stack
+    pub fn request_bucket(&self) -> String {
+        format!("{}{}", &self.as_str(), REQUEST_SUFFIX)
+    }
 }
 
 #[cfg(test)]
@@ -23,9 +36,21 @@ mod tests {
 
     #[test]
     fn test_name_new() {
-        assert_eq!(Name::new("dc-ex1").unwrap().as_str(), "dc-ex1");
-        assert_eq!(Name::new("DC-EX1").unwrap().as_str(), "dc-ex1");
-        assert!(Name::new("-dc-ex1").is_err());
-        assert!(Name::new("dc-ex1-").is_err());
+        assert_eq!(Name::new("test-stack").unwrap().as_str(), "test-stack");
+        assert_eq!(Name::new("test-STaCK").unwrap().as_str(), "test-stack");
+        assert!(Name::new("-test-stack").is_err());
+        assert!(Name::new("test-stack-").is_err());
+    }
+
+    #[test]
+    fn test_managed_bucket_name() {
+        let stack = Name::new("test-stack").unwrap();
+        assert_eq!(stack.managed_bucket(), "test-stack-managed");
+    }
+
+    #[test]
+    fn test_request_bucket_name() {
+        let stack = Name::new("test-stack").unwrap();
+        assert_eq!(stack.request_bucket(), "test-stack-bucket-request");
     }
 }

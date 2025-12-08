@@ -16,7 +16,7 @@ use aws_sdk_s3::primitives::SdkBody;
 async fn main() -> Result<(), Error> {
     tracing::init_default_subscriber();
 
-    let test_client = test_client("".to_string(), SdkBody::from(""), None);
+    let test_client = test_client("".to_string(), SdkBody::from(""));
 
     let config = RequestConfig {
         debug_handler: false,

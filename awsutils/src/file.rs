@@ -21,10 +21,10 @@ pub async fn download(
 }
 
 /// Provide a simple preconfigured test client
-pub fn test_client(uri: String, body: SdkBody, content_length: Option<i64>) -> Client {
+pub fn test_client(uri: String, body: SdkBody) -> Client {
     let mut response_builder = http::Response::builder().status(200);
 
-    if let Some(length) = content_length {
+    if let Some(length) = body.content_length() {
         response_builder = response_builder.header("Content-Length", length.to_string());
     }
 

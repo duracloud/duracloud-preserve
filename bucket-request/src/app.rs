@@ -24,7 +24,7 @@ pub(crate) async fn perform(config: &RequestConfig, file: &File) -> Result<(), E
     let buckets = match parse_bucket_names(config, &names) {
         Ok(buckets) => buckets,
         Err(e) => {
-            tracing::error!("Error parsing buckt names: {}", e);
+            tracing::error!("Error parsing bucket names: {}", e);
             // TODO: upload error report
             return Ok(());
         }

@@ -19,8 +19,8 @@ pub(crate) async fn function_handler(
 
     tracing::info!("Bucket: {:?}, Object: {:?}", bucket, object);
 
-    if !bucket.starts_with(&config.stack.as_str()) {
-        panic!("Bucket is not eligible for this stack: {:?}", config.stack);
+    if !(bucket == &config.stack.request_bucket()) {
+        panic!("Not the request bucket for this stack: {:?}", config.stack);
     }
 
     if config.debug_handler {
@@ -46,42 +46,45 @@ mod tests {
         let json = include_str!("../events/stack.json");
         let s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
 
+        let bucket = s3_event.records[0].s3.bucket.name.as_ref().unwrap();
+        let object = s3_event.records[0].s3.object.key.as_ref().unwrap();
+
         let test_client = test_client(
-            "https://app-test.s3.amazonaws.com/buckets.txt".to_string(),
+            File::new(bucket.to_owned(), object.to_owned()).http_url(),
             SdkBody::empty(),
-            None,
         );
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let config = RequestConfig {
             debug_handler: true,
             s3_client: test_client,
-            stack: StackName::new("app-test").unwrap(),
+            stack: StackName::new("test-stack").unwrap(),
         };
         let response = function_handler(&config, event).await.unwrap();
         assert_eq!((), response);
     }
 
     #[tokio::test]
-    #[should_panic(expected = "Bucket is not eligible for this stack")]
+    #[should_panic(expected = "Not the request bucket for this stack")]
     async fn test_invalid_event_handler() {
         let json = include_str!("../events/stack.json");
         let mut s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
 
-        // make it so bucket name != starts with stack name
-        s3_event.records[0].s3.bucket.name = Some("app-other".to_string());
+        // make it so bucket name != the expected request bucket name
+        s3_event.records[0].s3.bucket.name = Some("test-other-bucket-request".to_string());
+        let bucket = s3_event.records[0].s3.bucket.name.as_ref().unwrap();
+        let object = s3_event.records[0].s3.object.key.as_ref().unwrap();
 
         let test_client = test_client(
-            "https://app-other.s3.amazonaws.com/buckets.txt".to_string(),
+            File::new(bucket.to_owned(), object.to_owned()).http_url(),
             SdkBody::empty(),
-            None,
         );
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let config = RequestConfig {
             debug_handler: true,
             s3_client: test_client,
-            stack: StackName::new("app-test").unwrap(),
+            stack: StackName::new("test-stack").unwrap(),
         };
         function_handler(&config, event).await.unwrap();
     }

@@ -1,2 +1,3 @@
 pub mod bucket;
-pub mod s3;
+pub use bucket::Name as BucketName;
+pub mod file;

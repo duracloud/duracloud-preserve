@@ -1,52 +1,62 @@
 use aws_lambda_events::event::s3::S3Event;
 use lambda_runtime::{tracing, Error, LambdaEvent};
 
-use awsutils::bucket::BucketRequestConfig;
-use awsutils::s3::File;
+use crate::app::perform;
+
+use awsutils::bucket::RequestConfig;
+use awsutils::file::File;
 
 pub(crate) async fn function_handler(
-    config: &BucketRequestConfig,
+    config: &RequestConfig,
     event: LambdaEvent<S3Event>,
 ) -> Result<(), Error> {
     let payload = event.payload;
 
-    let mut files: Vec<File> = Vec::new();
+    // Moderate by only considering the first record (we've never seen more)
+    let record = payload.records.first().expect("Payload should have record");
+    let bucket = record.s3.bucket.name.as_ref().expect("Bucket required");
+    let object = record.s3.object.key.as_ref().expect("Object requried");
 
-    for record in payload.records {
-        let bucket = record.s3.bucket.name.expect("Bucket name required");
-        let object = record.s3.object.key.expect("Object key requried");
-        tracing::info!("Bucket: {:?}, Object: {:?}", bucket, object);
-        if !bucket.starts_with(&config.stack) {
-            panic!("Bucket is not eligible for this stack: {:?}", config.stack);
-        }
+    tracing::info!("Bucket: {:?}, Object: {:?}", bucket, object);
 
-        files.push(File::new(bucket, object));
+    if !bucket.starts_with(&config.stack.as_str()) {
+        panic!("Bucket is not eligible for this stack: {:?}", config.stack);
     }
 
-    if config.debug {
-        tracing::info!("Debug mode enabled, skipping run function.");
+    if config.debug_handler {
+        tracing::info!("Debug handler mode enabled, skipping perform function.");
         return Ok(());
     }
 
-    // TODO: app::run(config, files);
-
+    perform(config, &File::new(bucket.to_owned(), object.to_owned())).await?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use apputils::StackName;
+    use aws_sdk_s3::primitives::SdkBody;
+    use awsutils::file::test_client;
     use lambda_runtime::{Context, LambdaEvent};
 
     #[tokio::test]
     async fn test_valid_event_handler() {
-        let json = include_str!("../events/valid_stack.json");
-        let s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse valid.json");
+        // json contains bucket name == starts with stack name
+        let json = include_str!("../events/stack.json");
+        let s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
+
+        let test_client = test_client(
+            "https://app-test.s3.amazonaws.com/buckets.txt".to_string(),
+            SdkBody::empty(),
+            None,
+        );
 
         let event = LambdaEvent::new(s3_event, Context::default());
-        let config = BucketRequestConfig {
-            debug: true,
-            stack: "app-test".to_string(),
+        let config = RequestConfig {
+            debug_handler: true,
+            s3_client: test_client,
+            stack: StackName::new("app-test").unwrap(),
         };
         let response = function_handler(&config, event).await.unwrap();
         assert_eq!((), response);
@@ -55,13 +65,23 @@ mod tests {
     #[tokio::test]
     #[should_panic(expected = "Bucket is not eligible for this stack")]
     async fn test_invalid_event_handler() {
-        let json = include_str!("../events/invalid_stack.json");
-        let s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse invalid.json");
+        let json = include_str!("../events/stack.json");
+        let mut s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
+
+        // make it so bucket name != starts with stack name
+        s3_event.records[0].s3.bucket.name = Some("app-other".to_string());
+
+        let test_client = test_client(
+            "https://app-other.s3.amazonaws.com/buckets.txt".to_string(),
+            SdkBody::empty(),
+            None,
+        );
 
         let event = LambdaEvent::new(s3_event, Context::default());
-        let config = BucketRequestConfig {
-            debug: true,
-            stack: "app-test".to_string(),
+        let config = RequestConfig {
+            debug_handler: true,
+            s3_client: test_client,
+            stack: StackName::new("app-test").unwrap(),
         };
         function_handler(&config, event).await.unwrap();
     }

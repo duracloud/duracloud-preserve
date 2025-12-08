@@ -1,12 +1,227 @@
-const MANAGED_SUFFIX: &str = "-managed";
+use crate::file::{File, download};
+use apputils::StackName;
 
-pub struct BucketRequestConfig {
-    pub debug: bool,
-    pub stack: String,
+use aws_sdk_s3::Client;
+use tokio::io::AsyncBufReadExt;
+
+pub const MAX_BUCKETS_PER_REQUEST: usize = 5;
+pub const MAX_BUCKETS_REQUEST_FILE_SIZE: i64 = 32;
+
+const MANAGED_SUFFIX: &str = "-managed";
+const PUBLIC_SUFFIX: &str = "-public";
+const REPLICATION_SUFFIX: &str = "-repl";
+
+pub async fn get_request_names(config: &Client, file: &File) -> Result<Vec<String>, BucketError> {
+    let Ok(r) = download(&config, &file).await else {
+        return Err(BucketError::S3Error("failed to download file"));
+    };
+
+    if let Some(len) = r.content_length()
+        && len > MAX_BUCKETS_REQUEST_FILE_SIZE
+    {
+        return Err(BucketError::FileTooLarge {
+            actual: len,
+            max: MAX_BUCKETS_REQUEST_FILE_SIZE,
+        });
+    }
+
+    let reader = r.body.into_async_read();
+    let mut names = Vec::new();
+    let mut buf_reader = tokio::io::BufReader::new(reader).lines();
+
+    while let Ok(Some(line)) = buf_reader.next_line().await {
+        names.push(line);
+        if names.len() >= MAX_BUCKETS_PER_REQUEST {
+            break;
+        }
+    }
+
+    Ok(names)
 }
 
-impl BucketRequestConfig {
+#[derive(Debug, PartialEq)]
+pub struct Bucket(pub Name, pub Type);
+
+#[derive(Debug)]
+pub enum BucketError {
+    FileTooLarge { actual: i64, max: i64 },
+    S3Error(&'static str),
+    IoError(std::io::Error),
+}
+
+impl std::fmt::Display for BucketError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BucketError::FileTooLarge { actual, max } => write!(
+                f,
+                "File size {} bytes exceeds maximum of {} bytes",
+                actual, max
+            ),
+            BucketError::S3Error(msg) => write!(f, "S3 error: {}", msg),
+            BucketError::IoError(e) => write!(f, "IO error: {}", e),
+        }
+    }
+}
+
+impl std::error::Error for BucketError {}
+
+/// A type wrapper to ensure name is compatible with S3
+/// and project requirements.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Name(String);
+
+impl Name {
+    pub fn new(name: &str) -> Result<Self, &'static str> {
+        let name = name.to_lowercase();
+
+        if name.starts_with("-") || name.ends_with("-") {
+            return Err("Name cannot start or end with dash");
+        }
+
+        // TODO length
+        // TODO valid characters
+
+        Ok(Self(name.to_string()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// Request handles conversion of a stack name + user requested
+/// bucket name to a full length S3 primary and replication bucket name.
+#[derive(Debug)]
+pub struct Request {}
+
+impl Request {
+    pub fn primary_bucket(stack: &StackName, partial: &Name) -> Result<Bucket, &'static str> {
+        let name = Name::new(&format!("{}-{}", stack.as_str(), partial.as_str()))?;
+        if name.as_str().ends_with(PUBLIC_SUFFIX) {
+            Ok(Bucket(name, Type::Public))
+        } else {
+            Ok(Bucket(name, Type::Standard))
+        }
+    }
+
+    pub fn replication_bucket(stack: &StackName, partial: &Name) -> Result<Bucket, &'static str> {
+        let name = Name::new(&format!(
+            "{}-{}{}",
+            stack.as_str(),
+            partial.as_str(),
+            REPLICATION_SUFFIX
+        ))?;
+        Ok(Bucket(name, Type::Replication))
+    }
+}
+
+/// Configuration elements required for bucket creation and setup
+pub struct RequestConfig {
+    pub debug_handler: bool,
+    pub s3_client: aws_sdk_s3::Client,
+    pub stack: StackName,
+}
+
+impl RequestConfig {
     pub fn managed_bucket(&self) -> String {
-        format!("{}-{}", self.stack, MANAGED_SUFFIX)
+        format!("{}-{}", self.stack.as_str(), MANAGED_SUFFIX)
+    }
+}
+
+/// Types for buckets from the project perspective
+#[derive(Debug, PartialEq)]
+pub enum Type {
+    Public,
+    Replication,
+    Standard,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::file::test_client;
+    use aws_sdk_s3::primitives::SdkBody;
+
+    #[tokio::test]
+    async fn test_get_request_names() {
+        let content = "123\n456\n789\n234\n567\n890";
+        let file = File::new("test-bucket".to_string(), "files/buckets.txt".to_string());
+        let client = test_client(file.http_url(), SdkBody::from(content), None);
+
+        let names = get_request_names(&client, &file).await.unwrap();
+
+        assert_eq!(names.len(), 5);
+        assert_eq!(names[0], "123");
+        assert_eq!(names[1], "456");
+        assert_eq!(names[2], "789");
+        assert_eq!(names[3], "234");
+        assert_eq!(names[4], "567");
+    }
+
+    #[tokio::test]
+    async fn test_get_request_names_exceeds_size_limit() {
+        let content = "a".repeat((MAX_BUCKETS_REQUEST_FILE_SIZE + 1) as usize);
+        let content_length = Some(MAX_BUCKETS_REQUEST_FILE_SIZE + 1);
+        let file = File::new("test-bucket".to_string(), "large-file.txt".to_string());
+        let client = test_client(file.http_url(), SdkBody::from(content), content_length);
+
+        let result = get_request_names(&client, &file).await;
+
+        assert!(result.is_err());
+        match result {
+            Err(BucketError::FileTooLarge { actual, max }) => {
+                assert_eq!(actual, MAX_BUCKETS_REQUEST_FILE_SIZE + 1);
+                assert_eq!(max, MAX_BUCKETS_REQUEST_FILE_SIZE);
+            }
+            _ => panic!("Expected FileTooLarge error"),
+        }
+    }
+
+    #[test]
+    fn test_name_new() {
+        assert_eq!(Name::new("test").unwrap().as_str(), "test");
+        assert_eq!(Name::new("TEsT").unwrap().as_str(), "test");
+        assert!(Name::new("-test").is_err());
+        assert!(Name::new("test-").is_err());
+    }
+
+    #[test]
+    fn test_request_primary_bucket_standard() {
+        let stack = StackName::new("duracloud-ex").unwrap();
+        let standard = Name::new("test").unwrap();
+
+        let result = Request::primary_bucket(&stack, &standard).unwrap();
+        assert_eq!(result.0.as_str(), "duracloud-ex-test");
+        assert_eq!(result.1, Type::Standard);
+    }
+
+    #[test]
+    fn test_request_primary_bucket_public() {
+        let stack = StackName::new("duracloud-ex").unwrap();
+        let public = Name::new("test-public").unwrap();
+
+        let result = Request::primary_bucket(&stack, &public).unwrap();
+        assert_eq!(result.0.as_str(), "duracloud-ex-test-public");
+        assert_eq!(result.1, Type::Public);
+    }
+
+    #[test]
+    fn test_request_replication_bucket_standard() {
+        let stack = StackName::new("duracloud-ex").unwrap();
+        let standard = Name::new("test").unwrap();
+
+        let result = Request::replication_bucket(&stack, &standard).unwrap();
+        assert_eq!(result.0.as_str(), "duracloud-ex-test-repl");
+        assert_eq!(result.1, Type::Replication);
+    }
+
+    #[test]
+    fn test_request_replication_bucket_public() {
+        let stack = StackName::new("duracloud-ex").unwrap();
+        let public = Name::new("test-public").unwrap();
+
+        let result = Request::replication_bucket(&stack, &public).unwrap();
+        assert_eq!(result.0.as_str(), "duracloud-ex-test-public-repl");
+        assert_eq!(result.1, Type::Replication);
     }
 }

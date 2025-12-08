@@ -5,7 +5,9 @@ edition = "2021"
 
 [dependencies]
 aws_lambda_events = { version = "1.0.0", default-features = false, features = ["s3"] }
+apputils = { path = "../apputils" }
 awsutils = { path = "../awsutils" }
 lambda_runtime = "1.0.1"
 serde_json = "1.0.145"
 tokio = { version = "1", features = ["macros"] }
+aws-sdk-s3 = "1.116.0"

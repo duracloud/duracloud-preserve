@@ -7,6 +7,7 @@ use aws_sdk_s3::{
 };
 use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
 
+/// Make get object request for file
 pub async fn download(
     client: &Client,
     file: &File,
@@ -19,10 +20,7 @@ pub async fn download(
         .await
 }
 
-pub fn stream(_: File) {
-    todo!()
-}
-
+/// Provide a simple preconfigured test client
 pub fn test_client(uri: String, body: SdkBody, content_length: Option<i64>) -> Client {
     let mut response_builder = http::Response::builder().status(200);
 
@@ -48,10 +46,12 @@ pub fn test_client(uri: String, body: SdkBody, content_length: Option<i64>) -> C
     aws_sdk_s3::Client::from_conf(config)
 }
 
+/// Make put object request for file
 pub fn upload(_: File) {
     todo!()
 }
 
+/// Basic type wrapper for an S3 "file" (bucket + key)
 pub struct File {
     bucket: String,
     object: String,

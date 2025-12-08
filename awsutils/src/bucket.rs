@@ -11,15 +11,16 @@ const MANAGED_SUFFIX: &str = "-managed";
 const PUBLIC_SUFFIX: &str = "-public";
 const REPLICATION_SUFFIX: &str = "-repl";
 
-pub async fn get_request_names(config: &Client, file: &File) -> Result<Vec<String>, BucketError> {
+/// Retrieve bucket request file and check is valid
+pub async fn get_request_names(config: &Client, file: &File) -> Result<Vec<String>, RequestError> {
     let Ok(r) = download(&config, &file).await else {
-        return Err(BucketError::S3Error("failed to download file"));
+        return Err(RequestError::S3Error("failed to download file"));
     };
 
     if let Some(len) = r.content_length()
         && len > MAX_BUCKETS_REQUEST_FILE_SIZE
     {
-        return Err(BucketError::FileTooLarge {
+        return Err(RequestError::FileTooLarge {
             actual: len,
             max: MAX_BUCKETS_REQUEST_FILE_SIZE,
         });
@@ -42,31 +43,8 @@ pub async fn get_request_names(config: &Client, file: &File) -> Result<Vec<Strin
 #[derive(Debug, PartialEq)]
 pub struct Bucket(pub Name, pub Type);
 
-#[derive(Debug)]
-pub enum BucketError {
-    FileTooLarge { actual: i64, max: i64 },
-    S3Error(&'static str),
-    IoError(std::io::Error),
-}
-
-impl std::fmt::Display for BucketError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BucketError::FileTooLarge { actual, max } => write!(
-                f,
-                "File size {} bytes exceeds maximum of {} bytes",
-                actual, max
-            ),
-            BucketError::S3Error(msg) => write!(f, "S3 error: {}", msg),
-            BucketError::IoError(e) => write!(f, "IO error: {}", e),
-        }
-    }
-}
-
-impl std::error::Error for BucketError {}
-
-/// A type wrapper to ensure name is compatible with S3
-/// and project requirements.
+/// A type wrapper to ensure bucket name is compatible with
+/// S3 and project requirements.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Name(String);
 
@@ -89,8 +67,8 @@ impl Name {
     }
 }
 
-/// Request handles conversion of a stack name + user requested
-/// bucket name to a full length S3 primary and replication bucket name.
+/// Handles conversion of a stack name + user requested bucket
+/// name to a full length S3 primary and replication bucket name.
 #[derive(Debug)]
 pub struct Request {}
 
@@ -128,7 +106,31 @@ impl RequestConfig {
     }
 }
 
-/// Types for buckets from the project perspective
+/// Custom error type for bucket requests
+#[derive(Debug)]
+pub enum RequestError {
+    FileTooLarge { actual: i64, max: i64 },
+    S3Error(&'static str),
+    IoError(std::io::Error),
+}
+
+impl std::fmt::Display for RequestError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RequestError::FileTooLarge { actual, max } => write!(
+                f,
+                "File size {} bytes exceeds maximum of {} bytes",
+                actual, max
+            ),
+            RequestError::S3Error(msg) => write!(f, "S3 error: {}", msg),
+            RequestError::IoError(e) => write!(f, "IO error: {}", e),
+        }
+    }
+}
+
+impl std::error::Error for RequestError {}
+
+/// Types for buckets
 #[derive(Debug, PartialEq)]
 pub enum Type {
     Public,
@@ -162,14 +164,14 @@ mod tests {
     async fn test_get_request_names_exceeds_size_limit() {
         let content = "a".repeat((MAX_BUCKETS_REQUEST_FILE_SIZE + 1) as usize);
         let content_length = Some(MAX_BUCKETS_REQUEST_FILE_SIZE + 1);
-        let file = File::new("test-bucket".to_string(), "large-file.txt".to_string());
+        let file = File::new("test-bucket".to_string(), "files/buckets.txt".to_string());
         let client = test_client(file.http_url(), SdkBody::from(content), content_length);
 
         let result = get_request_names(&client, &file).await;
 
         assert!(result.is_err());
         match result {
-            Err(BucketError::FileTooLarge { actual, max }) => {
+            Err(RequestError::FileTooLarge { actual, max }) => {
                 assert_eq!(actual, MAX_BUCKETS_REQUEST_FILE_SIZE + 1);
                 assert_eq!(max, MAX_BUCKETS_REQUEST_FILE_SIZE);
             }

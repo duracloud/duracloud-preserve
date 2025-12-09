@@ -18,25 +18,27 @@ Common args:
 ```bash
 # Create required s3 buckets: digipres-dev1-bucket-request, digipres-dev1-managed
 # These buckets are expected to exist and created by Terraform for remote deployments
-make buckets p=default s=digipres-dev1
+make buckets a=create s=digipres-dev1 p=default
 ```
+
+Note: in some contexts a letter may have a different meaning.
 
 ### bucket-request
 
-Note: use your own values for `p=` and `s=`.
+Note: use your own values for `s=` and `p=`.
 
 ```bash
 # Run function locally, waiting for events
-make watch f=bucket-request p=default s=digipres-dev1
+make watch f=bucket-request s=digipres-dev1 p=default
 
 # Upload the sample buckets.txt (or create your own) to the request bucket
-AWS_PROFILE=default aws s3 cp bucket-request/files/buckets.txt s3://digipres-dev1-bucket-request/buckets.txt
+make bucket-request f=bucket-request/files/buckets.txt s=digipres-dev1 p=default
 
 # Copy then edit the sample event file so that bucket name uses the s= prefix
 mkdir payloads
 cp bucket-request/events/sample.json payloads/bucket-request.json # Update bucket name!
 
-# Send payload to the function
+# Send payload to the locally running function
 make invoke f=bucket-request e=payloads/bucket-request.json
 ```
 

@@ -30,7 +30,11 @@ pub(crate) async fn perform(config: &RequestConfig, file: &File) -> Result<(), E
     tracing::info!("Creating buckets");
 
     // create_buckets(config, buckets);
-    // TODO: check whether bucket exists, skip if it does
-    // bucket::exists(s3_client, primary)
+    // TODO: check whether bucket exists, skip if it does (see examples)
+    // let creator = BucketCreator::new(config);
+    // creator.create(primary)? // create
+    // creator.setup(primary)? // deny + versioning + etc.
+    // creator.create(replication)?
+    // creator.setup(replication)?
     Ok(())
 }

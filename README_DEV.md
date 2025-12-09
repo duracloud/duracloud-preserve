@@ -5,6 +5,43 @@ Requirements:
 - [rust](#)
 - [cargo-lambda](#)
 
+## Testing functions
+
+There are `Makefile` tasks to wrap `cargo` (et al.) commands for convenience:
+
+Common args:
+
+- `f=function` function name i.e. bucket-request
+- `p=profile` aws profile name
+- `s=stack` resource prefix used for partitioning within aws account
+
+```bash
+# Create required s3 buckets: digipres-dev1-bucket-request, digipres-dev1-managed
+# These buckets are expected to exist and created by Terraform for remote deployments
+make buckets p=default s=digipres-dev1
+```
+
+### bucket-request
+
+Note: use your own values for `p=` and `s=`.
+
+```bash
+# Run function locally, waiting for events
+make watch f=bucket-request p=default s=digipres-dev1
+
+# Upload the sample buckets.txt (or create your own) to the request bucket
+AWS_PROFILE=default aws s3 cp bucket-request/files/buckets.txt s3://digipres-dev1-bucket-request/buckets.txt
+
+# Copy then edit the sample event file so that bucket name uses the s= prefix
+mkdir payloads
+cp bucket-request/events/sample.json payloads/bucket-request.json # Update bucket name!
+
+# Send payload to the function
+make invoke f=bucket-request e=payloads/bucket-request.json
+```
+
+Try variations in `buckets.txt` (file too large, wonky names, too many names etc.).
+
 ## Creating a function
 
 ```bash

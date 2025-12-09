@@ -39,6 +39,23 @@ pub async fn get_request_names(config: &Client, file: &File) -> Result<Vec<Strin
     Ok(names)
 }
 
+// Check that user supplied bucket names are ok and make ready to create
+pub fn review_bucket_names(
+    config: &RequestConfig,
+    names: &Vec<String>,
+) -> Result<Vec<(Bucket, Bucket)>, &'static str> {
+    let mut buckets: Vec<(Bucket, Bucket)> = Vec::new();
+
+    for name in names {
+        let bucket = Name::new(name)?;
+        let primary = Request::primary_bucket(&config.stack, &bucket)?;
+        let replication = Request::replication_bucket(&config.stack, &bucket)?;
+        buckets.push((primary, replication));
+    }
+
+    Ok(buckets)
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Bucket(pub Name, pub Type);
 
@@ -169,6 +186,35 @@ mod tests {
             }
             _ => panic!("Expected FileTooLarge error"),
         }
+    }
+
+    #[test]
+    fn test_review_bucket_names() {
+        let stack = StackName::new("test-stack").unwrap();
+        let client = test_client("unused".to_string(), SdkBody::empty());
+        let config = RequestConfig {
+            debug_handler: false,
+            s3_client: client,
+            stack,
+        };
+
+        let names = vec!["example".to_string(), "data-public".to_string()];
+
+        let result = review_bucket_names(&config, &names).unwrap();
+
+        assert_eq!(result.len(), 2);
+
+        // First bucket pair (standard)
+        assert_eq!(result[0].0.0.as_str(), "test-stack-example");
+        assert_eq!(result[0].0.1, Type::Standard);
+        assert_eq!(result[0].1.0.as_str(), "test-stack-example-repl");
+        assert_eq!(result[0].1.1, Type::Replication);
+
+        // Second bucket pair (public)
+        assert_eq!(result[1].0.0.as_str(), "test-stack-data-public");
+        assert_eq!(result[1].0.1, Type::Public);
+        assert_eq!(result[1].1.0.as_str(), "test-stack-data-public-repl");
+        assert_eq!(result[1].1.1, Type::Replication);
     }
 
     #[test]

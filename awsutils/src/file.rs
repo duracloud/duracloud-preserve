@@ -1,6 +1,6 @@
 use aws_sdk_s3::{
     Client,
-    config::{Credentials, Region},
+    config::Region,
     error::SdkError,
     operation::get_object::{GetObjectError, GetObjectOutput},
     primitives::SdkBody,
@@ -40,7 +40,6 @@ pub fn test_client(uri: String, body: SdkBody) -> Client {
         .behavior_version_latest()
         .http_client(http_client)
         .region(Region::new("us-east-1"))
-        .credentials_provider(Credentials::new("test", "test", None, None, "test"))
         .build();
 
     aws_sdk_s3::Client::from_conf(config)

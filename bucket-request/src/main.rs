@@ -7,20 +7,18 @@ mod app;
 
 use apputils::StackName;
 use awsutils::bucket::RequestConfig;
-use awsutils::file::test_client;
 use std::env;
-
-use aws_sdk_s3::primitives::SdkBody;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     tracing::init_default_subscriber();
 
-    let test_client = test_client("".to_string(), SdkBody::from(""));
+    let client_config = awsutils::config::default_config().await;
+    let s3_client = aws_sdk_s3::Client::new(&client_config);
 
     let config = RequestConfig {
         debug_handler: false,
-        s3_client: test_client,
+        s3_client: s3_client,
         stack: StackName::new(&env::var("STACK").expect("Stack is required"))
             .expect("Invalid stack name"),
     };

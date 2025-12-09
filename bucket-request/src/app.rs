@@ -1,8 +1,4 @@
-use awsutils::{
-    bucket::{Bucket, Request, RequestConfig},
-    file::File,
-    BucketName,
-};
+use awsutils::{bucket::RequestConfig, file::File};
 use lambda_runtime::tracing;
 use lambda_runtime::Error;
 
@@ -21,7 +17,7 @@ pub(crate) async fn perform(config: &RequestConfig, file: &File) -> Result<(), E
     tracing::info!("Bucket names: {:?}", names);
     tracing::info!("Parsing bucket names");
 
-    let buckets = match parse_bucket_names(config, &names) {
+    let buckets = match awsutils::bucket::review_bucket_names(config, &names) {
         Ok(buckets) => buckets,
         Err(e) => {
             tracing::error!("Error parsing bucket names: {}", e);
@@ -34,24 +30,7 @@ pub(crate) async fn perform(config: &RequestConfig, file: &File) -> Result<(), E
     tracing::info!("Creating buckets");
 
     // create_buckets(config, buckets);
-    Ok(())
-}
-
-// TODO: move
-fn parse_bucket_names(
-    config: &RequestConfig,
-    _: &Vec<String>,
-) -> Result<Vec<(Bucket, Bucket)>, Error> {
-    let mut buckets: Vec<(Bucket, Bucket)> = Vec::new();
-
-    // let contents = s3::download(s3_client, file);
-    let bucket = BucketName::new("test-1")?;
-    let primary = Request::primary_bucket(&config.stack, &bucket)?;
-    let replication = Request::replication_bucket(&config.stack, &bucket)?;
-
     // TODO: check whether bucket exists, skip if it does
     // bucket::exists(s3_client, primary)
-    buckets.push((primary, replication));
-
-    Ok(buckets)
+    Ok(())
 }

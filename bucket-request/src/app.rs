@@ -29,12 +29,12 @@ pub(crate) async fn perform(config: &RequestConfig, file: &File) -> Result<(), E
     tracing::info!("Buckets to create: {:?}", buckets);
     tracing::info!("Creating buckets");
 
-    // create_buckets(config, buckets);
-    // TODO: check whether bucket exists, skip if it does (see examples)
-    // let creator = BucketCreator::new(config);
-    // creator.create(primary)? // create
-    // creator.setup(primary)? // deny + versioning + etc.
-    // creator.create(replication)?
-    // creator.setup(replication)?
+    let issues = awsutils::bucket::create_buckets(config, &buckets).await;
+    if issues.len() > 0 {
+        // TODO: upload the issues
+        eprintln!("{:?}", issues);
+    }
+
+    tracing::info!("Perform complete");
     Ok(())
 }

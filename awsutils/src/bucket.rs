@@ -1,4 +1,7 @@
-use crate::file::{File, download};
+use crate::{
+    bucket_creator::BucketCreator,
+    file::{File, download},
+};
 use apputils::StackName;
 
 use aws_sdk_s3::Client;
@@ -10,10 +13,49 @@ pub const MAX_BUCKETS_REQUEST_FILE_SIZE: u8 = 32;
 const PUBLIC_SUFFIX: &str = "-public";
 const REPLICATION_SUFFIX: &str = "-repl";
 
+/// Create primary and replication buckets
+pub async fn create_buckets(
+    config: &RequestConfig,
+    buckets: &Vec<(Bucket, Bucket)>,
+) -> Vec<String> {
+    let mut issues = Vec::new();
+
+    for (primary, replication) in buckets {
+        let result = create_bucket(config, primary).await;
+        if let Err(e) = &result {
+            issues.push(e.to_string());
+        }
+
+        let result = create_bucket(config, replication).await;
+        if let Err(e) = &result {
+            issues.push(e.to_string());
+        }
+    }
+
+    issues
+}
+
+/// Create and setup an S3 bucket. If setup fails attempt to rollback.
+async fn create_bucket(config: &RequestConfig, bucket: &Bucket) -> Result<(), RequestError> {
+    let creator = BucketCreator::new(config, bucket);
+
+    creator.create().await?; // escape immediately if create fails
+
+    let result = creator.setup();
+    if let Err(e) = result {
+        if let Err(rollback_err) = creator.rollback() {
+            eprintln!("Rollback failed: {}", rollback_err);
+        }
+        return Err(e);
+    }
+
+    Ok(())
+}
+
 /// Retrieve bucket request file and check is valid
-pub async fn get_request_names(config: &Client, file: &File) -> Result<Vec<String>, RequestError> {
-    let Ok(r) = download(&config, &file).await else {
-        return Err(RequestError::S3Error("failed to download file"));
+pub async fn get_request_names(client: &Client, file: &File) -> Result<Vec<String>, RequestError> {
+    let Ok(r) = download(&client, &file).await else {
+        return Err(RequestError::S3Error("failed to download file".to_string()));
     };
 
     if let Some(len) = r.content_length()
@@ -39,7 +81,7 @@ pub async fn get_request_names(config: &Client, file: &File) -> Result<Vec<Strin
     Ok(names)
 }
 
-// Check that user supplied bucket names are ok and make ready to create
+/// Check that user supplied bucket names are ok and make ready to create
 pub fn review_bucket_names(
     config: &RequestConfig,
     names: &Vec<String>,
@@ -110,6 +152,7 @@ impl Request {
 }
 
 /// Configuration elements required for bucket creation and setup
+#[derive(Debug)]
 pub struct RequestConfig {
     pub debug_handler: bool,
     pub s3_client: aws_sdk_s3::Client,
@@ -120,7 +163,7 @@ pub struct RequestConfig {
 #[derive(Debug)]
 pub enum RequestError {
     FileTooLarge { actual: i64, max: i64 },
-    S3Error(&'static str),
+    S3Error(String),
     IoError(std::io::Error),
 }
 

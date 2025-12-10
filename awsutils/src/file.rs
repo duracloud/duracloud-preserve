@@ -1,11 +1,8 @@
 use aws_sdk_s3::{
     Client,
-    config::Region,
     error::SdkError,
     operation::get_object::{GetObjectError, GetObjectOutput},
-    primitives::SdkBody,
 };
-use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
 
 /// Make get object request for file
 pub async fn download(
@@ -18,31 +15,6 @@ pub async fn download(
         .key(&file.object)
         .send()
         .await
-}
-
-/// Provide a simple preconfigured test client
-pub fn test_client(uri: String, body: SdkBody) -> Client {
-    let mut response_builder = http::Response::builder().status(200);
-
-    if let Some(length) = body.content_length() {
-        response_builder = response_builder.header("Content-Length", length.to_string());
-    }
-
-    let http_client = StaticReplayClient::new(vec![ReplayEvent::new(
-        http::Request::builder()
-            .uri(uri)
-            .body(SdkBody::empty())
-            .unwrap(),
-        response_builder.body(body).unwrap(),
-    )]);
-
-    let config = aws_sdk_s3::Config::builder()
-        .behavior_version_latest()
-        .http_client(http_client)
-        .region(Region::new("us-east-1"))
-        .build();
-
-    aws_sdk_s3::Client::from_conf(config)
 }
 
 /// Make put object request for file

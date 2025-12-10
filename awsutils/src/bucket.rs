@@ -194,14 +194,13 @@ pub enum Type {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::file::test_client;
-    use aws_sdk_s3::primitives::SdkBody;
+    use crate::test_client::TestClientBuilder;
 
     #[tokio::test]
     async fn test_get_request_names() {
         let content = "123\n456\n789\n234\n567\n890";
         let file = File::new("test-bucket".to_string(), "files/buckets.txt".to_string());
-        let client = test_client(file.http_url(), SdkBody::from(content));
+        let client = TestClientBuilder::new().success(content).build();
 
         let names = get_request_names(&client, &file).await.unwrap();
 
@@ -217,7 +216,7 @@ mod tests {
     async fn test_get_request_names_exceeds_size_limit() {
         let content = "a".repeat((MAX_BUCKETS_REQUEST_FILE_SIZE + 1) as usize);
         let file = File::new("test-bucket".to_string(), "files/buckets.txt".to_string());
-        let client = test_client(file.http_url(), SdkBody::from(content));
+        let client = TestClientBuilder::new().success(content).build();
 
         let result = get_request_names(&client, &file).await;
 
@@ -234,7 +233,7 @@ mod tests {
     #[test]
     fn test_review_bucket_names() {
         let stack = StackName::new("test-stack").unwrap();
-        let client = test_client("unused".to_string(), SdkBody::empty());
+        let client = TestClientBuilder::new().ok().build();
         let config = RequestConfig {
             debug_handler: false,
             s3_client: client,

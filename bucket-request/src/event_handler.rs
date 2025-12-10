@@ -36,8 +36,7 @@ pub(crate) async fn function_handler(
 mod tests {
     use super::*;
     use apputils::StackName;
-    use aws_sdk_s3::primitives::SdkBody;
-    use awsutils::file::test_client;
+    use awsutils::test_client::TestClientBuilder;
     use lambda_runtime::{Context, LambdaEvent};
 
     #[tokio::test]
@@ -46,18 +45,12 @@ mod tests {
         let json = include_str!("../events/sample.json");
         let s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
 
-        let bucket = s3_event.records[0].s3.bucket.name.as_ref().unwrap();
-        let object = s3_event.records[0].s3.object.key.as_ref().unwrap();
-
-        let test_client = test_client(
-            File::new(bucket.to_owned(), object.to_owned()).http_url(),
-            SdkBody::empty(),
-        );
+        let client = TestClientBuilder::new().ok().build();
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let config = RequestConfig {
             debug_handler: true,
-            s3_client: test_client,
+            s3_client: client,
             stack: StackName::new("test-stack").unwrap(),
         };
         let response = function_handler(&config, event).await.unwrap();
@@ -72,18 +65,12 @@ mod tests {
 
         // make it so bucket name != the expected request bucket name
         s3_event.records[0].s3.bucket.name = Some("test-other-bucket-request".to_string());
-        let bucket = s3_event.records[0].s3.bucket.name.as_ref().unwrap();
-        let object = s3_event.records[0].s3.object.key.as_ref().unwrap();
-
-        let test_client = test_client(
-            File::new(bucket.to_owned(), object.to_owned()).http_url(),
-            SdkBody::empty(),
-        );
+        let client = TestClientBuilder::new().ok().build();
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let config = RequestConfig {
             debug_handler: true,
-            s3_client: test_client,
+            s3_client: client,
             stack: StackName::new("test-stack").unwrap(),
         };
         function_handler(&config, event).await.unwrap();

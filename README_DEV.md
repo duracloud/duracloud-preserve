@@ -18,10 +18,11 @@ Common args:
 ```bash
 # Create required s3 buckets: digipres-dev1-bucket-request, digipres-dev1-managed
 # These buckets are expected to exist and created by Terraform for remote deployments
-make buckets a=create s=digipres-dev1 p=default
+make setup s=digipres-dev1 p=default
 ```
 
-Note: in some contexts a letter may have a different meaning.
+Note: in some contexts a letter may have a different meaning (for example
+`f=file`, check the docs or output of `make` for details).
 
 ### bucket-request
 

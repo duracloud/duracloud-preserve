@@ -1,5 +1,5 @@
 #!/bin/bash
-# scripts/buckets.sh - Script to list, create, empty or delete buckets
+# scripts/bucket.sh - Script to list, create, empty or delete a bucket
 
 ACTION=$1
 BUCKET_NAME=$2

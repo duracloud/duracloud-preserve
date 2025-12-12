@@ -5,6 +5,7 @@ const REQUEST_SUFFIX: &str = "-bucket-request";
 #[derive(Debug, Clone)]
 pub struct Name(String);
 impl Name {
+    // TODO: an actual error
     pub fn new(name: &str) -> Result<Self, &'static str> {
         let name = name.to_lowercase();
 

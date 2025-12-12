@@ -1,5 +1,12 @@
+use aws_sdk_s3::types::Tag;
+
 use crate::bucket::{Bucket, RequestConfig, RequestError, Type};
 use crate::config::get_region;
+
+const BUCKET_TAG_ORIGIN_KEY: &str = "BucketOrigin";
+const BUCKET_TAG_ORIGIN_VAL: &str = "bucket-request";
+const BUCKET_TAG_STACK_KEY: &str = "Stack";
+const BUCKET_TAG_TYPE_KEY: &str = "BucketType";
 
 /// Handles bucket setup by delegating to the appropriate methods per bucket type.
 #[derive(Debug)]
@@ -17,20 +24,45 @@ impl<'a> BucketCreator<'a> {
         let region = get_region(&self.config.s3_client)?;
         let constraint = aws_sdk_s3::types::BucketLocationConstraint::from(region.as_str());
 
+        let stack = self.config.stack.as_str();
+        let bucket_name = self.bucket.0.as_str();
+        let bucket_type = self.bucket.1.to_string();
+
         let cfg = aws_sdk_s3::types::CreateBucketConfiguration::builder()
             .location_constraint(constraint)
+            .tags(
+                Tag::builder()
+                    .key(BUCKET_TAG_ORIGIN_KEY)
+                    .value(BUCKET_TAG_ORIGIN_VAL)
+                    .build()
+                    .unwrap(),
+            )
+            .tags(
+                Tag::builder()
+                    .key(BUCKET_TAG_STACK_KEY)
+                    .value(stack)
+                    .build()
+                    .unwrap(),
+            )
+            .tags(
+                Tag::builder()
+                    .key(BUCKET_TAG_TYPE_KEY)
+                    .value(bucket_type)
+                    .build()
+                    .unwrap(),
+            )
             .build();
 
-        println!("{:?}", cfg);
-
-        // self.config
-        //     .s3_client
-        //     .create_bucket()
-        //     .create_bucket_configuration(cfg)
-        //     .bucket(self.bucket.0.as_str())
-        //     .send()
-        //     .await
-        //     .map_err(|e| RequestError::S3Error(format!("failed to create bucket: {}", e)))?;
+        self.config
+            .s3_client
+            .create_bucket()
+            .create_bucket_configuration(cfg)
+            .bucket(bucket_name)
+            .send()
+            .await
+            .map_err(|e| {
+                RequestError::S3Error(format!("failed to create bucket {} ({})", bucket_name, e))
+            })?;
 
         Ok(self)
     }

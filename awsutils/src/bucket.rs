@@ -85,7 +85,7 @@ pub async fn get_request_names(client: &Client, file: &File) -> Result<Vec<Strin
 pub fn review_bucket_names(
     config: &RequestConfig,
     names: &Vec<String>,
-) -> Result<Vec<(Bucket, Bucket)>, &'static str> {
+) -> Result<Vec<(Bucket, Bucket)>, RequestError> {
     let mut buckets: Vec<(Bucket, Bucket)> = Vec::new();
 
     for name in names {
@@ -107,11 +107,13 @@ pub struct Bucket(pub Name, pub Type);
 pub struct Name(String);
 
 impl Name {
-    pub fn new(name: &str) -> Result<Self, &'static str> {
+    pub fn new(name: &str) -> Result<Self, RequestError> {
         let name = name.to_lowercase();
 
         if name.starts_with("-") || name.ends_with("-") {
-            return Err("Name cannot start or end with dash");
+            return Err(RequestError::UserError(
+                "name cannot start or end with dash".to_string(),
+            ));
         }
 
         // TODO length
@@ -131,7 +133,13 @@ impl Name {
 pub struct Request {}
 
 impl Request {
-    pub fn primary_bucket(stack: &StackName, partial: &Name) -> Result<Bucket, &'static str> {
+    pub fn primary_bucket(stack: &StackName, partial: &Name) -> Result<Bucket, RequestError> {
+        if partial.as_str().starts_with(stack.as_str()) {
+            return Err(RequestError::UserError(
+                "duplicated stack name in bucket request name".to_string(),
+            ));
+        }
+
         let name = Name::new(&format!("{}-{}", stack.as_str(), partial.as_str()))?;
         if name.as_str().ends_with(PUBLIC_SUFFIX) {
             Ok(Bucket(name, Type::Public))
@@ -140,7 +148,7 @@ impl Request {
         }
     }
 
-    pub fn replication_bucket(stack: &StackName, partial: &Name) -> Result<Bucket, &'static str> {
+    pub fn replication_bucket(stack: &StackName, partial: &Name) -> Result<Bucket, RequestError> {
         let name = Name::new(&format!(
             "{}-{}{}",
             stack.as_str(),
@@ -163,8 +171,9 @@ pub struct RequestConfig {
 #[derive(Debug)]
 pub enum RequestError {
     FileTooLarge { actual: i64, max: i64 },
-    S3Error(String),
     IoError(std::io::Error),
+    S3Error(String),
+    UserError(String),
 }
 
 impl std::fmt::Display for RequestError {
@@ -175,8 +184,9 @@ impl std::fmt::Display for RequestError {
                 "File size {} bytes exceeds maximum of {} bytes",
                 actual, max
             ),
-            RequestError::S3Error(msg) => write!(f, "S3 error: {}", msg),
             RequestError::IoError(e) => write!(f, "IO error: {}", e),
+            RequestError::S3Error(msg) => write!(f, "S3 error: {}", msg),
+            RequestError::UserError(msg) => write!(f, "User error: {}", msg),
         }
     }
 }
@@ -189,6 +199,16 @@ pub enum Type {
     Public,
     Replication,
     Standard,
+}
+
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Public => write!(f, "public"),
+            Type::Replication => write!(f, "replication"),
+            Type::Standard => write!(f, "standard"),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -285,6 +305,22 @@ mod tests {
         let result = Request::primary_bucket(&stack, &public).unwrap();
         assert_eq!(result.0.as_str(), "test-stack-example-public");
         assert_eq!(result.1, Type::Public);
+    }
+
+    #[test]
+    fn test_request_primary_bucket_error() {
+        let stack = StackName::new("test-stack").unwrap();
+        let public = Name::new("test-stack-example").unwrap();
+
+        let result = Request::primary_bucket(&stack, &public);
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            RequestError::UserError(msg) => {
+                assert_eq!(msg, "duplicated stack name in bucket request name");
+            }
+            _ => panic!("Expected UserError"),
+        }
     }
 
     #[test]

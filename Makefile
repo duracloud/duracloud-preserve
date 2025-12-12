@@ -14,12 +14,15 @@ help:
 invoke: ## Invoke lambda function locally (make invoke f=function e=event)
 	@cargo lambda invoke -p $(f) --data-file $(e)
 
+reset: ## Reset (empty) remote resources (make reset s=stack p=profile)
+	@AWS_PROFILE=$(p) ./scripts/reset.sh empty $(s)
+
 setup: ## Create required buckets (make setup s=stack p=profile)
 	@AWS_PROFILE=$(p) ./scripts/bucket.sh create $(s)-bucket-request
 	@AWS_PROFILE=$(p) ./scripts/bucket.sh create $(s)-managed
 
-teardown: ## Destroy remote resources (make teardown s=stack p=profile)
-	@AWS_PROFILE=$(p) ./scripts/teardown.sh $(s)
+teardown: reset ## Destroy remote resources (make teardown s=stack p=profile)
+	@AWS_PROFILE=$(p) ./scripts/reset.sh delete $(s)
 
 watch: ## Watch function (make watch f=function s=stack p=profile)
 	@AWS_PROFILE=$(p) STACK=$(s) cargo lambda watch -p $(f)

@@ -18,6 +18,12 @@ impl TestClientBuilder {
         Self::default()
     }
 
+    /// Add a raw ReplayEvent
+    pub fn event(mut self, event: ReplayEvent) -> Self {
+        self.events.push(event);
+        self
+    }
+
     /// Add a successful response with body
     pub fn success(mut self, body: impl Into<SdkBody>) -> Self {
         let body = body.into();
@@ -74,10 +80,15 @@ impl TestClientBuilder {
         self
     }
 
-    /// Add a raw ReplayEvent
-    pub fn event(mut self, event: ReplayEvent) -> Self {
-        self.events.push(event);
-        self
+    /// Add an S3-specific error (BucketAlreadyExists, NoSuchBucket, etc.)
+    pub fn s3_error(self, code: &str, message: &str) -> Self {
+        let status = match code {
+            "BucketAlreadyExists" | "BucketAlreadyOwnedByYou" => 409,
+            "NoSuchBucket" | "NoSuchKey" => 404,
+            "AccessDenied" => 403,
+            _ => 400,
+        };
+        self.error(status, code, message)
     }
 
     /// Build the test client
@@ -111,6 +122,19 @@ pub fn replay_event(uri: &str, status: u16, body: impl Into<SdkBody>) -> ReplayE
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        bucket::{Bucket, Name, RequestConfig, RequestError, Type},
+        bucket_creator::BucketCreator,
+    };
+    use apputils::StackName;
+
+    fn test_config_with_client(client: aws_sdk_s3::Client) -> RequestConfig {
+        RequestConfig {
+            debug_handler: false,
+            s3_client: client,
+            stack: StackName::new("test-stack").unwrap(),
+        }
+    }
 
     #[test]
     fn test_builder_success() {
@@ -128,18 +152,52 @@ mod tests {
     }
 
     #[test]
+    fn test_builder_chain() {
+        let _client = TestClientBuilder::new()
+            .ok()
+            .success("data")
+            .error(500, "InternalError", "Internal server error")
+            .build();
+    }
+
+    #[test]
     fn test_builder_error() {
         let _client = TestClientBuilder::new()
             .error(404, "NoSuchKey", "The specified key does not exist.")
             .build();
     }
 
-    #[test]
-    fn test_builder_multi() {
-        let _client = TestClientBuilder::new()
-            .ok()
-            .success("data")
-            .error(500, "InternalError", "Internal server error")
+    #[tokio::test]
+    async fn test_create_standard_bucket_success() {
+        // For create: needs 1 response for CreateBucket
+        let client = TestClientBuilder::new().ok().build();
+
+        let config = test_config_with_client(client);
+        let bucket = Bucket(Name::new("example").unwrap(), Type::Standard);
+        let creator = BucketCreator::new(&config, &bucket);
+
+        let result = creator.create().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_create_bucket_already_exists() {
+        let client = TestClientBuilder::new()
+            .s3_error(
+                "BucketAlreadyExists",
+                "The requested bucket name is not available",
+            )
             .build();
+
+        let config = test_config_with_client(client);
+        let bucket = Bucket(Name::new("example").unwrap(), Type::Standard);
+        let creator = BucketCreator::new(&config, &bucket);
+
+        let result = creator.create().await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            RequestError::S3Error(msg) => assert!(msg.contains("failed to create bucket")),
+            _ => panic!("Expected S3Error"),
+        }
     }
 }

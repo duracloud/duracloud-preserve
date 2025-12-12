@@ -24,7 +24,7 @@
           "ownerIdentity": {
             "principalId": "EXAMPLE"
           },
-          "arn": "arn:aws:s3:::app-test"
+          "arn": "arn:aws:s3:::test-stack"
         },
         "object": {
           "key": "buckets.txt",

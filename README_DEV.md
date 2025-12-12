@@ -15,18 +15,26 @@ Common args:
 - `p=profile` aws profile name
 - `s=stack` resource prefix used for partitioning within aws account
 
+But note in some contexts a letter may have a different meaning (for example
+`f=file`, check the docs or output of `make` for details).
+
+To get started run this task to create two required buckets:
+
 ```bash
-# Create required s3 buckets: digipres-dev1-bucket-request, digipres-dev1-managed
-# These buckets are expected to exist and created by Terraform for remote deployments
+# choose your own value for s=$stack and p=$profile
 make setup s=digipres-dev1 p=default
 ```
 
-Note: in some contexts a letter may have a different meaning (for example
-`f=file`, check the docs or output of `make` for details).
+In the example this will create:
+
+- `digipres-dev1-bucket-request` (i.e. `${stack}-bucket-request`)
+- `digipres-dev1-managed` (i.e. `${stack}-managed`)
+
+These buckets are expected to exist and created by Terraform for remote deployments.
 
 ### bucket-request
 
-Note: use your own values for `s=` and `p=`.
+Again, use your own values for `s=` and `p=`.
 
 ```bash
 # Run function locally, waiting for events

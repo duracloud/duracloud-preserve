@@ -4,7 +4,7 @@ use lambda_runtime::{tracing, Error};
 pub(crate) async fn perform(config: &RequestConfig, file: &File) -> Result<(), Error> {
     tracing::info!("Retrieving request file from S3");
 
-    let names = match awsutils::bucket::get_request_names(&config.s3_client, &file).await {
+    let names = match awsutils::bucket::get_bucket_names(&config.s3_client, &file).await {
         Ok(names) => names,
         Err(e) => {
             tracing::error!("Error getting bucket names: {}", e);

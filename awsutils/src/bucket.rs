@@ -53,7 +53,7 @@ async fn create_bucket(config: &RequestConfig, bucket: &Bucket) -> Result<(), Re
 }
 
 /// Retrieve bucket request file and check is valid
-pub async fn get_request_names(client: &Client, file: &File) -> Result<Vec<String>, RequestError> {
+pub async fn get_bucket_names(client: &Client, file: &File) -> Result<Vec<String>, RequestError> {
     let Ok(r) = download(&client, &file).await else {
         return Err(RequestError::S3Error("failed to download file".to_string()));
     };
@@ -217,12 +217,12 @@ mod tests {
     use crate::test_client::TestClientBuilder;
 
     #[tokio::test]
-    async fn test_get_request_names() {
+    async fn test_get_bucket_names() {
         let content = "123\n456\n789\n234\n567\n890";
         let file = File::new("test-bucket".to_string(), "files/buckets.txt".to_string());
         let client = TestClientBuilder::new().success(content).build();
 
-        let names = get_request_names(&client, &file).await.unwrap();
+        let names = get_bucket_names(&client, &file).await.unwrap();
 
         assert_eq!(names.len(), 5);
         assert_eq!(names[0], "123");
@@ -233,12 +233,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_request_names_exceeds_size_limit() {
+    async fn test_get_bucket_names_exceeds_size_limit() {
         let content = "a".repeat((MAX_BUCKETS_REQUEST_FILE_SIZE + 1) as usize);
         let file = File::new("test-bucket".to_string(), "files/buckets.txt".to_string());
         let client = TestClientBuilder::new().success(content).build();
 
-        let result = get_request_names(&client, &file).await;
+        let result = get_bucket_names(&client, &file).await;
 
         assert!(result.is_err());
         match result {

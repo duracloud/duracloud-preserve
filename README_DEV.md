@@ -18,7 +18,8 @@ Common args:
 But note in some contexts a letter may have a different meaning (for example
 `f=file`, check the docs or output of `make` for details).
 
-To get started run this task to create two required buckets:
+To get started run this task to create an S3 replication IAM role and
+two required buckets:
 
 ```bash
 # choose your own value for s=$stack and p=$profile
@@ -27,10 +28,11 @@ make setup s=digipres-dev1 p=default
 
 In the example this will create:
 
+- `digipres-dev1-s3-replication-role` (i.e. `${stack}-s3-replication-role`)
 - `digipres-dev1-bucket-request` (i.e. `${stack}-bucket-request`)
 - `digipres-dev1-managed` (i.e. `${stack}-managed`)
 
-These buckets are expected to exist and created by Terraform for remote deployments.
+The role and buckets are expected to exist and created by Terraform for remote deployments.
 
 ### bucket-request
 

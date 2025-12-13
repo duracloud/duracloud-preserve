@@ -49,7 +49,9 @@ mod tests {
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let config = RequestConfig {
+            account_id: "123456789".to_string(),
             debug_handler: true,
+            replication_role_arn: "123456789".to_string(),
             s3_client: client,
             stack: StackName::new("test-stack").unwrap(),
         };
@@ -69,7 +71,9 @@ mod tests {
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let config = RequestConfig {
+            account_id: "123456789".to_string(),
             debug_handler: true,
+            replication_role_arn: "123456789".to_string(),
             s3_client: client,
             stack: StackName::new("test-stack").unwrap(),
         };

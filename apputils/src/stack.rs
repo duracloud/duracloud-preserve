@@ -1,4 +1,5 @@
 const MANAGED_SUFFIX: &str = "-managed";
+const REPLICATION_ROLE_SUFFIX: &str = "-s3-replication-role";
 const REQUEST_SUFFIX: &str = "-bucket-request";
 
 /// A type wrapper to ensure name conforms to minimal expectations.
@@ -25,6 +26,11 @@ impl Name {
         format!("{}{}", &self.as_str(), MANAGED_SUFFIX)
     }
 
+    /// Get replication role name for stack
+    pub fn replication_role_name(&self) -> String {
+        format!("{}{}", &self.as_str(), REPLICATION_ROLE_SUFFIX)
+    }
+
     /// Get request bucket name for stack
     pub fn request_bucket(&self) -> String {
         format!("{}{}", &self.as_str(), REQUEST_SUFFIX)
@@ -47,6 +53,15 @@ mod tests {
     fn test_managed_bucket_name() {
         let stack = Name::new("test-stack").unwrap();
         assert_eq!(stack.managed_bucket(), "test-stack-managed");
+    }
+
+    #[test]
+    fn test_replication_role_name() {
+        let stack = Name::new("test-stack").unwrap();
+        assert_eq!(
+            stack.replication_role_name(),
+            "test-stack-s3-replication-role"
+        );
     }
 
     #[test]

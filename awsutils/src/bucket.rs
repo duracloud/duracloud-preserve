@@ -21,12 +21,7 @@ pub async fn create_buckets(
     let mut issues = Vec::new();
 
     for (primary, replication) in buckets {
-        let result = create_bucket(config, primary).await;
-        if let Err(e) = &result {
-            issues.push(e.to_string());
-        }
-
-        let result = create_bucket(config, replication).await;
+        let result = create_bucket_pair(config, primary, replication).await;
         if let Err(e) = &result {
             issues.push(e.to_string());
         }
@@ -35,15 +30,30 @@ pub async fn create_buckets(
     issues
 }
 
+/// Create a primary bucket and its replication bucket, then enable replication.
+async fn create_bucket_pair(
+    config: &RequestConfig,
+    primary: &Bucket,
+    replication: &Bucket,
+) -> Result<(), RequestError> {
+    create_bucket(config, primary).await?;
+    create_bucket(config, replication).await?;
+
+    let creator = BucketCreator::new(config, primary);
+    creator.enable_replication(replication).await?;
+
+    Ok(())
+}
+
 /// Create and setup an S3 bucket. If setup fails attempt to rollback.
 async fn create_bucket(config: &RequestConfig, bucket: &Bucket) -> Result<(), RequestError> {
     let creator = BucketCreator::new(config, bucket);
 
     creator.create().await?; // escape immediately if create fails
 
-    let result = creator.setup();
+    let result = creator.setup().await;
     if let Err(e) = result {
-        if let Err(rollback_err) = creator.rollback() {
+        if let Err(rollback_err) = creator.rollback().await {
             eprintln!("Rollback failed: {}", rollback_err);
         }
         return Err(e);
@@ -162,7 +172,9 @@ impl Request {
 /// Configuration elements required for bucket creation and setup
 #[derive(Debug)]
 pub struct RequestConfig {
+    pub account_id: String,
     pub debug_handler: bool,
+    pub replication_role_arn: String,
     pub s3_client: aws_sdk_s3::Client,
     pub stack: StackName,
 }
@@ -255,7 +267,9 @@ mod tests {
         let stack = StackName::new("test-stack").unwrap();
         let client = TestClientBuilder::new().ok().build();
         let config = RequestConfig {
+            account_id: "123456789".to_string(),
             debug_handler: false,
+            replication_role_arn: "123456789".to_string(),
             s3_client: client,
             stack,
         };

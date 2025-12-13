@@ -17,7 +17,8 @@ invoke: ## Invoke lambda function locally (make invoke f=function e=event)
 reset: ## Reset (empty) remote resources (make reset s=stack p=profile)
 	@AWS_PROFILE=$(p) ./scripts/reset.sh empty $(s)
 
-setup: ## Create required buckets (make setup s=stack p=profile)
+setup: ## Create required IAM role and buckets (make setup s=stack p=profile)
+	@AWS_PROFILE=$(p) ./scripts/create-replication-role.sh $(s)
 	@AWS_PROFILE=$(p) ./scripts/bucket.sh create $(s)-bucket-request
 	@AWS_PROFILE=$(p) ./scripts/bucket.sh create $(s)-managed
 

@@ -52,7 +52,7 @@ case $ACTION in
         aws s3api list-buckets
     ;;
     create)
-        aws s3 mb s3://$BUCKET_NAME
+        aws s3 mb s3://$BUCKET_NAME || true
     ;;
     empty)
         empty_bucket_versions

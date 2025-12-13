@@ -168,37 +168,6 @@ impl<'a> BucketCreator<'a> {
         Ok(())
     }
 
-    async fn add_public_access_policy(&self) -> Result<(), RequestError> {
-        let bucket_name = self.bucket.0.as_str();
-
-        let policy = serde_json::json!({
-            "Version": "2012-10-17",
-            "Statement": [{
-                "Sid": "AllowPublicRead",
-                "Effect": "Allow",
-                "Principal": "*",
-                "Action": "s3:GetObject",
-                "Resource": format!("arn:aws:s3:::{}/*", bucket_name)
-            }]
-        });
-
-        self.config
-            .s3_client
-            .put_bucket_policy()
-            .bucket(bucket_name)
-            .policy(policy.to_string())
-            .send()
-            .await
-            .map_err(|e| {
-                RequestError::S3Error(format!(
-                    "failed to apply public access policy to {} ({})",
-                    bucket_name, e
-                ))
-            })?;
-
-        Ok(())
-    }
-
     async fn add_lifecycle(
         &self,
         transition_class: TransitionStorageClass,
@@ -230,7 +199,7 @@ impl<'a> BucketCreator<'a> {
             })?;
 
         let transition = LifecycleRule::builder()
-            .id(format!("TransitionTo{}", transition_class.as_str()))
+            .id(format!("{}", transition_class.as_str()))
             .status(ExpirationStatus::Enabled)
             .filter(LifecycleRuleFilter::builder().prefix("").build())
             .transitions(
@@ -266,6 +235,37 @@ impl<'a> BucketCreator<'a> {
             .map_err(|e| {
                 RequestError::S3Error(format!(
                     "failed to apply lifecycle policy {} ({})",
+                    bucket_name, e
+                ))
+            })?;
+
+        Ok(())
+    }
+
+    async fn add_public_access_policy(&self) -> Result<(), RequestError> {
+        let bucket_name = self.bucket.0.as_str();
+
+        let policy = serde_json::json!({
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Sid": "AllowPublicRead",
+                "Effect": "Allow",
+                "Principal": "*",
+                "Action": "s3:GetObject",
+                "Resource": format!("arn:aws:s3:::{}/*", bucket_name)
+            }]
+        });
+
+        self.config
+            .s3_client
+            .put_bucket_policy()
+            .bucket(bucket_name)
+            .policy(policy.to_string())
+            .send()
+            .await
+            .map_err(|e| {
+                RequestError::S3Error(format!(
+                    "failed to apply public access policy to {} ({})",
                     bucket_name, e
                 ))
             })?;

@@ -581,6 +581,7 @@ dependencies = [
  "aws-smithy-runtime",
  "aws-smithy-runtime-api",
  "aws-smithy-types",
+ "futures",
  "http 1.4.0",
  "serde_json",
  "tokio",

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: bucket-request buckets help teardown watch
+.PHONY: bucket-request bucket help invoke reset setup teardown test-integration watch
 SHELL:=/bin/bash
 
 bucket-request: ## Upload txt to request bucket (make bucket-request f=file s=stack p=profile)
@@ -24,6 +24,9 @@ setup: ## Create required IAM role and buckets (make setup s=stack p=profile)
 
 teardown: reset ## Destroy remote resources (make teardown s=stack p=profile)
 	@AWS_PROFILE=$(p) ./scripts/reset.sh delete $(s)
+
+test-integration: setup # Run integration tests (make test-integration s=stack p=profile)
+	@AWS_PROFILE=$(p) TEST_STACK=$(s) cargo test --test bucket_creator -- --ignored --test-threads=1
 
 watch: ## Watch function (make watch f=function s=stack p=profile)
 	@AWS_PROFILE=$(p) STACK=$(s) cargo lambda watch -p $(f)

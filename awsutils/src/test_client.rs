@@ -25,9 +25,13 @@ impl TestClientBuilder {
     }
 
     /// Add a successful response with body
-    pub fn success(mut self, body: impl Into<SdkBody>) -> Self {
+    pub fn success(mut self, body: impl Into<SdkBody>, content_type: Option<String>) -> Self {
         let body = body.into();
         let mut response_builder = http::Response::builder().status(200);
+
+        if let Some(ct) = content_type {
+            response_builder = response_builder.header("Content-Type", ct);
+        }
 
         if let Some(length) = body.content_length() {
             response_builder = response_builder.header("Content-Length", length.to_string());
@@ -45,15 +49,7 @@ impl TestClientBuilder {
 
     /// Add an empty successful response
     pub fn ok(self) -> Self {
-        self.success(SdkBody::empty())
-    }
-
-    /// Add multiple empty successful responses (unused events are ignored)
-    pub fn ok_n(mut self, n: usize) -> Self {
-        for _ in 0..n {
-            self = self.ok();
-        }
-        self
+        self.success(SdkBody::empty(), None)
     }
 
     /// Add an error response with XML error body
@@ -140,7 +136,9 @@ mod tests {
 
     #[test]
     fn test_builder_success() {
-        let _client = TestClientBuilder::new().success("content").build();
+        let _client = TestClientBuilder::new()
+            .success("content", Some("text/plain".to_string()))
+            .build();
     }
 
     #[test]
@@ -149,15 +147,10 @@ mod tests {
     }
 
     #[test]
-    fn test_builder_ok_n() {
-        let _client = TestClientBuilder::new().ok_n(50).build();
-    }
-
-    #[test]
     fn test_builder_chain() {
         let _client = TestClientBuilder::new()
             .ok()
-            .success("data")
+            .success("content", Some("text/plain".to_string()))
             .error(500, "InternalError", "Internal server error")
             .build();
     }

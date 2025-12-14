@@ -9,6 +9,7 @@ use tokio::io::AsyncBufReadExt;
 
 pub const MAX_BUCKETS_PER_REQUEST: u8 = 5;
 pub const MAX_BUCKETS_REQUEST_FILE_SIZE: u8 = 32;
+pub const REQ_BUCKETS_REQUEST_CONTENT_TYPE: &str = "text/plain";
 
 const PUBLIC_SUFFIX: &str = "-public";
 const REPLICATION_SUFFIX: &str = "-repl";
@@ -68,6 +69,12 @@ pub async fn get_bucket_names(client: &Client, file: &File) -> Result<Vec<String
         return Err(RequestError::S3Error("failed to download file".to_string()));
     };
 
+    if let Some(ct) = r.content_type()
+        && ct != REQ_BUCKETS_REQUEST_CONTENT_TYPE
+    {
+        return Err(RequestError::InvalidContentType);
+    }
+
     if let Some(len) = r.content_length()
         && len > MAX_BUCKETS_REQUEST_FILE_SIZE as i64
     {
@@ -121,7 +128,7 @@ impl Name {
         let name = name.to_lowercase();
 
         if name.starts_with("-") || name.ends_with("-") {
-            return Err(RequestError::UserError(
+            return Err(RequestError::ValidationError(
                 "name cannot start or end with dash".to_string(),
             ));
         }
@@ -145,7 +152,7 @@ pub struct Request {}
 impl Request {
     pub fn primary_bucket(stack: &StackName, partial: &Name) -> Result<Bucket, RequestError> {
         if partial.as_str().starts_with(stack.as_str()) {
-            return Err(RequestError::UserError(
+            return Err(RequestError::ValidationError(
                 "duplicated stack name in bucket request name".to_string(),
             ));
         }
@@ -183,9 +190,10 @@ pub struct RequestConfig {
 #[derive(Debug)]
 pub enum RequestError {
     FileTooLarge { actual: i64, max: i64 },
+    InvalidContentType,
     IoError(std::io::Error),
     S3Error(String),
-    UserError(String),
+    ValidationError(String),
 }
 
 impl std::fmt::Display for RequestError {
@@ -196,9 +204,12 @@ impl std::fmt::Display for RequestError {
                 "File size {} bytes exceeds maximum of {} bytes",
                 actual, max
             ),
+            RequestError::InvalidContentType => {
+                write!(f, "Content Type error: must be a text file")
+            }
             RequestError::IoError(e) => write!(f, "IO error: {}", e),
             RequestError::S3Error(msg) => write!(f, "S3 error: {}", msg),
-            RequestError::UserError(msg) => write!(f, "User error: {}", msg),
+            RequestError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
         }
     }
 }
@@ -232,7 +243,9 @@ mod tests {
     async fn test_get_bucket_names() {
         let content = "123\n456\n789\n234\n567\n890";
         let file = File::new("test-bucket".to_string(), "files/buckets.txt".to_string());
-        let client = TestClientBuilder::new().success(content).build();
+        let client = TestClientBuilder::new()
+            .success(content, Some("text/plain".to_string()))
+            .build();
 
         let names = get_bucket_names(&client, &file).await.unwrap();
 
@@ -248,7 +261,9 @@ mod tests {
     async fn test_get_bucket_names_exceeds_size_limit() {
         let content = "a".repeat((MAX_BUCKETS_REQUEST_FILE_SIZE + 1) as usize);
         let file = File::new("test-bucket".to_string(), "files/buckets.txt".to_string());
-        let client = TestClientBuilder::new().success(content).build();
+        let client = TestClientBuilder::new()
+            .success(content, Some("text/plain".to_string()))
+            .build();
 
         let result = get_bucket_names(&client, &file).await;
 
@@ -330,10 +345,10 @@ mod tests {
 
         assert!(result.is_err());
         match result.unwrap_err() {
-            RequestError::UserError(msg) => {
+            RequestError::ValidationError(msg) => {
                 assert_eq!(msg, "duplicated stack name in bucket request name");
             }
-            _ => panic!("Expected UserError"),
+            _ => panic!("Expected ValidationError"),
         }
     }
 

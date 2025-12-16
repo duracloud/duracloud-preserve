@@ -57,7 +57,7 @@ make watch f=bucket-request s=digipres-dev1 p=default
 
 # Upload the sample buckets.txt (or create your own) to the request bucket
 # Note: the make tasks are preset to work with the buckets.txt entries
-make bucket-request f=bucket-request/files/buckets.txt s=digipres-dev1 p=default
+make bucket-request f=files/buckets.txt s=digipres-dev1 p=default
 
 # Copy then edit the sample event file so that bucket name uses the s= prefix
 mkdir payloads
@@ -93,8 +93,13 @@ make teardown s=digipres-dev1 p=default
 ## Creating a function
 
 ```bash
+cd functions
 cargo lambda new bucket-request
 ```
+
+Add the function path to the project root `Cargo.toml`.
+
+From the project root dir:
 
 ```bash
 # Build all or specified pkg (using -p)
@@ -107,7 +112,7 @@ cargo lambda watch -p $pkg
 cargo lambda invoke -p $pkg --data-example s3-event
 
 # Invoke local using a json file as payload
-cargo lambda invoke -p $pkg --data-file $pkg/events/event.json
+cargo lambda invoke -p $pkg --data-file functions/$pkg/events/event.json
 ```
 
 - [Event payloads](https://github.com/aws/aws-lambda-rust-runtime/tree/main/lambda-events/src/fixtures)

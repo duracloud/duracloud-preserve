@@ -274,7 +274,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_bucket_names() {
         let content = "123\n456\n789\n234\n567\n890";
-        let file = File::new("test-bucket".to_string(), "files/buckets.txt".to_string());
+        let file = File::new("test-bucket".to_string(), "buckets.txt".to_string());
         let client = TestClientBuilder::new()
             .success(content, Some("text/plain".to_string()))
             .build();
@@ -292,7 +292,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_bucket_names_exceeds_size_limit() {
         let content = "a".repeat((MAX_BUCKETS_REQUEST_FILE_SIZE + 1) as usize);
-        let file = File::new("test-bucket".to_string(), "files/buckets.txt".to_string());
+        let file = File::new("test-bucket".to_string(), "buckets.txt".to_string());
         let client = TestClientBuilder::new()
             .success(content, Some("text/plain".to_string()))
             .build();

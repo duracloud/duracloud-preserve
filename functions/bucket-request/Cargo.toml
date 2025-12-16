@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-apputils = { path = "../apputils" }
+apputils = { path = "../../shared/apputils/" }
 aws_lambda_events = { version = "1.0.0", default-features = false, features = ["s3"] }
 aws-sdk-s3 = "1.116.0"
-awsutils = { path = "../awsutils" }
+awsutils = { path = "../../shared/awsutils" }
 lambda_runtime = "1.0.1"
 serde_json = "1.0.145"
 tokio = { version = "1", features = ["macros"] }

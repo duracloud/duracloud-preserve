@@ -6,25 +6,23 @@ Requirements:
 - [cargo-lambda](#)
 
 This documentation focuses solely on testing and running functions
-locally and the requirements needed to support that work.
-
-It is not concerend with "application" or deployment level concerns
-such as IAM user management and access to buckets etc. For the
-latter refer to the [deployment](#) and [Terraform module](#)
-documentation.
+locally and the requirements needed to support that work. It does
+not cover "application" or deployment level concerns such as IAM
+user management and access to buckets etc. For the latter refer to
+the [deployment](#) and [Terraform module](#) documentation.
 
 ## Testing functions
 
 There are `Makefile` tasks to wrap `cargo` (et al.) commands for convenience:
 
-Common args:
+These args are used frequently:
 
 - `f=function` function name i.e. bucket-request
 - `p=profile` aws profile name i.e. default
 - `s=stack` resource prefix used for resource partitioning within an aws account
 
-Note: in some contexts a letter may have a different meaning (for example
-`f=file`, check the docs or output of `make` for details).
+But note in some contexts a letter may have a different meaning, for example
+`f=file` (check the docs or output of `make` for details).
 
 To get started run this task to create an S3 replication IAM role and
 two required buckets:

@@ -1,6 +1,7 @@
-const MANAGED_SUFFIX: &str = "-managed";
+pub const MANAGED_SUFFIX: &str = "-managed";
+pub const REQUEST_SUFFIX: &str = "-bucket-request";
+
 const REPLICATION_ROLE_SUFFIX: &str = "-s3-replication-role";
-const REQUEST_SUFFIX: &str = "-bucket-request";
 
 /// A type wrapper to ensure name conforms to minimal expectations.
 #[derive(Debug, Clone)]

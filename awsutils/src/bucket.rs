@@ -7,9 +7,10 @@ use apputils::StackName;
 use aws_sdk_s3::Client;
 use tokio::io::AsyncBufReadExt;
 
+pub const BUCKETS_REQUEST_CONTENT_TYPE: &str = "text/plain";
 pub const MAX_BUCKETS_PER_REQUEST: u8 = 5;
 pub const MAX_BUCKETS_REQUEST_FILE_SIZE: u8 = 32;
-pub const REQ_BUCKETS_REQUEST_CONTENT_TYPE: &str = "text/plain";
+pub const MAX_LEN_FOR_REQUEST_NAME: u8 = 63;
 
 const PUBLIC_SUFFIX: &str = "-public";
 const REPLICATION_SUFFIX: &str = "-repl";
@@ -70,7 +71,7 @@ pub async fn get_bucket_names(client: &Client, file: &File) -> Result<Vec<String
     };
 
     if let Some(ct) = r.content_type()
-        && ct != REQ_BUCKETS_REQUEST_CONTENT_TYPE
+        && ct != BUCKETS_REQUEST_CONTENT_TYPE
     {
         return Err(RequestError::InvalidContentType);
     }
@@ -127,20 +128,42 @@ impl Name {
     pub fn new(name: &str) -> Result<Self, RequestError> {
         let name = name.to_lowercase();
 
-        if name.starts_with("-") || name.ends_with("-") {
+        if name.is_empty() {
             return Err(RequestError::ValidationError(
-                "name cannot start or end with dash".to_string(),
+                "name cannot be empty".to_string(),
             ));
         }
 
-        // TODO length
-        // TODO valid characters
+        if name.starts_with("-") || name.ends_with("-") {
+            return Err(RequestError::ValidationError(format!(
+                "name cannot start or end with dash ({})",
+                name
+            )));
+        }
+
+        if name.len() > MAX_LEN_FOR_REQUEST_NAME as usize {
+            return Err(RequestError::ValidationError(format!(
+                "name cannot exceed total length of {} ({})",
+                MAX_LEN_FOR_REQUEST_NAME, name
+            )));
+        }
+
+        if Self::has_invalid_chars(&name) {
+            return Err(RequestError::ValidationError(format!(
+                "name can only include alphanumberic or - characters ({})",
+                name
+            )));
+        }
 
         Ok(Self(name.to_string()))
     }
 
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    fn has_invalid_chars(name: &str) -> bool {
+        !name.chars().all(|c| c.is_alphanumeric() || c == '-')
     }
 }
 
@@ -151,10 +174,11 @@ pub struct Request {}
 
 impl Request {
     pub fn primary_bucket(stack: &StackName, partial: &Name) -> Result<Bucket, RequestError> {
-        if partial.as_str().starts_with(stack.as_str()) {
-            return Err(RequestError::ValidationError(
-                "duplicated stack name in bucket request name".to_string(),
-            ));
+        if Self::uses_reserved_prefix_or_suffix(stack.as_str(), partial.as_str()) {
+            return Err(RequestError::ValidationError(format!(
+                "cannot use reserved prefix or suffix ({})",
+                partial.as_str()
+            )));
         }
 
         let name = Name::new(&format!("{}-{}", stack.as_str(), partial.as_str()))?;
@@ -173,6 +197,14 @@ impl Request {
             REPLICATION_SUFFIX
         ))?;
         Ok(Bucket(name, Type::Replication))
+    }
+
+    // TODO: tidy this up
+    fn uses_reserved_prefix_or_suffix(prefix: &str, name: &str) -> bool {
+        name.starts_with(prefix)
+            || name.ends_with(REPLICATION_SUFFIX)
+            || name.ends_with(apputils::stack::MANAGED_SUFFIX)
+            || name.ends_with(apputils::stack::REQUEST_SUFFIX)
     }
 }
 
@@ -310,10 +342,26 @@ mod tests {
 
     #[test]
     fn test_name_new() {
+        assert!(Name::new("").is_err());
+
+        // ok
         assert_eq!(Name::new("test").unwrap().as_str(), "test");
         assert_eq!(Name::new("TEsT").unwrap().as_str(), "test");
+        assert_eq!(Name::new("test-stack").unwrap().as_str(), "test-stack");
+        assert_eq!(Name::new("test-stack-1").unwrap().as_str(), "test-stack-1");
+
+        // dash as prefix or suffix
         assert!(Name::new("-test").is_err());
         assert!(Name::new("test-").is_err());
+
+        // length
+        assert!(Name::new("t".repeat(MAX_LEN_FOR_REQUEST_NAME as usize).as_str()).is_ok());
+        assert!(Name::new("t".repeat((MAX_LEN_FOR_REQUEST_NAME as usize) + 1).as_str()).is_err());
+
+        // invalid chars
+        assert!(Name::new("test ").is_err());
+        assert!(Name::new("test_").is_err());
+        assert!(Name::new("test@").is_err());
     }
 
     #[test]
@@ -337,18 +385,32 @@ mod tests {
     }
 
     #[test]
-    fn test_request_primary_bucket_error() {
+    fn test_request_primary_bucket_reserved_validation() {
+        let test_cases = vec![
+            "test-stack",
+            "test-bucket-request",
+            "test-managed",
+            "test-repl",
+        ];
+
         let stack = StackName::new("test-stack").unwrap();
-        let public = Name::new("test-stack-example").unwrap();
 
-        let result = Request::primary_bucket(&stack, &public);
+        for name in test_cases {
+            let bucket_name = Name::new(name).unwrap();
+            let result = Request::primary_bucket(&stack, &bucket_name);
 
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            RequestError::ValidationError(msg) => {
-                assert_eq!(msg, "duplicated stack name in bucket request name");
+            assert!(result.is_err(), "Expected error for name: {}", name);
+            match result.unwrap_err() {
+                RequestError::ValidationError(msg) => {
+                    assert!(
+                        msg.starts_with("cannot use reserved prefix or suffix"),
+                        "Unexpected error message for name {}: {}",
+                        name,
+                        msg
+                    );
+                }
+                _ => panic!("Expected ValidationError for name: {}", name),
             }
-            _ => panic!("Expected ValidationError"),
         }
     }
 

@@ -342,6 +342,7 @@ async fn test_create_replication_bucket() {
         // Verify replication bucket has minimal config
         verify_versioning_enabled(&config, &bucket_name).await;
         verify_lifecycle_policy(&config, &bucket_name, "GLACIER").await;
+        verify_inventory_configured(&config, &bucket_name).await;
     })
     .await;
 }

@@ -30,14 +30,14 @@ case $ACTION in
         echo "Emptying buckets for stack: $STACK"
         for bucket in "${BUCKETS[@]}"; do
             echo "Emptying ${STACK}-${bucket}..."
-            ./scripts/bucket.sh empty "${STACK}-${bucket}"
+            ./scripts/bucket.sh empty "${STACK}-${bucket}" || true
         done
     ;;
     delete)
         echo "Deleting buckets for stack: $STACK"
         for bucket in "${BUCKETS[@]}"; do
             echo "Deleting ${STACK}-${bucket}..."
-            ./scripts/bucket.sh delete "${STACK}-${bucket}"
+            ./scripts/bucket.sh delete "${STACK}-${bucket}" ||true
         done
     ;;
     *)

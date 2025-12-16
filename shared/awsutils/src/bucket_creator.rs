@@ -123,8 +123,7 @@ impl<'a> BucketCreator<'a> {
 
     async fn setup_replication_bucket(&self) -> Result<(), RequestError> {
         self.enable_versioning().await?;
-        self.add_lifecycle(TransitionStorageClass::Glacier).await?;
-        self.enable_inventory().await
+        self.add_lifecycle(TransitionStorageClass::Glacier).await
     }
 
     async fn setup_standard_bucket(&self) -> Result<(), RequestError> {
@@ -323,7 +322,7 @@ impl<'a> BucketCreator<'a> {
                 InventoryConfiguration::builder()
                     .is_enabled(true)
                     .id(INVENTORY_ID)
-                    .included_object_versions(InventoryIncludedObjectVersions::All)
+                    .included_object_versions(InventoryIncludedObjectVersions::Current)
                     .schedule(
                         InventorySchedule::builder()
                             .frequency(InventoryFrequency::Daily)

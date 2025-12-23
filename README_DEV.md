@@ -41,6 +41,9 @@ Using the above example this will create:
 The role and buckets are expected to exist and created by Terraform for remote
 deployments using the [Terraform module](#) included with this repository.
 
+The `managed` bucket will also be assigned a policy that permits it to be
+a target for S3 inventory from buckets using the same stack name (prefix).
+
 ### bucket-request
 
 This function is used to create s3 buckets with [prefab configuration](#).
@@ -55,13 +58,12 @@ Again, use your own values for `s=` and `p=`.
 # Run the function locally, waiting for events
 make watch f=bucket-request s=digipres-dev1 p=default
 
-# Upload the sample buckets.txt (or create your own) to the request bucket
-# Note: the make tasks are preset to work with the buckets.txt entries
+# Upload the sample buckets.txt to the request bucket
 make bucket-request f=files/buckets.txt s=digipres-dev1 p=default
 
 # Copy then edit the sample event file so that bucket name uses the s= prefix
 mkdir payloads
-cp bucket-request/events/sample.json payloads/bucket-request.json # Update bucket name!
+cp bucket-request/events/sample.json payloads/bucket-request.json # Update the bucket name!
 
 # Send an event payload to the locally running function
 make invoke f=bucket-request e=payloads/bucket-request.json

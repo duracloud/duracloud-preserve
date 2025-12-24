@@ -1,0 +1,15 @@
+{
+  "sourceBucket": "test-stack-private",
+  "destinationBucket": "arn:aws:s3:::test-stack-managed",
+  "version": "2016-11-30",
+  "creationTimestamp": "1766538000000",
+  "fileFormat": "Parquet",
+  "fileSchema": "message s3.inventory {  required binary bucket (STRING);  required binary key (STRING);  optional int64 size;  optional int64 last_modified_date (TIMESTAMP(MILLIS,true));  optional binary storage_class (STRING);  optional binary replication_status (STRING);}",
+  "files": [
+    {
+      "key": "manifests/test-stack-private/inventory/example.parquet",
+      "size": 1961,
+      "MD5checksum": "ccfad504bdd9a835cf04e781b7a7ed16"
+    }
+  ]
+}

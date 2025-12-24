@@ -1,5 +1,6 @@
 use std::{error::Error, io::Write};
 
+use aws_sdk_s3::Client;
 use percent_encoding::percent_decode_str;
 use polars::{
     frame::DataFrame,
@@ -10,6 +11,8 @@ use polars::{
 };
 use polars_arrow::buffer::Buffer;
 use serde::Deserialize;
+
+use crate::file::{File, download};
 
 const INVENTORY_OBJECT_KEY: &str = "Key";
 const INVENTORY_SIZE_KEY: &str = "Size";
@@ -34,6 +37,14 @@ pub struct InventoryManifest {
     pub fileFormat: String,
     pub fileSchema: String,
     pub files: Vec<InventoryFileEntry>,
+}
+
+impl InventoryManifest {
+    pub async fn fetch(client: &Client, file: &File) -> Result<Self, Box<dyn Error>> {
+        let response = download(client, file).await?;
+        let bytes = response.body.collect().await?.into_bytes();
+        Ok(serde_json::from_slice(&bytes)?)
+    }
 }
 
 /// Inventory Manifest File Entry
@@ -142,5 +153,22 @@ impl InventoryProcessor {
             .collect();
 
         Ok(by_prefix)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deserialize_manifest() {
+        let json = include_str!("../../../files/manifest.json");
+        let manifest: InventoryManifest = serde_json::from_str(json).unwrap();
+        assert_eq!(manifest.sourceBucket, "test-stack-private");
+        assert_eq!(manifest.files.len(), 1);
+        assert_eq!(
+            manifest.files[0].key,
+            "manifests/test-stack-private/inventory/example.parquet"
+        );
     }
 }

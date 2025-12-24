@@ -88,7 +88,17 @@ impl InventoryProcessor {
         Ok(self)
     }
 
-    pub fn totals(&self) -> Result<(usize, i64), Box<dyn Error>> {
+    pub fn stats(&self) -> Result<InventoryStats, Box<dyn Error>> {
+        let (total_files, total_size) = self.totals()?;
+        let by_prefix = self.prefix_stats()?;
+        Ok(InventoryStats {
+            total_files,
+            total_size,
+            by_prefix,
+        })
+    }
+
+    fn totals(&self) -> Result<(usize, i64), Box<dyn Error>> {
         let total_files = self.df.height();
         let total_size = self
             .df
@@ -99,7 +109,7 @@ impl InventoryProcessor {
         Ok((total_files, total_size))
     }
 
-    pub fn prefix_stats(&self) -> Result<Vec<PrefixStats>, Box<dyn Error>> {
+    fn prefix_stats(&self) -> Result<Vec<PrefixStats>, Box<dyn Error>> {
         let by_prefix_df = self
             .df
             .clone()
@@ -132,15 +142,5 @@ impl InventoryProcessor {
             .collect();
 
         Ok(by_prefix)
-    }
-
-    pub fn stats(&self) -> Result<InventoryStats, Box<dyn Error>> {
-        let (total_files, total_size) = self.totals()?;
-        let by_prefix = self.prefix_stats()?;
-        Ok(InventoryStats {
-            total_files,
-            total_size,
-            by_prefix,
-        })
     }
 }

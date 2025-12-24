@@ -691,6 +691,7 @@ dependencies = [
  "polars-arrow",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
 ]
 

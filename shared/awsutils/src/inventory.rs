@@ -1,8 +1,9 @@
-use std::{error::Error, io::Write};
+use std::io::Write;
 
 use aws_sdk_s3::Client;
 use percent_encoding::percent_decode_str;
 use polars::{
+    error::PolarsError,
     frame::DataFrame,
     prelude::{
         ChunkApply, CsvWriter, IntoLazy, LazyFrame, PlPath, SerWriter, StringChunked, col, lit,
@@ -11,8 +12,21 @@ use polars::{
 };
 use polars_arrow::buffer::Buffer;
 use serde::Deserialize;
+use thiserror::Error;
 
 use crate::file::{File, download};
+
+#[derive(Debug, Error)]
+pub enum InventoryError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Polars error: {0}")]
+    Polars(#[from] PolarsError),
+    #[error("S3 error: {0}")]
+    S3(String),
+    #[error("JSON parse error: {0}")]
+    Json(#[from] serde_json::Error),
+}
 
 const INVENTORY_OBJECT_KEY: &str = "Key";
 const INVENTORY_SIZE_KEY: &str = "Size";
@@ -20,7 +34,7 @@ const INVENTORY_SIZE_KEY: &str = "Size";
 pub fn process(
     mut csv_file: impl Write,
     parquet_files: &[&str],
-) -> Result<InventoryStats, Box<dyn Error>> {
+) -> Result<InventoryStats, InventoryError> {
     InventoryProcessor::load(&parquet_files)?
         .decode_keys()?
         .write_csv(&mut csv_file)?
@@ -40,9 +54,16 @@ pub struct InventoryManifest {
 }
 
 impl InventoryManifest {
-    pub async fn fetch(client: &Client, file: &File) -> Result<Self, Box<dyn Error>> {
-        let response = download(client, file).await?;
-        let bytes = response.body.collect().await?.into_bytes();
+    pub async fn fetch(client: &Client, file: &File) -> Result<Self, InventoryError> {
+        let response = download(client, file)
+            .await
+            .map_err(|e| InventoryError::S3(e.to_string()))?;
+        let bytes = response
+            .body
+            .collect()
+            .await
+            .map_err(|e| InventoryError::S3(e.to_string()))?
+            .into_bytes();
         Ok(serde_json::from_slice(&bytes)?)
     }
 }
@@ -75,7 +96,7 @@ pub struct InventoryProcessor {
 }
 
 impl InventoryProcessor {
-    pub fn load(parquet_files: &[&str]) -> Result<Self, Box<dyn Error>> {
+    pub fn load(parquet_files: &[&str]) -> Result<Self, InventoryError> {
         let paths: Buffer<PlPath> = parquet_files.iter().map(|f| PlPath::from_str(f)).collect();
 
         let df = LazyFrame::scan_parquet_files(paths, Default::default())?
@@ -85,7 +106,7 @@ impl InventoryProcessor {
         Ok(Self { df })
     }
 
-    pub fn decode_keys(mut self) -> Result<Self, Box<dyn Error>> {
+    pub fn decode_keys(mut self) -> Result<Self, InventoryError> {
         let key_col = self.df.column(INVENTORY_OBJECT_KEY)?.str()?;
         let decoded: StringChunked =
             key_col.apply(|opt_val| opt_val.map(|v| percent_decode_str(v).decode_utf8_lossy()));
@@ -94,12 +115,12 @@ impl InventoryProcessor {
         Ok(self)
     }
 
-    pub fn write_csv(&mut self, writer: impl Write) -> Result<&mut Self, Box<dyn Error>> {
+    pub fn write_csv(&mut self, writer: impl Write) -> Result<&mut Self, InventoryError> {
         CsvWriter::new(writer).finish(&mut self.df)?;
         Ok(self)
     }
 
-    pub fn stats(&self) -> Result<InventoryStats, Box<dyn Error>> {
+    pub fn stats(&self) -> Result<InventoryStats, InventoryError> {
         let (total_files, total_size) = self.totals()?;
         let by_prefix = self.prefix_stats()?;
         Ok(InventoryStats {
@@ -109,7 +130,7 @@ impl InventoryProcessor {
         })
     }
 
-    fn totals(&self) -> Result<(usize, i64), Box<dyn Error>> {
+    fn totals(&self) -> Result<(usize, i64), InventoryError> {
         let total_files = self.df.height();
         let total_size = self
             .df
@@ -120,7 +141,7 @@ impl InventoryProcessor {
         Ok((total_files, total_size))
     }
 
-    fn prefix_stats(&self) -> Result<Vec<PrefixStats>, Box<dyn Error>> {
+    fn prefix_stats(&self) -> Result<Vec<PrefixStats>, InventoryError> {
         let by_prefix_df = self
             .df
             .clone()

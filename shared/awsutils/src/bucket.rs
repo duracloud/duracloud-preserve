@@ -5,6 +5,7 @@ use crate::{
 use apputils::StackName;
 
 use aws_sdk_s3::Client;
+use thiserror::Error;
 use tokio::io::AsyncBufReadExt;
 
 pub const BUCKETS_REQUEST_CONTENT_TYPE: &str = "text/plain";
@@ -219,34 +220,19 @@ pub struct RequestConfig {
 }
 
 /// Custom error type for bucket requests
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum RequestError {
+    #[error("File size {actual} bytes exceeds maximum of {max} bytes")]
     FileTooLarge { actual: i64, max: i64 },
+    #[error("Content Type error: must be a text file")]
     InvalidContentType,
-    IoError(std::io::Error),
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("S3 error: {0}")]
     S3Error(String),
+    #[error("Validation error: {0}")]
     ValidationError(String),
 }
-
-impl std::fmt::Display for RequestError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RequestError::FileTooLarge { actual, max } => write!(
-                f,
-                "File size {} bytes exceeds maximum of {} bytes",
-                actual, max
-            ),
-            RequestError::InvalidContentType => {
-                write!(f, "Content Type error: must be a text file")
-            }
-            RequestError::IoError(e) => write!(f, "IO error: {}", e),
-            RequestError::S3Error(msg) => write!(f, "S3 error: {}", msg),
-            RequestError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for RequestError {}
 
 /// Types for buckets
 #[derive(Debug, PartialEq)]

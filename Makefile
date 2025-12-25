@@ -35,8 +35,12 @@ setup: ## Create required IAM role and buckets (make setup s=stack p=profile)
 teardown: reset ## Destroy remote resources (make teardown s=stack p=profile)
 	@AWS_PROFILE=$(p) ./scripts/reset.sh delete $(s)
 
+.PHONY: test
+test: ## Run local tests with no AWS calls (make test)
+	@cargo test
+
 .PHONY: test-integration
-test-integration: setup # Run integration tests (make test-integration s=stack p=profile)
+test-integration: setup ## Run integration tests (make test-integration s=stack p=profile)
 	@AWS_PROFILE=$(p) TEST_STACK=$(s) cargo test --test bucket_creator -- --ignored --test-threads=1
 
 .PHONY: watch

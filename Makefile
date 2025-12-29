@@ -9,7 +9,10 @@ bucket-request: ## Upload txt to request bucket (make bucket-request f=file s=st
 bucket: ## Perform action on a bucket (make bucket a=action b=bucket p=profile)
 	@AWS_PROFILE=$(p) ./scripts/bucket.sh $(a) $(b)
 
-build:
+build: ## Build with debug profile (make build)
+	@cargo lambda build
+
+build-release: ## Build with release profile (make build-release)
 	@cargo lambda build --release --arm64 --output-format zip
 
 .PHONY: help

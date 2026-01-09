@@ -8,13 +8,23 @@ use aws_sdk_s3::Client;
 use thiserror::Error;
 use tokio::io::AsyncBufReadExt;
 
-pub const BUCKETS_REQUEST_CONTENT_TYPE: &str = "text/plain";
+pub const BUCKET_REQUEST_CONTENT_TYPE: &str = "text/plain";
+
+// Tag keys used for bucket discovery
+pub(crate) const BUCKET_TAG_STACK_KEY: &str = "Stack";
+pub(crate) const BUCKET_TAG_TYPE_KEY: &str = "BucketType";
+
 pub const MAX_BUCKETS_PER_REQUEST: u8 = 5;
 pub const MAX_BUCKETS_REQUEST_FILE_SIZE: u8 = 32;
 pub const MAX_LEN_FOR_REQUEST_NAME: u8 = 63;
 
 const PUBLIC_SUFFIX: &str = "-public";
 const REPLICATION_SUFFIX: &str = "-repl";
+
+/// Check if a bucket exists
+pub async fn bucket_exists(client: &Client, bucket: &str) -> bool {
+    client.head_bucket().bucket(bucket).send().await.is_ok()
+}
 
 /// Create primary and replication buckets
 pub async fn create_buckets(
@@ -65,6 +75,82 @@ async fn create_bucket(config: &RequestConfig, bucket: &Bucket) -> Result<(), Re
     Ok(())
 }
 
+/// Delete an empty bucket
+pub async fn delete_bucket(client: &Client, bucket: &str) -> Result<(), RequestError> {
+    client
+        .delete_bucket()
+        .bucket(bucket)
+        .send()
+        .await
+        .map_err(|e| RequestError::S3Error(format!("failed to delete bucket {}: {}", bucket, e)))?;
+
+    Ok(())
+}
+
+/// Empty all objects from a bucket (handles versioned objects)
+pub async fn empty_bucket(client: &Client, bucket: &str) -> Result<(), RequestError> {
+    use aws_sdk_s3::types::{Delete, ObjectIdentifier};
+
+    loop {
+        let response = client
+            .list_object_versions()
+            .bucket(bucket)
+            .max_keys(1000)
+            .send()
+            .await
+            .map_err(|e| RequestError::S3Error(format!("failed to list versions: {}", e)))?;
+
+        let mut objects_to_delete = Vec::new();
+
+        for version in response.versions() {
+            if let (Some(key), Some(version_id)) = (version.key(), version.version_id()) {
+                objects_to_delete.push(
+                    ObjectIdentifier::builder()
+                        .key(key)
+                        .version_id(version_id)
+                        .build()
+                        .map_err(|e| {
+                            RequestError::S3Error(format!("failed to build object id: {}", e))
+                        })?,
+                );
+            }
+        }
+
+        for marker in response.delete_markers() {
+            if let (Some(key), Some(version_id)) = (marker.key(), marker.version_id()) {
+                objects_to_delete.push(
+                    ObjectIdentifier::builder()
+                        .key(key)
+                        .version_id(version_id)
+                        .build()
+                        .map_err(|e| {
+                            RequestError::S3Error(format!("failed to build object id: {}", e))
+                        })?,
+                );
+            }
+        }
+
+        if objects_to_delete.is_empty() {
+            break;
+        }
+
+        client
+            .delete_objects()
+            .bucket(bucket)
+            .delete(
+                Delete::builder()
+                    .set_objects(Some(objects_to_delete))
+                    .build()
+                    .map_err(|e| RequestError::S3Error(format!("failed to build delete: {}", e)))?,
+            )
+            .send()
+            .await
+            .map_err(|e| RequestError::S3Error(format!("failed to delete objects: {}", e)))?;
+    }
+
+    Ok(())
+}
+
 /// Retrieve bucket request file and check is valid
 pub async fn get_bucket_names(client: &Client, file: &File) -> Result<Vec<String>, RequestError> {
     let Ok(r) = download(&client, &file).await else {
@@ -72,7 +158,7 @@ pub async fn get_bucket_names(client: &Client, file: &File) -> Result<Vec<String
     };
 
     if let Some(ct) = r.content_type()
-        && ct != BUCKETS_REQUEST_CONTENT_TYPE
+        && ct != BUCKET_REQUEST_CONTENT_TYPE
     {
         return Err(RequestError::InvalidContentType);
     }
@@ -100,6 +186,84 @@ pub async fn get_bucket_names(client: &Client, file: &File) -> Result<Vec<String
     Ok(names)
 }
 
+/// Check bucket tags and return the type if it belongs to the stack
+async fn get_bucket_stack_type(client: &Client, bucket: &str, stack: &StackName) -> Option<Type> {
+    let response = client
+        .get_bucket_tagging()
+        .bucket(bucket)
+        .send()
+        .await
+        .ok()?;
+
+    let tags = response.tag_set();
+    let mut stack_matches = false;
+    let mut bucket_type = None;
+
+    for tag in tags {
+        if tag.key() == BUCKET_TAG_STACK_KEY && tag.value() == stack.as_str() {
+            stack_matches = true;
+        }
+        if tag.key() == BUCKET_TAG_TYPE_KEY {
+            bucket_type = match tag.value() {
+                "standard" => Some(Type::Standard),
+                "public" => Some(Type::Public),
+                "replication" => Some(Type::Replication),
+                "managed" => Some(Type::Managed),
+                "request" => Some(Type::Request),
+                _ => None,
+            };
+        }
+    }
+
+    if stack_matches { bucket_type } else { None }
+}
+
+/// Get all buckets belonging to a stack (prefix match + stack tag)
+pub async fn get_stack_buckets(
+    client: &Client,
+    stack: &StackName,
+) -> Result<Vec<Bucket>, RequestError> {
+    let prefix = format!("{}-", stack.as_str());
+    let mut buckets = Vec::new();
+
+    let response = client
+        .list_buckets()
+        .send()
+        .await
+        .map_err(|e| RequestError::S3Error(format!("failed to list buckets: {}", e)))?;
+
+    for bucket in response.buckets() {
+        let Some(name) = bucket.name() else {
+            continue;
+        };
+
+        if !name.starts_with(&prefix) {
+            continue;
+        }
+
+        // Check tags to verify it belongs to this stack (prefix alone is not sufficient)
+        if let Some(bucket_type) = get_bucket_stack_type(client, name, stack).await {
+            let bucket_name = Name::new(name)?;
+            buckets.push(Bucket(bucket_name, bucket_type));
+        }
+    }
+
+    Ok(buckets)
+}
+
+/// Get stack buckets filtered by type
+pub async fn get_stack_buckets_by_type(
+    client: &Client,
+    stack: &StackName,
+    types: &[Type],
+) -> Result<Vec<Bucket>, RequestError> {
+    let all_buckets = get_stack_buckets(client, stack).await?;
+    Ok(all_buckets
+        .into_iter()
+        .filter(|b| types.contains(&b.1))
+        .collect())
+}
+
 /// Check that user supplied bucket names are ok and make ready to create
 pub fn review_bucket_names(
     config: &RequestConfig,
@@ -119,6 +283,16 @@ pub fn review_bucket_names(
 
 #[derive(Debug, PartialEq)]
 pub struct Bucket(pub Name, pub Type);
+
+impl Bucket {
+    pub fn bucket_type(&self) -> &Type {
+        &self.1
+    }
+
+    pub fn name(&self) -> &str {
+        self.0.as_str()
+    }
+}
 
 /// A type wrapper to ensure bucket name is compatible with
 /// S3 and project requirements.

@@ -5,12 +5,12 @@
 //!
 //! Prerequisites:
 //!   - Set TEST_STACK env var (defaults to "inttest")
-//!   - Run: ./scripts/create-replication-role.sh <stack>
-//!   - Ensure {stack}-managed bucket exists (make test-integration handles this)
+//!   - Run: make setup s=<stack> p=<profile>
 
 use aws_sdk_s3::types::BucketVersioningStatus;
-use awsutils::bucket::{Bucket, Name, RequestConfig, Type};
+use awsutils::bucket::{Bucket, Name, RequestConfig, Type, bucket_exists};
 use awsutils::bucket_creator::BucketCreator;
+use awsutils::config::test_config;
 use futures::FutureExt;
 use std::future::Future;
 
@@ -34,12 +34,6 @@ where
 }
 
 // --- Setup Helpers ---
-
-async fn setup_test_config() -> RequestConfig {
-    let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "inttest".to_string());
-    let stack = apputils::StackName::new(&stack_name).expect("invalid stack name");
-    awsutils::config::bucket_config(stack).await
-}
 
 fn timestamp() -> u64 {
     std::time::SystemTime::now()
@@ -234,18 +228,7 @@ async fn verify_no_bucket_policy(config: &RequestConfig, bucket: &str) {
     );
 }
 
-async fn bucket_exists(config: &RequestConfig, bucket: &str) -> bool {
-    config
-        .s3_client
-        .head_bucket()
-        .bucket(bucket)
-        .send()
-        .await
-        .is_ok()
-}
-
 async fn cleanup_bucket(config: &RequestConfig, bucket: &str) {
-    // First remove replication config if present (required before deletion)
     let _ = config
         .s3_client
         .delete_bucket_replication()
@@ -253,7 +236,6 @@ async fn cleanup_bucket(config: &RequestConfig, bucket: &str) {
         .send()
         .await;
 
-    // Delete the bucket
     let _ = config.s3_client.delete_bucket().bucket(bucket).send().await;
 }
 
@@ -262,14 +244,13 @@ async fn cleanup_bucket(config: &RequestConfig, bucket: &str) {
 #[tokio::test]
 #[ignore]
 async fn test_create_standard_bucket() {
-    let config = setup_test_config().await;
+    let config = test_config().await;
     let bucket_name = format!("{}-inttest-std-{}", config.stack.as_str(), timestamp());
 
     with_cleanup(&config, vec![bucket_name.clone()], || async {
         let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Standard);
         let creator = BucketCreator::new(&config, &bucket);
 
-        // Create and setup
         creator.create().await.expect("bucket creation failed");
         creator.setup().await.expect("bucket setup failed");
 
@@ -287,7 +268,7 @@ async fn test_create_standard_bucket() {
 #[tokio::test]
 #[ignore]
 async fn test_create_public_bucket() {
-    let config = setup_test_config().await;
+    let config = test_config().await;
     let bucket_name = format!("{}-inttest-pub-{}", config.stack.as_str(), timestamp());
 
     with_cleanup(&config, vec![bucket_name.clone()], || async {
@@ -312,7 +293,7 @@ async fn test_create_public_bucket() {
 #[tokio::test]
 #[ignore]
 async fn test_create_replication_bucket() {
-    let config = setup_test_config().await;
+    let config = test_config().await;
     let bucket_name = format!("{}-inttest-repl-{}", config.stack.as_str(), timestamp());
 
     with_cleanup(&config, vec![bucket_name.clone()], || async {
@@ -332,7 +313,7 @@ async fn test_create_replication_bucket() {
 #[tokio::test]
 #[ignore]
 async fn test_create_bucket_pair_with_replication() {
-    let config = setup_test_config().await;
+    let config = test_config().await;
     let ts = timestamp();
     let primary_name = format!("{}-inttest-pair-{}", config.stack.as_str(), ts);
     let repl_name = format!("{}-inttest-pair-{}-repl", config.stack.as_str(), ts);
@@ -382,27 +363,22 @@ async fn test_create_bucket_pair_with_replication() {
 #[tokio::test]
 #[ignore]
 async fn test_rollback_deletes_bucket() {
-    let config = setup_test_config().await;
+    let config = test_config().await;
     let bucket_name = format!("{}-inttest-rollback-{}", config.stack.as_str(), timestamp());
     let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Standard);
 
     let creator = BucketCreator::new(&config, &bucket);
-
-    // Create bucket
     creator.create().await.expect("bucket creation failed");
 
-    // Verify it exists
     assert!(
-        bucket_exists(&config, &bucket_name).await,
+        bucket_exists(&config.s3_client, &bucket_name).await,
         "bucket should exist after creation"
     );
 
-    // Rollback
     creator.rollback().await.expect("rollback failed");
 
-    // Verify it's gone
     assert!(
-        !bucket_exists(&config, &bucket_name).await,
+        !bucket_exists(&config.s3_client, &bucket_name).await,
         "bucket should not exist after rollback"
     );
 }

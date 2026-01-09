@@ -31,7 +31,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     println!("Stack: {}", stack.as_str());
     println!("Bucket names to process: {:?}", names);
 
-    let request_config = awsutils::config::bucket_config(stack).await;
+    let request_config = awsutils::config::request_config(stack).await;
     let buckets = bucket::review_bucket_names(&request_config, &names)?;
 
     println!("Buckets to create:");

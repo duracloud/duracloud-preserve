@@ -80,7 +80,7 @@ make upload b=bucket-request f=files/buckets.txt s=digipres-dev1 p=default
 mkdir payloads
 cp bucket-request/events/sample.json payloads/bucket-request.json # Update the bucket name!
 
-# Send an event payload to the locally running function
+# Send the event payload to the locally running function
 make invoke f=bucket-request e=payloads/bucket-request.json
 ```
 

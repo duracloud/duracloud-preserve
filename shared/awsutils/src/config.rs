@@ -3,27 +3,6 @@ use apputils::StackName;
 use crate::bucket::{RequestConfig, RequestError};
 use aws_config::{BehaviorVersion, SdkConfig};
 
-/// Load aws sdk config for a bucket request
-pub async fn bucket_config(stack: StackName) -> RequestConfig {
-    let client_config = default_config().await;
-    let s3_client = aws_sdk_s3::Client::new(&client_config);
-
-    let account_id = get_account_id(&client_config)
-        .await
-        .expect("failed to get account ID");
-    let replication_role_arn = get_replication_role_arn(&client_config, &stack)
-        .await
-        .expect("replication role not found - run scripts/create-replication-role.sh");
-
-    RequestConfig {
-        account_id,
-        debug_handler: false,
-        replication_role_arn,
-        s3_client,
-        stack,
-    }
-}
-
 /// Load default aws sdk config
 pub async fn default_config() -> SdkConfig {
     aws_config::load_defaults(BehaviorVersion::latest()).await
@@ -78,4 +57,32 @@ pub async fn get_replication_role_arn(
         .role()
         .map(|r| r.arn().to_string())
         .ok_or_else(|| RequestError::S3Error("role missing ARN".to_string()))
+}
+
+/// Load aws sdk config for a bucket request
+pub async fn request_config(stack: StackName) -> RequestConfig {
+    let client_config = default_config().await;
+    let s3_client = aws_sdk_s3::Client::new(&client_config);
+
+    let account_id = get_account_id(&client_config)
+        .await
+        .expect("failed to get account ID");
+    let replication_role_arn = get_replication_role_arn(&client_config, &stack)
+        .await
+        .expect("replication role not found - run scripts/create-replication-role.sh");
+
+    RequestConfig {
+        account_id,
+        debug_handler: false,
+        replication_role_arn,
+        s3_client,
+        stack,
+    }
+}
+
+/// Load test config from TEST_STACK env var (defaults to "inttest")
+pub async fn test_config() -> RequestConfig {
+    let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "inttest".to_string());
+    let stack = StackName::new(&stack_name).expect("invalid stack name");
+    request_config(stack).await
 }

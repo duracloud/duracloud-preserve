@@ -1,8 +1,8 @@
 use apputils::StackName;
 use aws_sdk_iam::Client as IamClient;
-use awsutils::bucket::{Bucket, Name, RequestConfig, Type};
+use awsutils::bucket::{Bucket, Name, RequestConfig, Type, bucket_exists};
 use awsutils::bucket_creator::BucketCreator;
-use awsutils::config::{bucket_config, default_config};
+use awsutils::config::{default_config, request_config};
 use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
@@ -22,18 +22,22 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let role_arn = create_or_get_replication_role(&iam_client, &stack).await?;
     println!("Replication role: {}", role_arn);
 
-    let config = bucket_config(stack.clone()).await;
+    let config = request_config(stack.clone()).await;
     println!("Account: {}", config.account_id);
 
     let managed_bucket = Bucket(Name::new(&stack.managed_bucket())?, Type::Managed);
-    let creator = BucketCreator::new(&config, &managed_bucket);
-    creator.create().await?;
-    println!("Created bucket: {}", managed_bucket.0.as_str());
+    if !bucket_exists(&config.s3_client, managed_bucket.name()).await {
+        let creator = BucketCreator::new(&config, &managed_bucket);
+        creator.create().await?;
+        println!("Created bucket: {}", managed_bucket.0.as_str());
+    }
 
     let request_bucket = Bucket(Name::new(&stack.request_bucket())?, Type::Request);
-    let creator = BucketCreator::new(&config, &request_bucket);
-    creator.create().await?;
-    println!("Created bucket: {}", request_bucket.0.as_str());
+    if !bucket_exists(&config.s3_client, request_bucket.name()).await {
+        let creator = BucketCreator::new(&config, &request_bucket);
+        creator.create().await?;
+        println!("Created bucket: {}", request_bucket.0.as_str());
+    }
 
     set_managed_bucket_policy(&config).await?;
     println!("Set inventory policy on: {}", stack.managed_bucket());
@@ -49,7 +53,6 @@ async fn create_or_get_replication_role(
     let role_name = stack.replication_role_name();
     let policy_name = format!("{}-s3-replication-policy", stack.as_str());
 
-    // Check if role already exists
     match client.get_role().role_name(&role_name).send().await {
         Ok(response) => {
             if let Some(role) = response.role() {

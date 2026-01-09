@@ -14,6 +14,8 @@ struct Cli {
 enum Commands {
     /// Process bucket creation requests
     BucketRequest(commands::bucket_request::Args),
+    /// Reset stack (empty buckets, optionally destroy resources)
+    Reset(commands::reset::Args),
     /// Set up a new stack (IAM role, managed bucket, request bucket)
     Setup(commands::setup::Args),
 }
@@ -24,6 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match cli.command {
         Commands::BucketRequest(args) => commands::bucket_request::run(args).await?,
+        Commands::Reset(args) => commands::reset::run(args).await?,
         Commands::Setup(args) => commands::setup::run(args).await?,
     }
 

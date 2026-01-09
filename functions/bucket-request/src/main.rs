@@ -14,7 +14,7 @@ async fn main() -> Result<(), Error> {
 
     let stack =
         StackName::new(&env::var("STACK").expect("Stack is required")).expect("Invalid stack name");
-    let request_config = awsutils::config::bucket_config(stack).await;
+    let request_config = awsutils::config::request_config(stack).await;
 
     run(service_fn(|event| function_handler(&request_config, event))).await
 }

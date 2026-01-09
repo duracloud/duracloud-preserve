@@ -11,13 +11,13 @@ use aws_sdk_s3::types::{
     TransitionStorageClass, VersioningConfiguration,
 };
 
-use crate::bucket::{Bucket, RequestConfig, RequestError, Type};
+use crate::bucket::{
+    BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, RequestConfig, RequestError, Type,
+};
 use crate::config::get_region;
 
 const BUCKET_TAG_ORIGIN_KEY: &str = "BucketOrigin";
 const BUCKET_TAG_ORIGIN_VAL: &str = "bucket-request";
-const BUCKET_TAG_STACK_KEY: &str = "Stack";
-const BUCKET_TAG_TYPE_KEY: &str = "BucketType";
 const EXPIRE_ABORTED_MULTIPART_DAYS: u8 = 3;
 const EXPIRE_NONCURRENT_VERSION_DAYS: u8 = 14;
 const INVENTORY_FORMAT: InventoryFormat = InventoryFormat::Parquet;

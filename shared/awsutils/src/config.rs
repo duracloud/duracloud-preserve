@@ -1,7 +1,28 @@
 use apputils::StackName;
 
-use crate::bucket::RequestError;
+use crate::bucket::{RequestConfig, RequestError};
 use aws_config::{BehaviorVersion, SdkConfig};
+
+/// Load aws sdk config for a bucket request
+pub async fn bucket_config(stack: StackName) -> RequestConfig {
+    let client_config = default_config().await;
+    let s3_client = aws_sdk_s3::Client::new(&client_config);
+
+    let account_id = get_account_id(&client_config)
+        .await
+        .expect("failed to get account ID");
+    let replication_role_arn = get_replication_role_arn(&client_config, &stack)
+        .await
+        .expect("replication role not found - run scripts/create-replication-role.sh");
+
+    RequestConfig {
+        account_id,
+        debug_handler: false,
+        replication_role_arn,
+        s3_client,
+        stack,
+    }
+}
 
 /// Load default aws sdk config
 pub async fn default_config() -> SdkConfig {

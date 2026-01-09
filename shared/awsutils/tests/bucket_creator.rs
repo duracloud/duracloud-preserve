@@ -37,25 +37,8 @@ where
 
 async fn setup_test_config() -> RequestConfig {
     let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "inttest".to_string());
-
-    let client_config = awsutils::config::default_config().await;
-    let s3_client = aws_sdk_s3::Client::new(&client_config);
     let stack = apputils::StackName::new(&stack_name).expect("invalid stack name");
-
-    let account_id = awsutils::config::get_account_id(&client_config)
-        .await
-        .expect("failed to get account ID");
-    let replication_role_arn = awsutils::config::get_replication_role_arn(&client_config, &stack)
-        .await
-        .expect("replication role not found - run scripts/create-replication-role.sh");
-
-    RequestConfig {
-        account_id,
-        debug_handler: false,
-        replication_role_arn,
-        s3_client,
-        stack,
-    }
+    awsutils::config::bucket_config(stack).await
 }
 
 fn timestamp() -> u64 {

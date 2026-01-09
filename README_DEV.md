@@ -82,6 +82,20 @@ Error variations:
 - Wonky names (too long, invalid characters)
 - Too many names (max of five names per request, extras are discarded)
 
+#### CLI
+
+The core functionality of the bucket request function can be exercised
+without needing any additional setup within AWS (or even the locally running
+Lambda function) using the `bucket-request` cli subcommand:
+
+```bash
+AWS_PROFILE=default cargo run -p duracloud -- bucket-request \
+    --stack=digipress-dev1 \
+    --names=~/buckets.txt
+```
+
+This can be quicker and simpler for testing with different files.
+
 #### Cleanup
 
 ```bash

@@ -43,13 +43,14 @@ pub fn process(
 
 /// Inventory Manifest
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InventoryManifest {
-    pub sourceBucket: String,
-    pub destinationBucket: String,
+    pub source_bucket: String,
+    pub destination_bucket: String,
     pub version: String,
-    pub creationTimestamp: String,
-    pub fileFormat: String,
-    pub fileSchema: String,
+    pub creation_timestamp: String,
+    pub file_format: String,
+    pub file_schema: String,
     pub files: Vec<InventoryFileEntry>,
 }
 
@@ -73,7 +74,8 @@ impl InventoryManifest {
 pub struct InventoryFileEntry {
     pub key: String,
     pub size: u64,
-    pub MD5checksum: String,
+    #[serde(rename = "MD5checksum")]
+    pub md5_checksum: String,
 }
 
 /// Inventory Stats
@@ -206,7 +208,7 @@ mod tests {
     fn test_deserialize_manifest() {
         let json = include_str!("../../../files/manifest.json");
         let manifest: InventoryManifest = serde_json::from_str(json).unwrap();
-        assert_eq!(manifest.sourceBucket, "test-stack-private");
+        assert_eq!(manifest.source_bucket, "test-stack-private");
         assert_eq!(manifest.files.len(), 1);
         assert_eq!(
             manifest.files[0].key,

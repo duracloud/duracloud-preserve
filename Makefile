@@ -29,10 +29,7 @@ reset: ## Reset (empty) remote resources (make reset s=stack p=profile)
 
 .PHONY: setup
 setup: ## Create required IAM role and buckets (make setup s=stack p=profile)
-	@AWS_PROFILE=$(p) ./scripts/create-replication-role.sh $(s)
-	@AWS_PROFILE=$(p) ./scripts/bucket.sh create $(s)-bucket-request
-	@AWS_PROFILE=$(p) ./scripts/bucket.sh create $(s)-managed
-	@AWS_PROFILE=$(p) ./scripts/set-managed-bucket-policy.sh $(s)
+	@AWS_PROFILE=$(p) cargo run -p duracloud -- setup --stack=$(s)
 
 .PHONY: teardown
 teardown: reset ## Destroy remote resources (make teardown s=stack p=profile)

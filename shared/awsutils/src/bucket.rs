@@ -230,6 +230,8 @@ pub enum RequestError {
     IoError(#[from] std::io::Error),
     #[error("S3 error: {0}")]
     S3Error(String),
+    #[error("Unsupported operation: {0}")]
+    UnsupportedOperation(String),
     #[error("Validation error: {0}")]
     ValidationError(String),
 }
@@ -237,16 +239,20 @@ pub enum RequestError {
 /// Types for buckets
 #[derive(Debug, PartialEq)]
 pub enum Type {
+    Managed,
     Public,
     Replication,
+    Request,
     Standard,
 }
 
 impl std::fmt::Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Type::Managed => write!(f, "managed"),
             Type::Public => write!(f, "public"),
             Type::Replication => write!(f, "replication"),
+            Type::Request => write!(f, "request"),
             Type::Standard => write!(f, "standard"),
         }
     }

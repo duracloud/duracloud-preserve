@@ -14,6 +14,8 @@ struct Cli {
 enum Commands {
     /// Process bucket creation requests
     BucketRequest(commands::bucket_request::Args),
+    /// Set up a new stack (IAM role, managed bucket, request bucket)
+    Setup(commands::setup::Args),
 }
 
 #[tokio::main]
@@ -22,6 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match cli.command {
         Commands::BucketRequest(args) => commands::bucket_request::run(args).await?,
+        Commands::Setup(args) => commands::setup::run(args).await?,
     }
 
     Ok(())

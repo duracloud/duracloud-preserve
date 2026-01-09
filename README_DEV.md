@@ -19,7 +19,7 @@ These args are used frequently:
 
 - `f=function` function name i.e. bucket-request
 - `p=profile` aws profile name i.e. default
-- `s=stack` resource prefix used for resource partitioning within an aws account
+- `s=stack` resource prefix used for identification/partitioning within an aws account
 
 But note in some contexts a letter may have a different meaning, for example
 `f=file` (check the docs or output of `make` for details).
@@ -85,13 +85,15 @@ Error variations:
 #### CLI
 
 The core functionality of the bucket request function can be exercised
-without needing any additional setup within AWS (or even the locally running
+without needing any additional setup within AWS (or the locally running
 Lambda function) using the `bucket-request` cli subcommand:
 
 ```bash
 AWS_PROFILE=default cargo run -p duracloud -- bucket-request \
     --stack=digipress-dev1 \
     --names=~/buckets.txt
+    
+# TODO: make bucket-request s=digipress-dev1 f=~/buckets.txt
 ```
 
 This can be quicker and simpler for testing with different files.

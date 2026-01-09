@@ -105,6 +105,10 @@ impl<'a> BucketCreator<'a> {
             Type::Public => self.setup_public_bucket().await,
             Type::Replication => self.setup_replication_bucket().await,
             Type::Standard => self.setup_standard_bucket().await,
+            _ => Err(RequestError::UnsupportedOperation(format!(
+                "setup not supported for {} buckets",
+                self.bucket.1
+            ))),
         }
     }
 
@@ -557,5 +561,57 @@ impl<'a> BucketCreator<'a> {
             })?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{BucketName, test_client::TestClientBuilder};
+    use apputils::StackName;
+
+    fn test_config() -> RequestConfig {
+        let client = TestClientBuilder::new().build();
+        RequestConfig {
+            account_id: "123456789".to_string(),
+            debug_handler: false,
+            replication_role_arn: "arn:aws:iam::123456789:role/test".to_string(),
+            s3_client: client,
+            stack: StackName::new("test-stack").unwrap(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_setup_unsupported_for_managed_bucket() {
+        let config = test_config();
+        let bucket = Bucket(BucketName::new("test-managed").unwrap(), Type::Managed);
+        let creator = BucketCreator::new(&config, &bucket);
+
+        let result = creator.setup().await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            RequestError::UnsupportedOperation(msg) => {
+                assert!(msg.contains("setup not supported for managed buckets"))
+            }
+            e => panic!("Expected UnsupportedOperation, got {:?}", e),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_setup_unsupported_for_request_bucket() {
+        let config = test_config();
+        let bucket = Bucket(BucketName::new("test-request").unwrap(), Type::Request);
+        let creator = BucketCreator::new(&config, &bucket);
+
+        let result = creator.setup().await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            RequestError::UnsupportedOperation(msg) => {
+                assert!(msg.contains("setup not supported for request buckets"))
+            }
+            e => panic!("Expected UnsupportedOperation, got {:?}", e),
+        }
     }
 }

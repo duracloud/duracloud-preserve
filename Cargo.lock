@@ -1394,9 +1394,12 @@ version = "0.1.0"
 dependencies = [
  "apputils",
  "aws-config",
+ "aws-sdk-iam",
  "aws-sdk-s3",
+ "aws-sdk-sts",
  "awsutils",
  "clap",
+ "serde_json",
  "tokio",
 ]
 

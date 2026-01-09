@@ -49,19 +49,34 @@ a target for S3 inventory from buckets using the same stack name (prefix).
 This function is used to create s3 buckets with [prefab configuration](#).
 To do this it downloads a text file from the `${stack}-bucket-request`
 bucket that was uploaded by a user. In production this function is triggered
-by an event notification but for development we'll invoke the function with
-a sample payload.
+by an event notification but for development we can use the cli or invoke the
+function locally with a sample payload.
 
-Again, use your own values for `s=` and `p=`.
+#### CLI
+
+The core functionality of the bucket request function can be exercised
+without needing any additional setup within AWS (or the locally running
+Lambda function) using the `bucket-request` task:
+
+```bash
+make bucket-request f=files/buckets.txt s=digipress-dev1 p=default
+```
+
+This can be quicker and simpler for testing with different files.
+
+#### Locally running function
+
+This is close to exactly what runs when deployed to AWS, but we provide the
+payload:
 
 ```bash
 # Run the function locally, waiting for events
 make watch f=bucket-request s=digipres-dev1 p=default
 
-# Upload the sample buckets.txt to the request bucket
-make bucket-request f=files/buckets.txt s=digipres-dev1 p=default
+# Upload the sample buckets.txt (f) to the request bucket (b)
+make upload b=bucket-request f=files/buckets.txt s=digipres-dev1 p=default
 
-# Copy then edit the sample event file so that bucket name uses the s= prefix
+# Copy then edit the sample event payload so that bucket name uses the s= prefix
 mkdir payloads
 cp bucket-request/events/sample.json payloads/bucket-request.json # Update the bucket name!
 
@@ -69,7 +84,9 @@ cp bucket-request/events/sample.json payloads/bucket-request.json # Update the b
 make invoke f=bucket-request e=payloads/bucket-request.json
 ```
 
-Using an unmodified `buckets.txt` this will create four new buckets:
+#### Output
+
+Using an unmodified `buckets.txt` will create four new buckets:
 
 - `digipres-dev1-private` (private s3 bucket)
 - `digipres-dev1-private-repl` (private s3 bucket replication destination)
@@ -81,22 +98,6 @@ Error variations:
 - File too large or invalid (rename some other file `buckets.txt` i.e a jpg)
 - Wonky names (too long, invalid characters)
 - Too many names (max of five names per request, extras are discarded)
-
-#### CLI
-
-The core functionality of the bucket request function can be exercised
-without needing any additional setup within AWS (or the locally running
-Lambda function) using the `bucket-request` cli subcommand:
-
-```bash
-AWS_PROFILE=default cargo run -p duracloud -- bucket-request \
-    --stack=digipress-dev1 \
-    --names=~/buckets.txt
-    
-# TODO: make bucket-request s=digipress-dev1 f=~/buckets.txt
-```
-
-This can be quicker and simpler for testing with different files.
 
 #### Cleanup
 

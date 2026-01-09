@@ -1,13 +1,13 @@
 .DEFAULT_GOAL := help
 SHELL:=/bin/bash
 
-.PHONY: bucket-request
-bucket-request: ## Upload txt to request bucket (make bucket-request f=file s=stack p=profile)
-	@AWS_PROFILE=$(p) aws s3 cp $(f) s3://$(s)-bucket-request/buckets.txt
-
 .PHONY: bucket
 bucket: ## Perform action on a bucket (make bucket a=action b=bucket p=profile)
 	@AWS_PROFILE=$(p) ./scripts/bucket.sh $(a) $(b)
+
+.PHONY: bucket-request
+bucket-request: ## Run bucket-request cli (make bucket-request f=file s=stack p=profile)
+	@AWS_PROFILE=$(p) cargo run -p duracloud -- bucket-request --stack=$(s) --names=$(f)
 
 build: ## Build with debug profile (make build)
 	@cargo lambda build
@@ -42,6 +42,10 @@ test: ## Run local tests with no AWS calls (make test)
 .PHONY: test-integration
 test-integration: setup ## Run integration tests (make test-integration s=stack p=profile)
 	@AWS_PROFILE=$(p) TEST_STACK=$(s) cargo test --test bucket_creator -- --ignored --test-threads=1
+
+.PHONY: upload
+upload: ## Upload a file to a bucket (make upload b=bucket f=file s=stack p=profile)
+	@AWS_PROFILE=$(p) aws s3 cp $(f) s3://$(s)-$(b)/$(notdir $(realpath $(f)))
 
 .PHONY: watch
 watch: ## Watch function (make watch f=function s=stack p=profile)

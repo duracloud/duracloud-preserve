@@ -1,6 +1,6 @@
 # DuraCloud
 
-Simplifies and adds preservation and opinionated access control features to AWS S3.
+Simplifies configuration, access control and preservation concerns using AWS S3.
 
 ## Summary
 

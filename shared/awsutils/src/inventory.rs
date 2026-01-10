@@ -14,7 +14,29 @@ use polars_arrow::buffer::Buffer;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::file::{File, download};
+use crate::{
+    config::RequestConfig,
+    file::{File, download},
+};
+
+const INVENTORY_OBJECT_KEY: &str = "key";
+const INVENTORY_SIZE_KEY: &str = "size";
+
+pub async fn perform(_config: &RequestConfig, _manifest: &File) -> Result<(), InventoryError> {
+    tracing::info!("Retrieving manifest file from S3");
+
+    todo!()
+}
+
+pub fn process(
+    mut csv_file: impl Write,
+    parquet_files: &[&str],
+) -> Result<InventoryStats, InventoryError> {
+    InventoryProcessor::load(&parquet_files)?
+        .decode_keys()?
+        .write_csv(&mut csv_file)?
+        .stats()
+}
 
 #[derive(Debug, Error)]
 pub enum InventoryError {
@@ -26,19 +48,6 @@ pub enum InventoryError {
     S3(String),
     #[error("JSON parse error: {0}")]
     Json(#[from] serde_json::Error),
-}
-
-const INVENTORY_OBJECT_KEY: &str = "key";
-const INVENTORY_SIZE_KEY: &str = "size";
-
-pub fn process(
-    mut csv_file: impl Write,
-    parquet_files: &[&str],
-) -> Result<InventoryStats, InventoryError> {
-    InventoryProcessor::load(&parquet_files)?
-        .decode_keys()?
-        .write_csv(&mut csv_file)?
-        .stats()
 }
 
 /// Inventory Manifest
@@ -71,6 +80,7 @@ impl InventoryManifest {
 
 /// Inventory Manifest File Entry
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InventoryFileEntry {
     pub key: String,
     pub size: u64,

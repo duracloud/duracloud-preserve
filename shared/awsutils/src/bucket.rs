@@ -2,13 +2,13 @@ use crate::{
     bucket_creator::BucketCreator,
     file::{File, download},
 };
-use apputils::StackName;
+use apputils::{StackName, content_type};
 
 use aws_sdk_s3::Client;
 use thiserror::Error;
 use tokio::io::AsyncBufReadExt;
 
-pub const BUCKET_REQUEST_CONTENT_TYPE: &str = "text/plain";
+pub const BUCKET_REQUEST_CONTENT_TYPE: &str = content_type::TEXT_PLAIN;
 
 // Tag keys used for bucket discovery
 pub(crate) const BUCKET_TAG_STACK_KEY: &str = "Stack";

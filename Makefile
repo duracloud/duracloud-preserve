@@ -15,6 +15,12 @@ build: ## Build with debug profile (make build)
 build-release: ## Build with release profile (make build-release)
 	@cargo lambda build --release --arm64 --output-format zip
 
+.PHONY: ci
+ci: test ## Run the ci checks locally
+	@cargo clippy -- -D warnings
+	@cargo fmt -- --check
+	@cargo audit
+
 .PHONY: help
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'
@@ -41,9 +47,7 @@ test: ## Run local tests with no AWS calls (make test)
 
 .PHONY: test-integration
 test-integration: setup ## Run integration tests, makes AWS calls (make test-integration s=stack p=profile)
-	@AWS_PROFILE=$(p) TEST_STACK=$(s) cargo test --test bucket -- --ignored --test-threads=1
-	@AWS_PROFILE=$(p) TEST_STACK=$(s) cargo test --test bucket_creator -- --ignored --test-threads=1
-	@AWS_PROFILE=$(p) TEST_STACK=$(s) cargo test --test bucket_request -- --ignored --test-threads=1
+	@AWS_PROFILE=$(p) TEST_STACK=$(s) cargo test --test "*" -- --ignored --test-threads=1
 
 .PHONY: upload
 upload: ## Upload a file to a bucket (make upload b=bucket f=file s=stack p=profile)

@@ -16,7 +16,7 @@ pub(crate) async fn function_handler(
 
     tracing::info!("Bucket: {:?}, Object: {:?}", bucket, object);
 
-    if !(bucket == &config.stack.request_bucket()) {
+    if bucket != &config.stack.request_bucket() {
         panic!("Not the request bucket for this stack: {:?}", config.stack);
     }
 

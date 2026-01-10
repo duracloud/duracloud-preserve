@@ -154,7 +154,7 @@ pub async fn exists(client: &Client, bucket: &str) -> bool {
 
 /// Retrieve bucket request file and check is valid
 pub async fn get_bucket_names(client: &Client, file: &File) -> Result<Vec<String>, RequestError> {
-    let Ok(r) = download(&client, &file).await else {
+    let Ok(r) = download(client, file).await else {
         return Err(RequestError::S3Error("failed to download file".to_string()));
     };
 

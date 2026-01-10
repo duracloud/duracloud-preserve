@@ -41,6 +41,6 @@ pub async fn perform(config: &RequestConfig, file: &File) -> Result<(), RequestE
     }
 
     tracing::info!("Perform complete");
-    file::delete(&config.s3_client, &file).await?;
+    file::delete(&config.s3_client, file).await?;
     Ok(())
 }

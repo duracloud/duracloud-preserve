@@ -202,7 +202,7 @@ impl<'a> BucketCreator<'a> {
             })?;
 
         let transition = LifecycleRule::builder()
-            .id(format!("{}", transition_class.as_str()))
+            .id(transition_class.as_str())
             .status(ExpirationStatus::Enabled)
             .filter(LifecycleRuleFilter::builder().prefix("").build())
             .transitions(

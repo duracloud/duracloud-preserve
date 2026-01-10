@@ -32,7 +32,7 @@ pub fn process(
     mut csv_file: impl Write,
     parquet_files: &[&str],
 ) -> Result<InventoryStats, InventoryError> {
-    InventoryProcessor::load(&parquet_files)?
+    InventoryProcessor::load(parquet_files)?
         .decode_keys()?
         .write_csv(&mut csv_file)?
         .stats()

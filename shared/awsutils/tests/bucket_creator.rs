@@ -10,10 +10,10 @@
 mod common;
 
 use aws_sdk_s3::types::BucketVersioningStatus;
-use awsutils::bucket::{Bucket, Name, Type, delete, empty, exists};
+use awsutils::bucket::{Bucket, Name, Type, exists};
 use awsutils::bucket_creator::BucketCreator;
 use awsutils::config::{RequestConfig, test_config};
-use common::timestamp;
+use common::{cleanup_bucket, timestamp};
 
 // --- Verification Helpers ---
 
@@ -199,11 +199,6 @@ async fn verify_no_bucket_policy(config: &RequestConfig, bucket: &str) {
         "expected no bucket policy on {}, but found one",
         bucket
     );
-}
-
-async fn cleanup_bucket(config: &RequestConfig, bucket: &str) {
-    let _ = empty(&config.s3_client, bucket).await;
-    let _ = delete(&config.s3_client, bucket).await;
 }
 
 // --- Test Cases ---

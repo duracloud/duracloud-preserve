@@ -21,9 +21,21 @@ pub const MAX_LEN_FOR_REQUEST_NAME: u8 = 63;
 const PUBLIC_SUFFIX: &str = "-public";
 const REPLICATION_SUFFIX: &str = "-repl";
 
-/// Check if a bucket exists
-pub async fn bucket_exists(client: &Client, bucket: &str) -> bool {
-    client.head_bucket().bucket(bucket).send().await.is_ok()
+/// Create and setup an S3 bucket. If setup fails attempt to rollback.
+async fn create(config: &RequestConfig, bucket: &Bucket) -> Result<(), RequestError> {
+    let creator = BucketCreator::new(config, bucket);
+
+    creator.create().await?; // escape immediately if create fails
+
+    let result = creator.setup().await;
+    if let Err(e) = result {
+        if let Err(rollback_err) = creator.rollback().await {
+            eprintln!("Rollback failed: {}", rollback_err);
+        }
+        return Err(e);
+    }
+
+    Ok(())
 }
 
 /// Create primary and replication buckets
@@ -49,8 +61,8 @@ async fn create_bucket_pair(
     primary: &Bucket,
     replication: &Bucket,
 ) -> Result<(), RequestError> {
-    create_bucket(config, primary).await?;
-    create_bucket(config, replication).await?;
+    create(config, primary).await?;
+    create(config, replication).await?;
 
     let creator = BucketCreator::new(config, primary);
     creator.enable_replication(replication).await?;
@@ -58,25 +70,8 @@ async fn create_bucket_pair(
     Ok(())
 }
 
-/// Create and setup an S3 bucket. If setup fails attempt to rollback.
-async fn create_bucket(config: &RequestConfig, bucket: &Bucket) -> Result<(), RequestError> {
-    let creator = BucketCreator::new(config, bucket);
-
-    creator.create().await?; // escape immediately if create fails
-
-    let result = creator.setup().await;
-    if let Err(e) = result {
-        if let Err(rollback_err) = creator.rollback().await {
-            eprintln!("Rollback failed: {}", rollback_err);
-        }
-        return Err(e);
-    }
-
-    Ok(())
-}
-
 /// Delete an empty bucket
-pub async fn delete_bucket(client: &Client, bucket: &str) -> Result<(), RequestError> {
+pub async fn delete(client: &Client, bucket: &str) -> Result<(), RequestError> {
     client
         .delete_bucket()
         .bucket(bucket)
@@ -88,7 +83,7 @@ pub async fn delete_bucket(client: &Client, bucket: &str) -> Result<(), RequestE
 }
 
 /// Empty all objects from a bucket (handles versioned objects)
-pub async fn empty_bucket(client: &Client, bucket: &str) -> Result<(), RequestError> {
+pub async fn empty(client: &Client, bucket: &str) -> Result<(), RequestError> {
     use aws_sdk_s3::types::{Delete, ObjectIdentifier};
 
     loop {
@@ -149,6 +144,11 @@ pub async fn empty_bucket(client: &Client, bucket: &str) -> Result<(), RequestEr
     }
 
     Ok(())
+}
+
+/// Check if a bucket exists
+pub async fn exists(client: &Client, bucket: &str) -> bool {
+    client.head_bucket().bucket(bucket).send().await.is_ok()
 }
 
 /// Retrieve bucket request file and check is valid

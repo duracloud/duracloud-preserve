@@ -11,8 +11,7 @@ mod common;
 
 use aws_smithy_types::body::SdkBody;
 use awsutils::bucket::{
-    Bucket, Name, Type, bucket_exists, delete_bucket, empty_bucket, get_stack_buckets,
-    get_stack_buckets_by_type,
+    Bucket, Name, Type, delete, empty, exists, get_stack_buckets, get_stack_buckets_by_type,
 };
 use awsutils::bucket_creator::BucketCreator;
 use awsutils::config::test_config;
@@ -37,7 +36,7 @@ async fn test_get_stack_buckets() {
     let found = buckets.iter().any(|b| b.0.as_str() == bucket_name);
     assert!(found, "test bucket not found in discovery");
 
-    delete_bucket(&config.s3_client, &bucket_name)
+    delete(&config.s3_client, &bucket_name)
         .await
         .expect("cleanup failed");
 }
@@ -80,10 +79,10 @@ async fn test_get_stack_buckets_by_type() {
         "replication bucket should not be in standard filter"
     );
 
-    delete_bucket(&config.s3_client, &std_name)
+    delete(&config.s3_client, &std_name)
         .await
         .expect("cleanup failed");
-    delete_bucket(&config.s3_client, &repl_name)
+    delete(&config.s3_client, &repl_name)
         .await
         .expect("cleanup failed");
 }
@@ -133,7 +132,7 @@ async fn test_empty_bucket() {
         .await
         .expect("put object failed");
 
-    empty_bucket(&config.s3_client, &bucket_name)
+    empty(&config.s3_client, &bucket_name)
         .await
         .expect("empty_bucket failed");
 
@@ -154,12 +153,12 @@ async fn test_empty_bucket() {
         "bucket should have no delete markers"
     );
 
-    delete_bucket(&config.s3_client, &bucket_name)
+    delete(&config.s3_client, &bucket_name)
         .await
         .expect("cleanup failed");
 
     assert!(
-        !bucket_exists(&config.s3_client, &bucket_name).await,
+        !exists(&config.s3_client, &bucket_name).await,
         "bucket should not exist after deletion"
     );
 }

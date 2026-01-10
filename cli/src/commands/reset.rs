@@ -68,7 +68,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 
         print!("\tEmptying bucket... ");
         io::stdout().flush()?;
-        bucket::empty_bucket(&s3_client, name).await?;
+        bucket::empty(&s3_client, name).await?;
         println!("done");
     }
 
@@ -77,7 +77,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             let name = bucket.0.as_str();
             print!("\tDeleting bucket {}... ", name);
             io::stdout().flush()?;
-            bucket::delete_bucket(&s3_client, name).await?;
+            bucket::delete(&s3_client, name).await?;
             println!("done");
         }
 

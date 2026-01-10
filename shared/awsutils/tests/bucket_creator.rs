@@ -10,9 +10,7 @@
 mod common;
 
 use aws_sdk_s3::types::BucketVersioningStatus;
-use awsutils::bucket::{
-    Bucket, Name, RequestConfig, Type, bucket_exists, delete_bucket, empty_bucket,
-};
+use awsutils::bucket::{Bucket, Name, RequestConfig, Type, delete, empty, exists};
 use awsutils::bucket_creator::BucketCreator;
 use awsutils::config::test_config;
 use common::timestamp;
@@ -204,8 +202,8 @@ async fn verify_no_bucket_policy(config: &RequestConfig, bucket: &str) {
 }
 
 async fn cleanup_bucket(config: &RequestConfig, bucket: &str) {
-    let _ = empty_bucket(&config.s3_client, bucket).await;
-    let _ = delete_bucket(&config.s3_client, bucket).await;
+    let _ = empty(&config.s3_client, bucket).await;
+    let _ = delete(&config.s3_client, bucket).await;
 }
 
 // --- Test Cases ---
@@ -326,14 +324,14 @@ async fn test_rollback_deletes_bucket() {
     creator.create().await.expect("bucket creation failed");
 
     assert!(
-        bucket_exists(&config.s3_client, &bucket_name).await,
+        exists(&config.s3_client, &bucket_name).await,
         "bucket should exist after creation"
     );
 
     creator.rollback().await.expect("rollback failed");
 
     assert!(
-        !bucket_exists(&config.s3_client, &bucket_name).await,
+        !exists(&config.s3_client, &bucket_name).await,
         "bucket should not exist after rollback"
     );
 }

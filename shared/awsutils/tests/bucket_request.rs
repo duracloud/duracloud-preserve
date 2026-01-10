@@ -11,7 +11,7 @@ mod common;
 
 use apputils::content_type;
 use aws_smithy_types::body::SdkBody;
-use awsutils::bucket::{bucket_exists, delete_bucket, empty_bucket};
+use awsutils::bucket::{delete, empty, exists};
 use awsutils::config::test_config;
 use awsutils::file::File;
 use common::timestamp;
@@ -40,8 +40,8 @@ async fn test_perform() {
         .await
         .unwrap();
 
-    assert!(bucket_exists(&config.s3_client, &primary).await);
-    assert!(bucket_exists(&config.s3_client, &repl).await);
+    assert!(exists(&config.s3_client, &primary).await);
+    assert!(exists(&config.s3_client, &repl).await);
 
     // TODO: verify result file uploaded
 
@@ -50,10 +50,10 @@ async fn test_perform() {
         "request file should be deleted after processing"
     );
 
-    empty_bucket(&config.s3_client, &primary).await.unwrap();
-    empty_bucket(&config.s3_client, &repl).await.unwrap();
-    delete_bucket(&config.s3_client, &primary).await.unwrap();
-    delete_bucket(&config.s3_client, &repl).await.unwrap();
+    empty(&config.s3_client, &primary).await.unwrap();
+    empty(&config.s3_client, &repl).await.unwrap();
+    delete(&config.s3_client, &primary).await.unwrap();
+    delete(&config.s3_client, &repl).await.unwrap();
 }
 
 // TODO: with failure

@@ -33,19 +33,13 @@ Triggered by: s3 event
 
 ### generate-checksums
 
-Triggered by: eventbridge event
+Triggered by: eventbridge event (1st of month)
 
 Starts S3 batch jobs to generate checksum reports.
 
-### ready-checksums
+### checksum-verification
 
-Triggered by: s3 event
-
-Handles ready state to initiate a verify checksums run.
-
-### verify-checksums
-
-Triggered by: s3 event
+Triggered by: eventbridge event (2nd of month)
 
 Compares checksum reports for source and replication destination buckets.
 

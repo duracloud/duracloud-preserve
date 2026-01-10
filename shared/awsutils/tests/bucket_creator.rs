@@ -8,32 +8,11 @@
 //!   - Run: make setup s=<stack> p=<profile>
 
 use aws_sdk_s3::types::BucketVersioningStatus;
-use awsutils::bucket::{Bucket, Name, RequestConfig, Type, bucket_exists};
+use awsutils::bucket::{
+    Bucket, Name, RequestConfig, Type, bucket_exists, delete_bucket, empty_bucket,
+};
 use awsutils::bucket_creator::BucketCreator;
 use awsutils::config::test_config;
-use futures::FutureExt;
-use std::future::Future;
-
-/// Runs a test with guaranteed cleanup of buckets, even if the test panics.
-async fn with_cleanup<F, Fut>(config: &RequestConfig, buckets: Vec<String>, test_fn: F)
-where
-    F: FnOnce() -> Fut,
-    Fut: Future<Output = ()>,
-{
-    let result = std::panic::AssertUnwindSafe(test_fn()).catch_unwind().await;
-
-    // Always cleanup
-    for bucket in &buckets {
-        cleanup_bucket(config, bucket).await;
-    }
-
-    // Re-panic if test failed
-    if let Err(e) = result {
-        std::panic::resume_unwind(e);
-    }
-}
-
-// --- Setup Helpers ---
 
 fn timestamp() -> u64 {
     std::time::SystemTime::now()
@@ -229,14 +208,8 @@ async fn verify_no_bucket_policy(config: &RequestConfig, bucket: &str) {
 }
 
 async fn cleanup_bucket(config: &RequestConfig, bucket: &str) {
-    let _ = config
-        .s3_client
-        .delete_bucket_replication()
-        .bucket(bucket)
-        .send()
-        .await;
-
-    let _ = config.s3_client.delete_bucket().bucket(bucket).send().await;
+    let _ = empty_bucket(&config.s3_client, bucket).await;
+    let _ = delete_bucket(&config.s3_client, bucket).await;
 }
 
 // --- Test Cases ---
@@ -247,22 +220,20 @@ async fn test_create_standard_bucket() {
     let config = test_config().await;
     let bucket_name = format!("{}-inttest-std-{}", config.stack.as_str(), timestamp());
 
-    with_cleanup(&config, vec![bucket_name.clone()], || async {
-        let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Standard);
-        let creator = BucketCreator::new(&config, &bucket);
+    let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Standard);
+    let creator = BucketCreator::new(&config, &bucket);
 
-        creator.create().await.expect("bucket creation failed");
-        creator.setup().await.expect("bucket setup failed");
+    creator.create().await.expect("bucket creation failed");
+    creator.setup().await.expect("bucket setup failed");
 
-        // Verify configuration
-        verify_versioning_enabled(&config, &bucket_name).await;
-        verify_lifecycle_policy(&config, &bucket_name, "GLACIER_IR").await;
-        verify_notifications_enabled(&config, &bucket_name).await;
-        verify_inventory_configured(&config, &bucket_name).await;
-        verify_logging_enabled(&config, &bucket_name).await;
-        verify_no_bucket_policy(&config, &bucket_name).await;
-    })
-    .await;
+    verify_versioning_enabled(&config, &bucket_name).await;
+    verify_lifecycle_policy(&config, &bucket_name, "GLACIER_IR").await;
+    verify_notifications_enabled(&config, &bucket_name).await;
+    verify_inventory_configured(&config, &bucket_name).await;
+    verify_logging_enabled(&config, &bucket_name).await;
+    verify_no_bucket_policy(&config, &bucket_name).await;
+
+    cleanup_bucket(&config, &bucket_name).await;
 }
 
 #[tokio::test]
@@ -271,23 +242,21 @@ async fn test_create_public_bucket() {
     let config = test_config().await;
     let bucket_name = format!("{}-inttest-pub-{}", config.stack.as_str(), timestamp());
 
-    with_cleanup(&config, vec![bucket_name.clone()], || async {
-        let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Public);
-        let creator = BucketCreator::new(&config, &bucket);
+    let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Public);
+    let creator = BucketCreator::new(&config, &bucket);
 
-        creator.create().await.expect("bucket creation failed");
-        creator.setup().await.expect("bucket setup failed");
+    creator.create().await.expect("bucket creation failed");
+    creator.setup().await.expect("bucket setup failed");
 
-        // Verify public-specific configuration
-        verify_versioning_enabled(&config, &bucket_name).await;
-        verify_lifecycle_policy(&config, &bucket_name, "INTELLIGENT_TIERING").await;
-        verify_notifications_enabled(&config, &bucket_name).await;
-        verify_inventory_configured(&config, &bucket_name).await;
-        verify_logging_enabled(&config, &bucket_name).await;
-        verify_public_access_block_disabled(&config, &bucket_name).await;
-        verify_public_read_policy(&config, &bucket_name).await;
-    })
-    .await;
+    verify_versioning_enabled(&config, &bucket_name).await;
+    verify_lifecycle_policy(&config, &bucket_name, "INTELLIGENT_TIERING").await;
+    verify_notifications_enabled(&config, &bucket_name).await;
+    verify_inventory_configured(&config, &bucket_name).await;
+    verify_logging_enabled(&config, &bucket_name).await;
+    verify_public_access_block_disabled(&config, &bucket_name).await;
+    verify_public_read_policy(&config, &bucket_name).await;
+
+    cleanup_bucket(&config, &bucket_name).await;
 }
 
 #[tokio::test]
@@ -296,18 +265,16 @@ async fn test_create_replication_bucket() {
     let config = test_config().await;
     let bucket_name = format!("{}-inttest-repl-{}", config.stack.as_str(), timestamp());
 
-    with_cleanup(&config, vec![bucket_name.clone()], || async {
-        let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Replication);
-        let creator = BucketCreator::new(&config, &bucket);
+    let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Replication);
+    let creator = BucketCreator::new(&config, &bucket);
 
-        creator.create().await.expect("bucket creation failed");
-        creator.setup().await.expect("bucket setup failed");
+    creator.create().await.expect("bucket creation failed");
+    creator.setup().await.expect("bucket setup failed");
 
-        // Verify replication bucket has minimal config
-        verify_versioning_enabled(&config, &bucket_name).await;
-        verify_lifecycle_policy(&config, &bucket_name, "GLACIER").await;
-    })
-    .await;
+    verify_versioning_enabled(&config, &bucket_name).await;
+    verify_lifecycle_policy(&config, &bucket_name, "GLACIER").await;
+
+    cleanup_bucket(&config, &bucket_name).await;
 }
 
 #[tokio::test]
@@ -318,46 +285,38 @@ async fn test_create_bucket_pair_with_replication() {
     let primary_name = format!("{}-inttest-pair-{}", config.stack.as_str(), ts);
     let repl_name = format!("{}-inttest-pair-{}-repl", config.stack.as_str(), ts);
 
-    with_cleanup(
-        &config,
-        vec![primary_name.clone(), repl_name.clone()],
-        || async {
-            let primary = Bucket(Name::new(&primary_name).unwrap(), Type::Standard);
-            let replication = Bucket(Name::new(&repl_name).unwrap(), Type::Replication);
+    let primary = Bucket(Name::new(&primary_name).unwrap(), Type::Standard);
+    let replication = Bucket(Name::new(&repl_name).unwrap(), Type::Replication);
 
-            // Create primary bucket
-            let primary_creator = BucketCreator::new(&config, &primary);
-            primary_creator
-                .create()
-                .await
-                .expect("primary bucket creation failed");
-            primary_creator
-                .setup()
-                .await
-                .expect("primary bucket setup failed");
+    let primary_creator = BucketCreator::new(&config, &primary);
+    primary_creator
+        .create()
+        .await
+        .expect("primary bucket creation failed");
+    primary_creator
+        .setup()
+        .await
+        .expect("primary bucket setup failed");
 
-            // Create replication bucket
-            let repl_creator = BucketCreator::new(&config, &replication);
-            repl_creator
-                .create()
-                .await
-                .expect("replication bucket creation failed");
-            repl_creator
-                .setup()
-                .await
-                .expect("replication bucket setup failed");
+    let repl_creator = BucketCreator::new(&config, &replication);
+    repl_creator
+        .create()
+        .await
+        .expect("replication bucket creation failed");
+    repl_creator
+        .setup()
+        .await
+        .expect("replication bucket setup failed");
 
-            // Enable replication from primary to replication bucket
-            primary_creator
-                .enable_replication(&replication)
-                .await
-                .expect("enable replication failed");
+    primary_creator
+        .enable_replication(&replication)
+        .await
+        .expect("enable replication failed");
 
-            // Verify replication is configured on primary
-            verify_replication_configured(&config, &primary_name, &repl_name).await;
-        },
-    )
-    .await;
+    verify_replication_configured(&config, &primary_name, &repl_name).await;
+
+    cleanup_bucket(&config, &primary_name).await;
+    cleanup_bucket(&config, &repl_name).await;
 }
 
 #[tokio::test]

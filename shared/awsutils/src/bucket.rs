@@ -205,11 +205,11 @@ async fn get_bucket_stack_type(client: &Client, bucket: &str, stack: &StackName)
         }
         if tag.key() == BUCKET_TAG_TYPE_KEY {
             bucket_type = match tag.value() {
-                "standard" => Some(Type::Standard),
+                "managed" => Some(Type::Managed),
                 "public" => Some(Type::Public),
                 "replication" => Some(Type::Replication),
-                "managed" => Some(Type::Managed),
                 "request" => Some(Type::Request),
+                "standard" => Some(Type::Standard),
                 _ => None,
             };
         }

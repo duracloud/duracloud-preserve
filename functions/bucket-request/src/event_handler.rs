@@ -1,8 +1,6 @@
 use aws_lambda_events::event::s3::S3Event;
 use lambda_runtime::{tracing, Error, LambdaEvent};
 
-use crate::app::perform;
-
 use awsutils::bucket::RequestConfig;
 use awsutils::file::File;
 
@@ -28,7 +26,10 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    perform(config, &File::new(bucket.to_owned(), object.to_owned())).await?;
+    awsutils::bucket_request::perform(config, &File::new(bucket.to_owned(), object.to_owned()))
+        .await
+        .map_err(|e| Error::from(e.to_string()))?;
+
     Ok(())
 }
 

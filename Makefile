@@ -43,6 +43,7 @@ test: ## Run local tests with no AWS calls (make test)
 test-integration: setup ## Run integration tests, makes AWS calls (make test-integration s=stack p=profile)
 	@AWS_PROFILE=$(p) TEST_STACK=$(s) cargo test --test bucket -- --ignored --test-threads=1
 	@AWS_PROFILE=$(p) TEST_STACK=$(s) cargo test --test bucket_creator -- --ignored --test-threads=1
+	@AWS_PROFILE=$(p) TEST_STACK=$(s) cargo test --test bucket_request -- --ignored --test-threads=1
 
 .PHONY: upload
 upload: ## Upload a file to a bucket (make upload b=bucket f=file s=stack p=profile)

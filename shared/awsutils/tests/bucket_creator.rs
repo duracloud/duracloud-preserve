@@ -7,19 +7,15 @@
 //!   - Set TEST_STACK env var (defaults to "inttest")
 //!   - Run: make setup s=<stack> p=<profile>
 
+mod common;
+
 use aws_sdk_s3::types::BucketVersioningStatus;
 use awsutils::bucket::{
     Bucket, Name, RequestConfig, Type, bucket_exists, delete_bucket, empty_bucket,
 };
 use awsutils::bucket_creator::BucketCreator;
 use awsutils::config::test_config;
-
-fn timestamp() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
-}
+use common::timestamp;
 
 // --- Verification Helpers ---
 

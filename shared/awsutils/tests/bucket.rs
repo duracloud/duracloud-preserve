@@ -7,6 +7,8 @@
 //!   - Set TEST_STACK env var (defaults to "inttest")
 //!   - Run: make setup s=<stack> p=<profile>
 
+mod common;
+
 use aws_smithy_types::body::SdkBody;
 use awsutils::bucket::{
     Bucket, Name, Type, bucket_exists, delete_bucket, empty_bucket, get_stack_buckets,
@@ -14,13 +16,7 @@ use awsutils::bucket::{
 };
 use awsutils::bucket_creator::BucketCreator;
 use awsutils::config::test_config;
-
-fn timestamp() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
-}
+use common::timestamp;
 
 #[tokio::test]
 #[ignore]

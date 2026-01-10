@@ -1,8 +1,7 @@
 use aws_lambda_events::event::s3::S3Event;
 use lambda_runtime::{tracing, Error, LambdaEvent};
 
-use awsutils::bucket::RequestConfig;
-use awsutils::file::File;
+use awsutils::{config::RequestConfig, file::File};
 
 pub(crate) async fn function_handler(
     config: &RequestConfig,
@@ -37,7 +36,7 @@ pub(crate) async fn function_handler(
 mod tests {
     use super::*;
     use apputils::StackName;
-    use awsutils::test_client::TestClientBuilder;
+    use awsutils::{config::RequestConfig, test_client::TestClientBuilder};
     use lambda_runtime::{Context, LambdaEvent};
 
     #[tokio::test]

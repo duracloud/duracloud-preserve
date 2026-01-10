@@ -1,8 +1,8 @@
 use apputils::StackName;
 use aws_sdk_iam::Client as IamClient;
-use awsutils::bucket::{Bucket, Name, RequestConfig, Type, exists};
+use awsutils::bucket::{Bucket, Name, Type, exists};
 use awsutils::bucket_creator::BucketCreator;
-use awsutils::config::{default_config, request_config};
+use awsutils::config::{RequestConfig, default_config, request_config};
 use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]

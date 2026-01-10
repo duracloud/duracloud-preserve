@@ -1,4 +1,5 @@
-use crate::bucket::{self, RequestConfig, RequestError};
+use crate::bucket::{self, RequestError};
+use crate::config::RequestConfig;
 use crate::file::{self, File};
 use tracing;
 

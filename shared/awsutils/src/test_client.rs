@@ -119,8 +119,9 @@ pub fn replay_event(uri: &str, status: u16, body: impl Into<SdkBody>) -> ReplayE
 mod tests {
     use super::*;
     use crate::{
-        bucket::{Bucket, Name, RequestConfig, RequestError, Type},
+        bucket::{Bucket, Name, RequestError, Type},
         bucket_creator::BucketCreator,
+        config::RequestConfig,
     };
     use apputils::StackName;
 

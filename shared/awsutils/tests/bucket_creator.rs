@@ -10,9 +10,9 @@
 mod common;
 
 use aws_sdk_s3::types::BucketVersioningStatus;
-use awsutils::bucket::{Bucket, Name, RequestConfig, Type, delete, empty, exists};
+use awsutils::bucket::{Bucket, Name, Type, delete, empty, exists};
 use awsutils::bucket_creator::BucketCreator;
-use awsutils::config::test_config;
+use awsutils::config::{RequestConfig, test_config};
 use common::timestamp;
 
 // --- Verification Helpers ---

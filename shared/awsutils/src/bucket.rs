@@ -1,5 +1,6 @@
 use crate::{
     bucket_creator::BucketCreator,
+    config::RequestConfig,
     file::{File, download},
 };
 use apputils::{StackName, content_type};
@@ -381,16 +382,6 @@ impl Request {
             || name.ends_with(apputils::stack::MANAGED_SUFFIX)
             || name.ends_with(apputils::stack::REQUEST_SUFFIX)
     }
-}
-
-/// Configuration elements required for bucket creation and setup
-#[derive(Debug)]
-pub struct RequestConfig {
-    pub account_id: String,
-    pub debug_handler: bool,
-    pub replication_role_arn: String,
-    pub s3_client: aws_sdk_s3::Client,
-    pub stack: StackName,
 }
 
 /// Custom error type for bucket requests

@@ -1,7 +1,17 @@
 use apputils::StackName;
 
-use crate::bucket::{RequestConfig, RequestError};
+use crate::bucket::RequestError;
 use aws_config::{BehaviorVersion, SdkConfig};
+
+/// Configuration elements required for interacting with S3 in a stack context
+#[derive(Debug)]
+pub struct RequestConfig {
+    pub account_id: String,
+    pub debug_handler: bool,
+    pub replication_role_arn: String,
+    pub s3_client: aws_sdk_s3::Client,
+    pub stack: StackName,
+}
 
 /// Load default aws sdk config
 pub async fn default_config() -> SdkConfig {

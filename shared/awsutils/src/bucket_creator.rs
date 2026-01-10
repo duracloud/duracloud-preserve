@@ -11,9 +11,8 @@ use aws_sdk_s3::types::{
     TransitionStorageClass, VersioningConfiguration,
 };
 
-use crate::bucket::{
-    BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, RequestConfig, RequestError, Type,
-};
+use crate::bucket::{BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, RequestError, Type};
+use crate::config::RequestConfig;
 use crate::config::get_region;
 
 const BUCKET_TAG_ORIGIN_KEY: &str = "BucketOrigin";

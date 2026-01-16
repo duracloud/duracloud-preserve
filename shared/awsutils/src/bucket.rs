@@ -31,7 +31,7 @@ async fn create(config: &RequestConfig, bucket: &Bucket) -> Result<(), RequestEr
     let result = creator.setup().await;
     if let Err(e) = result {
         if let Err(rollback_err) = creator.rollback().await {
-            eprintln!("Rollback failed: {}", rollback_err);
+            tracing::error!("Rollback failed: {}", rollback_err);
         }
         return Err(e);
     }

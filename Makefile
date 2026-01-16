@@ -9,11 +9,19 @@ bucket: ## Perform action on a bucket (make bucket a=action b=bucket p=profile)
 bucket-request: ## Run bucket-request cli (make bucket-request f=file s=stack p=profile)
 	@AWS_PROFILE=$(p) cargo run -p duracloud -- bucket-request --stack=$(s) --names=$(f)
 
-build: ## Build with debug profile (make build)
-	@cargo lambda build
+build-cli: ## Build cli with debug profile (make build-cli)
+	@cargo build -p duracloud
 
-build-release: ## Build with release profile (make build-release)
-	@cargo lambda build --release --arm64 --output-format zip
+build-cli-release: ## Build cli with release profile (make build-cli-release)
+	@cargo build -p duracloud --release
+
+build-lambda: ## Build lambda functions with debug profile (make build-lambda)
+	@cargo lambda build --workspace --exclude duracloud
+	@rm -rf target/lambda/duracloud
+
+build-lambda-release: ## Build lambda functions with release profile (make build-lambda-release)
+	@cargo lambda build --workspace --exclude duracloud --release --arm64 --output-format zip
+	@rm -rf target/lambda/duracloud
 
 .PHONY: ci
 ci: test ## Run the ci checks locally

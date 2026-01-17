@@ -6,17 +6,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    config::RequestConfig,
-    file::{File, download},
+    bucket::RequestError,
+    file::{self, File},
 };
-
-pub async fn perform(config: &RequestConfig, manifest: &File) -> Result<(), InventoryError> {
-    tracing::info!("Retrieving manifest file from S3");
-    let manifest = InventoryManifest::fetch(&config.s3_client, manifest).await?;
-
-    dbg!(manifest);
-    todo!()
-}
 
 pub fn process(
     csv_file: impl Write,
@@ -37,6 +29,8 @@ pub enum InventoryError {
     Io(#[from] std::io::Error),
     #[error("JSON parse error: {0}")]
     Json(#[from] serde_json::Error),
+    #[error("{0}")]
+    Request(#[from] RequestError),
     #[error("S3 error: {0:#}")]
     S3(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
@@ -56,7 +50,7 @@ pub struct InventoryManifest {
 
 impl InventoryManifest {
     pub async fn fetch(client: &Client, file: &File) -> Result<Self, InventoryError> {
-        let response = download(client, file)
+        let response = file::download(client, file)
             .await
             .map_err(|e| InventoryError::S3(Box::new(e)))?;
         let bytes = response

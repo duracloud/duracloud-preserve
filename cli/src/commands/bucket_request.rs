@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{self, PathBuf};
 
 use apputils::{StackName, content_type};
 use awsutils::file::File;
@@ -18,7 +18,8 @@ pub struct Args {
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = StackName::new(&args.stack)?;
 
-    let content = std::fs::read_to_string(&args.names)?;
+    let names = path::absolute(&args.names)?;
+    let content = std::fs::read_to_string(&names)?;
     if content.lines().filter(|s| !s.is_empty()).count() == 0 {
         return Err("No bucket names found in file".into());
     }

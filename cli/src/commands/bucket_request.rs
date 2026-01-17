@@ -33,7 +33,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         .file_name()
         .ok_or("invalid filename")?
         .to_string_lossy();
-    let file = File::new(stack.request_bucket(), filename.to_string());
+    let file = File::new(stack.request_bucket(), filename.into_owned());
 
     awsutils::file::upload(
         &config.s3_client,

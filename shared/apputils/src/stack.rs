@@ -6,6 +6,7 @@ const REPLICATION_ROLE_SUFFIX: &str = "-s3-replication-role";
 const REPORTS_PREFIX: &str = "reports";
 
 /// Date context for stack related outputs (reports etc.)
+#[derive(Debug, Clone, Copy)]
 pub enum DateCtx {
     Latest,
     Today,

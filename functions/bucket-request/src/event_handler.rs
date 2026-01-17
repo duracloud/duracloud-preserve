@@ -25,7 +25,7 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    awsutils::bucket_request::perform(config, &File::new(bucket.to_owned(), object.to_owned()))
+    awsutils::bucket_request::perform(config, &File::new(bucket, object))
         .await
         .map_err(|e| Error::from(e.to_string()))?;
 

@@ -1,4 +1,4 @@
-use apputils::stack;
+use apputils::stack::{self, DateCtx};
 use aws_sdk_s3::primitives::ByteStream;
 use bytes::Bytes;
 
@@ -11,6 +11,7 @@ use crate::{
 pub async fn perform(
     config: &RequestConfig,
     manifest_file: &File,
+    date_ctx: DateCtx,
 ) -> Result<InventoryStats, InventoryError> {
     tracing::info!("Retrieving manifest file: {:?}", manifest_file);
     let manifest = InventoryManifest::fetch(&config.s3_client, manifest_file).await?;
@@ -48,8 +49,9 @@ pub async fn perform(
     let (csv, stats) = process(&path_strs)?;
 
     let csv_bytes = Bytes::from(csv);
+    let stats_bytes = Bytes::from(serde_json::to_vec(&stats)?);
 
-    for ctx in [stack::DateCtx::Latest, stack::DateCtx::Yesterday] {
+    for ctx in [stack::DateCtx::Latest, date_ctx] {
         let csv_path = config
             .stack
             .reports_manifest_path(&manifest.source_bucket, ctx);
@@ -61,6 +63,20 @@ pub async fn perform(
             &csv_file,
             ByteStream::from(csv_bytes.clone()),
             "text/csv",
+        )
+        .await?;
+
+        let stats_path = config
+            .stack
+            .metadata_stats_path(&manifest.source_bucket, ctx);
+        let stats_file = File::new(&bucket, stats_path);
+
+        tracing::info!("Uploading stats: {:?}", stats_file);
+        file::upload(
+            &config.s3_client,
+            &stats_file,
+            ByteStream::from(stats_bytes.clone()),
+            "application/json",
         )
         .await?;
     }

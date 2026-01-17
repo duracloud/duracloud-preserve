@@ -1,5 +1,6 @@
 use apputils::{StackName, stack::DateCtx};
 use awsutils::{file::File, process_inventory};
+use chrono::{Local, Utc};
 use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
@@ -17,16 +18,24 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = StackName::new(&args.stack)?;
     let bucket = stack.managed_bucket();
 
+    let local_date = Local::now().date_naive();
+    let utc_date = Utc::now().date_naive();
+
+    let date_ctx = if utc_date > local_date {
+        DateCtx::Yesterday
+    } else {
+        DateCtx::Today
+    };
+
     let object = format!(
         "manifests/{}/inventory/{}T01-00Z/manifest.json",
-        args.bucket,
-        DateCtx::Yesterday
+        args.bucket, date_ctx
     );
 
     let manifest = File::new(bucket, object);
 
     let config = awsutils::config::request_config(stack.clone()).await;
-    let stats = process_inventory::perform(&config, &manifest).await?;
+    let stats = process_inventory::perform(&config, &manifest, date_ctx).await?;
 
     println!(
         "Processed {} files, {} bytes total",

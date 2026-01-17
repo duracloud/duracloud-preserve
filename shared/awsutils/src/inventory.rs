@@ -5,11 +5,16 @@ use duckdb::{Connection, Error as DuckDBError};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::file::{File, download};
+use crate::{
+    config::RequestConfig,
+    file::{File, download},
+};
 
-pub async fn perform(_manifest: &File) -> Result<(), InventoryError> {
+pub async fn perform(config: &RequestConfig, manifest: &File) -> Result<(), InventoryError> {
     tracing::info!("Retrieving manifest file from S3");
+    let manifest = InventoryManifest::fetch(&config.s3_client, manifest).await?;
 
+    dbg!(manifest);
     todo!()
 }
 
@@ -32,12 +37,12 @@ pub enum InventoryError {
     Io(#[from] std::io::Error),
     #[error("JSON parse error: {0}")]
     Json(#[from] serde_json::Error),
-    #[error("S3 error: {0}")]
-    S3(String),
+    #[error("S3 error: {0:#}")]
+    S3(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
 /// Inventory Manifest
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InventoryManifest {
     pub source_bucket: String,
@@ -53,19 +58,19 @@ impl InventoryManifest {
     pub async fn fetch(client: &Client, file: &File) -> Result<Self, InventoryError> {
         let response = download(client, file)
             .await
-            .map_err(|e| InventoryError::S3(e.to_string()))?;
+            .map_err(|e| InventoryError::S3(Box::new(e)))?;
         let bytes = response
             .body
             .collect()
             .await
-            .map_err(|e| InventoryError::S3(e.to_string()))?
+            .map_err(|e| InventoryError::S3(Box::new(e)))?
             .into_bytes();
         Ok(serde_json::from_slice(&bytes)?)
     }
 }
 
 /// Inventory Manifest File Entry
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InventoryFileEntry {
     pub key: String,
@@ -75,7 +80,7 @@ pub struct InventoryFileEntry {
 }
 
 /// Inventory Stats
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct InventoryStats {
     pub total_files: usize,
     pub total_size: i64,
@@ -83,7 +88,7 @@ pub struct InventoryStats {
 }
 
 /// Inventory Stats by (top level) prefix
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct PrefixStats {
     pub prefix: String,
     pub total_files: u32,
@@ -91,6 +96,7 @@ pub struct PrefixStats {
 }
 
 /// Handles parquet format inventory files from S3
+#[derive(Debug)]
 pub struct InventoryProcessor {
     conn: Connection,
 }

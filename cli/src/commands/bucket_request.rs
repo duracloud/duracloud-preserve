@@ -7,11 +7,11 @@ use clap::Args as ClapArgs;
 #[derive(ClapArgs)]
 pub struct Args {
     /// Stack name (e.g., digipress-dev1)
-    #[arg(long)]
+    #[arg(short, long)]
     stack: String,
 
     /// Path to file containing bucket names (one per line)
-    #[arg(long)]
+    #[arg(short, long)]
     names: PathBuf,
 }
 

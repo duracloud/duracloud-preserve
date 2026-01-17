@@ -10,7 +10,7 @@ use rand::Rng;
 #[derive(ClapArgs)]
 pub struct Args {
     /// Stack name (e.g., digipress-dev1)
-    #[arg(long)]
+    #[arg(short, long)]
     stack: String,
 
     /// Delete resources after emptying (default: false)

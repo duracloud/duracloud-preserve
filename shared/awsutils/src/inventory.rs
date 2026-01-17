@@ -10,13 +10,12 @@ use crate::{
     file::{self, File},
 };
 
-pub fn process(
-    csv_file: impl Write,
-    parquet_files: &[&str],
-) -> Result<InventoryStats, InventoryError> {
-    InventoryProcessor::load(parquet_files)?
-        .write_csv(csv_file)?
-        .stats()
+pub fn process(parquet_files: &[&str]) -> Result<(Vec<u8>, InventoryStats), InventoryError> {
+    let processor = InventoryProcessor::load(parquet_files)?;
+    let mut csv = Vec::new();
+    processor.write_csv(&mut csv)?;
+    let stats = processor.stats()?;
+    Ok((csv, stats))
 }
 
 #[derive(Debug, Error)]

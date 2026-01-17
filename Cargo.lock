@@ -847,6 +847,7 @@ dependencies = [
  "aws-smithy-runtime",
  "aws-smithy-runtime-api",
  "aws-smithy-types",
+ "bytes",
  "csv",
  "duckdb",
  "futures",

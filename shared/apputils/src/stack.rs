@@ -6,16 +6,26 @@ const REPLICATION_ROLE_SUFFIX: &str = "-s3-replication-role";
 const REPORTS_PREFIX: &str = "reports";
 
 /// Date context for stack related outputs (reports etc.)
+#[derive(Debug, Clone, Copy)]
 pub enum DateCtx {
     Latest,
     Today,
+    Yesterday,
 }
 
 impl std::fmt::Display for DateCtx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use chrono::Utc;
         match self {
             DateCtx::Latest => write!(f, "latest"),
-            DateCtx::Today => todo!(),
+            DateCtx::Today => write!(f, "{}", Utc::now().format("%Y-%m-%d")),
+            DateCtx::Yesterday => {
+                write!(
+                    f,
+                    "{}",
+                    (Utc::now() - chrono::Duration::days(1)).format("%Y-%m-%d")
+                )
+            }
         }
     }
 }
@@ -45,25 +55,13 @@ impl Name {
     }
 
     /// Manifest json destination used for batch operations
-    pub fn metadata_manifest_path(&self, bucket: &str) -> String {
-        format!(
-            "{}/{}/{}/manifests/{}.json",
-            &self.as_str(),
-            METADATA_PREFIX,
-            DateCtx::Latest,
-            bucket
-        )
+    pub fn metadata_manifest_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
+        format!("{}/{}/manifests/{}.json", METADATA_PREFIX, date_ctx, bucket)
     }
 
     /// Stats json destination used for storage reports
     pub fn metadata_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!(
-            "{}/{}/{}/stats/{}.json",
-            &self.as_str(),
-            METADATA_PREFIX,
-            date_ctx,
-            bucket
-        )
+        format!("{}/{}/stats/{}.json", METADATA_PREFIX, date_ctx, bucket)
     }
 
     /// Replication role name for stack
@@ -73,24 +71,12 @@ impl Name {
 
     /// Manifest csv destination for user access
     pub fn reports_manifest_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!(
-            "{}/{}/{}/manifests/{}.csv",
-            &self.as_str(),
-            REPORTS_PREFIX,
-            date_ctx,
-            bucket
-        )
+        format!("{}/{}/manifests/{}.csv", REPORTS_PREFIX, date_ctx, bucket)
     }
 
     /// Storage html reports destination for user access
     pub fn reports_storage_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!(
-            "{}/{}/{}/storage/{}.html",
-            &self.as_str(),
-            REPORTS_PREFIX,
-            date_ctx,
-            bucket
-        )
+        format!("{}/{}/storage/{}.html", REPORTS_PREFIX, date_ctx, bucket)
     }
 
     /// Request bucket name for stack
@@ -136,8 +122,8 @@ mod tests {
     fn test_metadata_manifest_path() {
         let stack = Name::new("test-stack").unwrap();
         assert_eq!(
-            stack.metadata_manifest_path("my-bucket"),
-            "test-stack/metadata/latest/manifests/my-bucket.json"
+            stack.metadata_manifest_path("my-bucket", DateCtx::Latest),
+            "metadata/latest/manifests/my-bucket.json"
         );
     }
 
@@ -146,7 +132,7 @@ mod tests {
         let stack = Name::new("test-stack").unwrap();
         assert_eq!(
             stack.metadata_stats_path("my-bucket", DateCtx::Latest),
-            "test-stack/metadata/latest/stats/my-bucket.json"
+            "metadata/latest/stats/my-bucket.json"
         );
     }
 
@@ -155,7 +141,7 @@ mod tests {
         let stack = Name::new("test-stack").unwrap();
         assert_eq!(
             stack.reports_manifest_path("my-bucket", DateCtx::Latest),
-            "test-stack/reports/latest/manifests/my-bucket.csv"
+            "reports/latest/manifests/my-bucket.csv"
         );
     }
 
@@ -164,7 +150,7 @@ mod tests {
         let stack = Name::new("test-stack").unwrap();
         assert_eq!(
             stack.reports_storage_path("my-bucket", DateCtx::Latest),
-            "test-stack/reports/latest/storage/my-bucket.html"
+            "reports/latest/storage/my-bucket.html"
         );
     }
 }

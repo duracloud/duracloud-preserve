@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{self, PathBuf};
 
 use apputils::{StackName, content_type};
 use awsutils::file::File;
@@ -7,18 +7,19 @@ use clap::Args as ClapArgs;
 #[derive(ClapArgs)]
 pub struct Args {
     /// Stack name (e.g., digipress-dev1)
-    #[arg(long)]
+    #[arg(short, long)]
     stack: String,
 
     /// Path to file containing bucket names (one per line)
-    #[arg(long)]
+    #[arg(short, long)]
     names: PathBuf,
 }
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = StackName::new(&args.stack)?;
 
-    let content = std::fs::read_to_string(&args.names)?;
+    let names = path::absolute(&args.names)?;
+    let content = std::fs::read_to_string(&names)?;
     if content.lines().filter(|s| !s.is_empty()).count() == 0 {
         return Err("No bucket names found in file".into());
     }
@@ -32,7 +33,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         .file_name()
         .ok_or("invalid filename")?
         .to_string_lossy();
-    let file = File::new(stack.request_bucket(), filename.to_string());
+    let file = File::new(stack.request_bucket(), filename.into_owned());
 
     awsutils::file::upload(
         &config.s3_client,

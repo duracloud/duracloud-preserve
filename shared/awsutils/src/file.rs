@@ -64,14 +64,18 @@ pub async fn upload(
 }
 
 /// Basic type wrapper for an S3 "file" (bucket + key)
+#[derive(Debug)]
 pub struct File {
     bucket: String,
     object: String,
 }
 
 impl File {
-    pub fn new(bucket: String, object: String) -> Self {
-        Self { bucket, object }
+    pub fn new(bucket: impl Into<String>, object: impl Into<String>) -> Self {
+        Self {
+            bucket: bucket.into(),
+            object: object.into(),
+        }
     }
 
     pub fn bucket(&self) -> &str {

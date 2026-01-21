@@ -5,4 +5,5 @@ pub mod bucket_request;
 pub mod config;
 pub mod file;
 pub mod inventory;
+pub mod process_inventory;
 pub mod test_client;

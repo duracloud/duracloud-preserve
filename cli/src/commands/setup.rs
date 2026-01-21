@@ -8,7 +8,7 @@ use clap::Args as ClapArgs;
 #[derive(ClapArgs)]
 pub struct Args {
     /// Stack name (e.g., digipress-dev1)
-    #[arg(long)]
+    #[arg(short, long)]
     stack: String,
 }
 
@@ -46,6 +46,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Retrieves or creates the stack replication role
 async fn create_or_get_replication_role(
     client: &IamClient,
     stack: &StackName,
@@ -146,6 +147,7 @@ async fn create_or_get_replication_role(
     Ok(role_arn)
 }
 
+/// Applies the managed bucket policy
 async fn set_managed_bucket_policy(
     config: &RequestConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -154,16 +156,15 @@ async fn set_managed_bucket_policy(
     let policy = serde_json::json!({
         "Version": "2012-10-17",
         "Statement": [{
-            "Sid": "AllowS3InventoryDelivery",
+            "Sid": "AllowS3DeliveryFromStack",
             "Effect": "Allow",
             "Principal": {
-                "Service": "s3.amazonaws.com"
+                "Service": ["s3.amazonaws.com", "logging.s3.amazonaws.com"]
             },
             "Action": "s3:PutObject",
             "Resource": format!("arn:aws:s3:::{}/*", managed_bucket),
             "Condition": {
                 "StringEquals": {
-                    "s3:x-amz-acl": "bucket-owner-full-control",
                     "aws:SourceAccount": &config.account_id
                 },
                 "ArnLike": {

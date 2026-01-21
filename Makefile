@@ -37,6 +37,10 @@ help:
 invoke: ## Invoke lambda function locally (make invoke f=function e=event)
 	@cargo lambda invoke -p $(f) --data-file $(e)
 
+.PHONY: process-inventory
+process-inventory: ## Run process-inventory cli (make process-inventory b=bucket s=stack p=profile)
+	@AWS_PROFILE=$(p) cargo run -p duracloud -- process-inventory --stack=$(s) --bucket=$(b)
+
 .PHONY: reset
 reset: ## Reset (empty) stack buckets (make reset s=stack p=profile)
 	@AWS_PROFILE=$(p) cargo run -p duracloud -- reset --stack=$(s)

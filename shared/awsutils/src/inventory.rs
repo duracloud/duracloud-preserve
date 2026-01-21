@@ -1,57 +1,41 @@
 use std::io::Write;
 
 use aws_sdk_s3::Client;
-use percent_encoding::percent_decode_str;
-use polars::{
-    error::PolarsError,
-    frame::DataFrame,
-    prelude::{
-        ChunkApply, CsvWriter, IntoLazy, LazyFrame, PlPath, SerWriter, StringChunked, col, lit,
-    },
-    series::IntoSeries,
-};
-use polars_arrow::buffer::Buffer;
+use duckdb::{Connection, Error as DuckDBError};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    config::RequestConfig,
-    file::{File, download},
+    bucket::RequestError,
+    file::{self, File},
 };
 
-const INVENTORY_OBJECT_KEY: &str = "key";
-const INVENTORY_SIZE_KEY: &str = "size";
-
-pub async fn perform(_config: &RequestConfig, _manifest: &File) -> Result<(), InventoryError> {
-    tracing::info!("Retrieving manifest file from S3");
-
-    todo!()
-}
-
-pub fn process(
-    mut csv_file: impl Write,
-    parquet_files: &[&str],
-) -> Result<InventoryStats, InventoryError> {
-    InventoryProcessor::load(parquet_files)?
-        .decode_keys()?
-        .write_csv(&mut csv_file)?
-        .stats()
+pub fn process(parquet_files: &[&str]) -> Result<(Vec<u8>, InventoryStats), InventoryError> {
+    let processor = InventoryProcessor::load(parquet_files)?;
+    let mut csv = Vec::new();
+    processor.write_csv(&mut csv)?;
+    let stats = processor.stats()?;
+    Ok((csv, stats))
 }
 
 #[derive(Debug, Error)]
 pub enum InventoryError {
+    #[error("CSV error: {0}")]
+    Csv(#[from] csv::Error),
+    #[error("DuckDB error: {0}")]
+    DuckDB(#[from] DuckDBError),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("Polars error: {0}")]
-    Polars(#[from] PolarsError),
-    #[error("S3 error: {0}")]
-    S3(String),
     #[error("JSON parse error: {0}")]
     Json(#[from] serde_json::Error),
+    #[error("{0}")]
+    Request(#[from] RequestError),
+    #[error("S3 error: {0:#}")]
+    S3(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
 /// Inventory Manifest
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InventoryManifest {
     pub source_bucket: String,
@@ -65,21 +49,21 @@ pub struct InventoryManifest {
 
 impl InventoryManifest {
     pub async fn fetch(client: &Client, file: &File) -> Result<Self, InventoryError> {
-        let response = download(client, file)
+        let response = file::download(client, file)
             .await
-            .map_err(|e| InventoryError::S3(e.to_string()))?;
+            .map_err(|e| InventoryError::S3(Box::new(e)))?;
         let bytes = response
             .body
             .collect()
             .await
-            .map_err(|e| InventoryError::S3(e.to_string()))?
+            .map_err(|e| InventoryError::S3(Box::new(e)))?
             .into_bytes();
         Ok(serde_json::from_slice(&bytes)?)
     }
 }
 
 /// Inventory Manifest File Entry
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InventoryFileEntry {
     pub key: String,
@@ -89,7 +73,7 @@ pub struct InventoryFileEntry {
 }
 
 /// Inventory Stats
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct InventoryStats {
     pub total_files: usize,
     pub total_size: i64,
@@ -97,7 +81,7 @@ pub struct InventoryStats {
 }
 
 /// Inventory Stats by (top level) prefix
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct PrefixStats {
     pub prefix: String,
     pub total_files: u32,
@@ -105,32 +89,78 @@ pub struct PrefixStats {
 }
 
 /// Handles parquet format inventory files from S3
+#[derive(Debug)]
 pub struct InventoryProcessor {
-    df: DataFrame,
+    conn: Connection,
 }
 
 impl InventoryProcessor {
     pub fn load(parquet_files: &[&str]) -> Result<Self, InventoryError> {
-        let paths: Buffer<PlPath> = parquet_files.iter().map(|f| PlPath::from_str(f)).collect();
+        let conn = Connection::open_in_memory()?;
 
-        let df = LazyFrame::scan_parquet_files(paths, Default::default())?
-            .filter(col(INVENTORY_OBJECT_KEY).str().ends_with(lit("/")).not())
-            .collect()?;
+        let files_list = parquet_files
+            .iter()
+            .map(|f| format!("'{}'", f))
+            .collect::<Vec<_>>()
+            .join(", ");
 
-        Ok(Self { df })
+        conn.execute_batch(&format!(
+            r#"
+            CREATE TABLE inventory AS
+            SELECT
+                bucket,
+                url_decode(key) as key,
+                size,
+                last_modified_date,
+                storage_class,
+                replication_status,
+                'https://' || bucket || '.s3.amazonaws.com/' || key as url
+            FROM read_parquet([{files_list}])
+            WHERE NOT key LIKE '%/'
+            "#
+        ))?;
+
+        Ok(Self { conn })
     }
 
-    pub fn decode_keys(mut self) -> Result<Self, InventoryError> {
-        let key_col = self.df.column(INVENTORY_OBJECT_KEY)?.str()?;
-        let decoded: StringChunked =
-            key_col.apply(|opt_val| opt_val.map(|v| percent_decode_str(v).decode_utf8_lossy()));
-        self.df
-            .replace(INVENTORY_OBJECT_KEY, decoded.into_series())?;
-        Ok(self)
-    }
+    pub fn write_csv(&self, writer: impl Write) -> Result<&Self, InventoryError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT bucket, key, size, last_modified_date::VARCHAR, storage_class, replication_status, url FROM inventory",
+        )?;
+        let mut rows = stmt.query([])?;
 
-    pub fn write_csv(&mut self, writer: impl Write) -> Result<&mut Self, InventoryError> {
-        CsvWriter::new(writer).finish(&mut self.df)?;
+        let mut csv_writer = csv::Writer::from_writer(writer);
+        csv_writer.write_record([
+            "bucket",
+            "key",
+            "size",
+            "last_modified_date",
+            "storage_class",
+            "replication_status",
+            "url",
+        ])?;
+
+        while let Some(row) = rows.next()? {
+            let bucket: String = row.get(0)?;
+            let key: String = row.get(1)?;
+            let size: i64 = row.get(2)?;
+            let last_modified: String = row.get::<_, String>(3)?;
+            let storage_class: String = row.get(4)?;
+            let replication_status: String = row.get(5)?;
+            let url: String = row.get(6)?;
+
+            csv_writer.write_record([
+                bucket,
+                key,
+                size.to_string(),
+                last_modified,
+                storage_class,
+                replication_status,
+                url,
+            ])?;
+        }
+
+        csv_writer.flush()?;
         Ok(self)
     }
 
@@ -145,53 +175,40 @@ impl InventoryProcessor {
     }
 
     fn totals(&self) -> Result<(usize, i64), InventoryError> {
-        let total_files = self.df.height();
-        let total_size = self
-            .df
-            .column(INVENTORY_SIZE_KEY)?
-            .as_materialized_series()
-            .sum::<i64>()
-            .unwrap_or(0);
-        Ok((total_files, total_size))
+        let mut stmt = self
+            .conn
+            .prepare("SELECT COUNT(*), COALESCE(SUM(size), 0) FROM inventory")?;
+        let mut rows = stmt.query([])?;
+        let row = rows.next()?.expect("COUNT always returns a row");
+        let total_files: i64 = row.get(0)?;
+        let total_size: i64 = row.get(1)?;
+        Ok((total_files as usize, total_size))
     }
 
     fn prefix_stats(&self) -> Result<Vec<PrefixStats>, InventoryError> {
-        use polars::prelude::when;
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                CASE WHEN key LIKE '%/%'
+                     THEN split_part(key, '/', 1)
+                     ELSE '' END as prefix,
+                COUNT(*)::INTEGER as total_files,
+                COALESCE(SUM(size), 0) as total_size
+            FROM inventory
+            GROUP BY prefix
+            "#,
+        )?;
 
-        let by_prefix_df = self
-            .df
-            .clone()
-            .lazy()
-            .with_column(
-                when(col(INVENTORY_OBJECT_KEY).str().contains(lit("/"), false))
-                    .then(
-                        col(INVENTORY_OBJECT_KEY)
-                            .str()
-                            .split(lit("/"))
-                            .list()
-                            .get(lit(0), false),
-                    )
-                    .otherwise(lit(""))
-                    .alias("prefix"),
-            )
-            .group_by([col("prefix")])
-            .agg([
-                col(INVENTORY_OBJECT_KEY).count().alias("total_files"),
-                col(INVENTORY_SIZE_KEY).sum().alias("total_size"),
-            ])
-            .collect()?;
+        let mut rows = stmt.query([])?;
+        let mut by_prefix = Vec::new();
 
-        let prefixes = by_prefix_df.column("prefix")?.str()?;
-        let files = by_prefix_df.column("total_files")?.u32()?;
-        let sizes = by_prefix_df.column("total_size")?.i64()?;
-
-        let by_prefix: Vec<PrefixStats> = (0..by_prefix_df.height())
-            .map(|i| PrefixStats {
-                prefix: prefixes.get(i).unwrap_or("").to_string(),
-                total_files: files.get(i).unwrap_or(0),
-                total_size: sizes.get(i).unwrap_or(0),
-            })
-            .collect();
+        while let Some(row) = rows.next()? {
+            by_prefix.push(PrefixStats {
+                prefix: row.get(0)?,
+                total_files: row.get::<_, i32>(1)? as u32,
+                total_size: row.get(2)?,
+            });
+        }
 
         Ok(by_prefix)
     }
@@ -200,18 +217,39 @@ impl InventoryProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use polars::prelude::{IntoColumn, NamedFrom, Series};
 
-    fn create_test_df(keys: &[&str], sizes: &[i64]) -> DataFrame {
-        let key_col = Series::new("key".into(), keys);
-        let size_col = Series::new("size".into(), sizes);
-        DataFrame::new(vec![key_col.into_column(), size_col.into_column()]).unwrap()
-    }
+    fn create_test_processor(rows: &[(&str, &str, i64)]) -> InventoryProcessor {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            r#"
+            CREATE TABLE inventory (
+                bucket VARCHAR,
+                key VARCHAR,
+                size BIGINT,
+                last_modified_date TIMESTAMP WITH TIME ZONE,
+                storage_class VARCHAR,
+                replication_status VARCHAR,
+                url VARCHAR
+            )
+            "#,
+        )
+        .unwrap();
 
-    fn create_test_processor(keys: &[&str], sizes: &[i64]) -> InventoryProcessor {
-        InventoryProcessor {
-            df: create_test_df(keys, sizes),
+        let mut stmt = conn
+            .prepare(
+                r#"
+                INSERT INTO inventory (bucket, key, size, last_modified_date, storage_class, replication_status, url)
+                VALUES (?, ?, ?, '2025-01-01 00:00:00+00', 'STANDARD', 'COMPLETED', 'https://' || ? || '.s3.amazonaws.com/' || ?)
+                "#,
+            )
+            .unwrap();
+
+        for (bucket, key, size) in rows {
+            stmt.execute(duckdb::params![bucket, key, size, bucket, key])
+                .unwrap();
         }
+
+        InventoryProcessor { conn }
     }
 
     #[test]
@@ -230,18 +268,52 @@ mod tests {
     #[test]
     fn test_load_valid_parquet() {
         let processor = InventoryProcessor::load(&["../../files/example.parquet"]).unwrap();
-        assert!(processor.df.height() > 0);
+        let (total_files, _) = processor.totals().unwrap();
+        assert!(total_files > 0);
     }
 
     #[test]
     fn test_load_filters_directories() {
-        // example.parquet should not contain directory entries (keys ending with /)
         let processor = InventoryProcessor::load(&["../../files/example.parquet"]).unwrap();
-        let keys = processor.df.column("key").unwrap().str().unwrap();
-        for i in 0..keys.len() {
-            let key = keys.get(i).unwrap();
+        let mut stmt = processor.conn.prepare("SELECT key FROM inventory").unwrap();
+        let mut rows = stmt.query([]).unwrap();
+
+        while let Some(row) = rows.next().unwrap() {
+            let key: String = row.get(0).unwrap();
             assert!(!key.ends_with('/'), "Found directory entry: {}", key);
         }
+    }
+
+    #[test]
+    fn test_load_creates_url_column() {
+        let processor = InventoryProcessor::load(&["../../files/example.parquet"]).unwrap();
+        let mut stmt = processor
+            .conn
+            .prepare("SELECT bucket, key, url FROM inventory LIMIT 1")
+            .unwrap();
+        let mut rows = stmt.query([]).unwrap();
+        let row = rows.next().unwrap().unwrap();
+
+        let bucket: String = row.get(0).unwrap();
+        let _key: String = row.get(1).unwrap();
+        let url: String = row.get(2).unwrap();
+
+        // URL should use original encoded key, not decoded
+        assert!(url.starts_with(&format!("https://{}.s3.amazonaws.com/", bucket)));
+    }
+
+    #[test]
+    fn test_load_decodes_keys() {
+        let processor = InventoryProcessor::load(&["../../files/example.parquet"]).unwrap();
+        let mut stmt = processor
+            .conn
+            .prepare("SELECT key FROM inventory WHERE key LIKE '%report%'")
+            .unwrap();
+        let mut rows = stmt.query([]).unwrap();
+        let row = rows.next().unwrap().unwrap();
+        let key: String = row.get(0).unwrap();
+        // The key "documents/my%20report.pdf" should be decoded to "documents/my report.pdf"
+        assert_eq!(key, "documents/my report.pdf");
     }
 
     #[test]
@@ -250,78 +322,88 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // decode_keys tests
+    // url_decode tests
     #[test]
-    fn test_decode_keys_space() {
-        let processor = create_test_processor(&["my%20file.txt"], &[100]);
-        let decoded = processor.decode_keys().unwrap();
-        let keys = decoded.df.column("key").unwrap().str().unwrap();
-        assert_eq!(keys.get(0).unwrap(), "my file.txt");
+    fn test_url_decode_space() {
+        let conn = Connection::open_in_memory().unwrap();
+        let result: String = conn
+            .query_row("SELECT url_decode('my%20file.txt')", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(result, "my file.txt");
     }
 
     #[test]
-    fn test_decode_keys_slash() {
-        let processor = create_test_processor(&["path%2Fto%2Ffile.txt"], &[100]);
-        let decoded = processor.decode_keys().unwrap();
-        let keys = decoded.df.column("key").unwrap().str().unwrap();
-        assert_eq!(keys.get(0).unwrap(), "path/to/file.txt");
+    fn test_url_decode_slash() {
+        let conn = Connection::open_in_memory().unwrap();
+        let result: String = conn
+            .query_row("SELECT url_decode('path%2Fto%2Ffile.txt')", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(result, "path/to/file.txt");
     }
 
     #[test]
-    fn test_decode_keys_already_decoded() {
-        let processor = create_test_processor(&["normal/path/file.txt"], &[100]);
-        let decoded = processor.decode_keys().unwrap();
-        let keys = decoded.df.column("key").unwrap().str().unwrap();
-        assert_eq!(keys.get(0).unwrap(), "normal/path/file.txt");
+    fn test_url_decode_already_decoded() {
+        let conn = Connection::open_in_memory().unwrap();
+        let result: String = conn
+            .query_row("SELECT url_decode('normal/path/file.txt')", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(result, "normal/path/file.txt");
     }
 
     #[test]
-    fn test_decode_keys_mixed() {
-        let processor = create_test_processor(
-            &["normal.txt", "with%20space.txt", "path%2Fslash.txt"],
-            &[100, 200, 300],
-        );
-        let decoded = processor.decode_keys().unwrap();
-        let keys = decoded.df.column("key").unwrap().str().unwrap();
-        assert_eq!(keys.get(0).unwrap(), "normal.txt");
-        assert_eq!(keys.get(1).unwrap(), "with space.txt");
-        assert_eq!(keys.get(2).unwrap(), "path/slash.txt");
-    }
-
-    #[test]
-    fn test_decode_keys_special_chars() {
-        let processor = create_test_processor(&["file%26name%3Dvalue.txt"], &[100]);
-        let decoded = processor.decode_keys().unwrap();
-        let keys = decoded.df.column("key").unwrap().str().unwrap();
-        assert_eq!(keys.get(0).unwrap(), "file&name=value.txt");
+    fn test_url_decode_special_chars() {
+        let conn = Connection::open_in_memory().unwrap();
+        let result: String = conn
+            .query_row("SELECT url_decode('file%26name%3Dvalue.txt')", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(result, "file&name=value.txt");
     }
 
     // write_csv tests
     #[test]
     fn test_write_csv_output() {
-        let mut processor = create_test_processor(&["file1.txt", "file2.txt"], &[100, 200]);
+        let processor = create_test_processor(&[
+            ("mybucket", "file1.txt", 100),
+            ("mybucket", "file2.txt", 200),
+        ]);
         let mut output = Vec::new();
         processor.write_csv(&mut output).unwrap();
         let csv = String::from_utf8(output).unwrap();
-        assert!(csv.contains("key,size"));
-        assert!(csv.contains("file1.txt,100"));
-        assert!(csv.contains("file2.txt,200"));
+
+        assert!(
+            csv.contains("bucket,key,size,last_modified_date,storage_class,replication_status,url")
+        );
+        assert!(csv.contains("mybucket,file1.txt,100,"));
+        assert!(csv.contains("mybucket,file2.txt,200,"));
+        assert!(csv.contains("https://mybucket.s3.amazonaws.com/file1.txt"));
     }
 
     #[test]
     fn test_write_csv_empty() {
-        let mut processor = create_test_processor(&[], &[]);
+        let processor = create_test_processor(&[]);
         let mut output = Vec::new();
         processor.write_csv(&mut output).unwrap();
         let csv = String::from_utf8(output).unwrap();
-        assert!(csv.contains("key,size"));
+        assert!(
+            csv.contains("bucket,key,size,last_modified_date,storage_class,replication_status,url")
+        );
         assert_eq!(csv.lines().count(), 1); // header only
     }
 
     // totals tests
     #[test]
     fn test_totals_counts_rows() {
-        let processor = create_test_processor(&["a.txt", "b.txt", "c.txt"], &[100, 200, 300]);
+        let processor = create_test_processor(&[
+            ("bucket", "a.txt", 100),
+            ("bucket", "b.txt", 200),
+            ("bucket", "c.txt", 300),
+        ]);
         let (total_files, total_size) = processor.totals().unwrap();
         assert_eq!(total_files, 3);
         assert_eq!(total_size, 600);
@@ -329,7 +411,7 @@ mod tests {
 
     #[test]
     fn test_totals_empty() {
-        let processor = create_test_processor(&[], &[]);
+        let processor = create_test_processor(&[]);
         let (total_files, total_size) = processor.totals().unwrap();
         assert_eq!(total_files, 0);
         assert_eq!(total_size, 0);
@@ -337,10 +419,26 @@ mod tests {
 
     #[test]
     fn test_totals_with_nulls() {
-        let key_col = Series::new("key".into(), &["a.txt", "b.txt"]);
-        let size_col = Series::new("size".into(), &[None::<i64>, None::<i64>]);
-        let df = DataFrame::new(vec![key_col.into_column(), size_col.into_column()]).unwrap();
-        let processor = InventoryProcessor { df };
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            r#"
+            CREATE TABLE inventory (
+                bucket VARCHAR,
+                key VARCHAR,
+                size BIGINT,
+                last_modified_date TIMESTAMP WITH TIME ZONE,
+                storage_class VARCHAR,
+                replication_status VARCHAR,
+                url VARCHAR
+            )
+            "#,
+        )
+        .unwrap();
+        conn.execute_batch(
+            "INSERT INTO inventory (key, size) VALUES ('a.txt', NULL), ('b.txt', NULL)",
+        )
+        .unwrap();
+        let processor = InventoryProcessor { conn };
         let (total_files, total_size) = processor.totals().unwrap();
         assert_eq!(total_files, 2);
         assert_eq!(total_size, 0);
@@ -349,16 +447,13 @@ mod tests {
     // prefix_stats tests
     #[test]
     fn test_prefix_stats_groups_correctly() {
-        let processor = create_test_processor(
-            &[
-                "images/a.jpg",
-                "images/b.jpg",
-                "docs/report.pdf",
-                "root.txt",
-                "another_root.txt",
-            ],
-            &[100, 200, 300, 50, 25],
-        );
+        let processor = create_test_processor(&[
+            ("bucket", "images/a.jpg", 100),
+            ("bucket", "images/b.jpg", 200),
+            ("bucket", "docs/report.pdf", 300),
+            ("bucket", "root.txt", 50),
+            ("bucket", "another_root.txt", 25),
+        ]);
         let stats = processor.prefix_stats().unwrap();
 
         let images = stats.iter().find(|s| s.prefix == "images").unwrap();
@@ -369,7 +464,6 @@ mod tests {
         assert_eq!(docs.total_files, 1);
         assert_eq!(docs.total_size, 300);
 
-        // Root-level files grouped under empty prefix
         let root = stats.iter().find(|s| s.prefix.is_empty()).unwrap();
         assert_eq!(root.total_files, 2);
         assert_eq!(root.total_size, 75);
@@ -377,18 +471,15 @@ mod tests {
 
     #[test]
     fn test_prefix_stats_empty() {
-        let processor = create_test_processor(&[], &[]);
+        let processor = create_test_processor(&[]);
         let stats = processor.prefix_stats().unwrap();
         assert!(stats.is_empty());
     }
 
     // integration test
-    // TODO: this is tightly coupled to the fixture, may want to generalize
     #[test]
     fn test_full_pipeline() {
         let stats = InventoryProcessor::load(&["../../files/example.parquet"])
-            .unwrap()
-            .decode_keys()
             .unwrap()
             .stats()
             .unwrap();
@@ -398,7 +489,6 @@ mod tests {
 
         let find_prefix = |name: &str| stats.by_prefix.iter().find(|p| p.prefix == name);
 
-        // Root-level files grouped under empty prefix
         let root = find_prefix("").expect("root prefix should exist");
         assert_eq!(root.total_files, 6);
         assert_eq!(root.total_size, 1355662);
@@ -414,5 +504,31 @@ mod tests {
         let archive = find_prefix("archive").expect("archive prefix should exist");
         assert_eq!(archive.total_files, 1);
         assert_eq!(archive.total_size, 500000);
+    }
+
+    #[test]
+    fn test_full_pipeline_csv_output() {
+        let mut output = Vec::new();
+        let _stats = InventoryProcessor::load(&["../../files/example.parquet"])
+            .unwrap()
+            .write_csv(&mut output)
+            .unwrap()
+            .stats()
+            .unwrap();
+
+        let csv = String::from_utf8(output).unwrap();
+        let lines: Vec<&str> = csv.lines().collect();
+
+        // Header + 13 data rows
+        assert_eq!(lines.len(), 14);
+
+        // Check header has all columns
+        assert_eq!(
+            lines[0],
+            "bucket,key,size,last_modified_date,storage_class,replication_status,url"
+        );
+
+        // Check a data row has URL
+        assert!(csv.contains("https://test-stack-private.s3.amazonaws.com/"));
     }
 }

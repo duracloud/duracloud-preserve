@@ -10,7 +10,7 @@ use rand::Rng;
 #[derive(ClapArgs)]
 pub struct Args {
     /// Stack name (e.g., digipress-dev1)
-    #[arg(long)]
+    #[arg(short, long)]
     stack: String,
 
     /// Delete resources after emptying (default: false)
@@ -94,6 +94,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Delete the stack replication role
 async fn delete_replication_role(
     client: &IamClient,
     stack: &StackName,
@@ -136,6 +137,7 @@ async fn delete_replication_role(
     Ok(())
 }
 
+/// Generate confirmation code for user input
 fn generate_confirmation_code() -> String {
     const CHARSET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let mut rng = rand::rng();

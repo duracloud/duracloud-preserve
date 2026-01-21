@@ -33,6 +33,11 @@ ci: test ## Run the ci checks locally
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'
 
+.PHONY: event
+event: ## Generate event file from sample (make event f=function s=stack)
+	@mkdir -p payloads
+	@sed 's/test-stack/$(s)/g' functions/$(f)/events/sample.json > payloads/$(f).json
+
 .PHONY: invoke
 invoke: ## Invoke lambda function locally (make invoke f=function e=event)
 	@cargo lambda invoke -p $(f) --data-file $(e)

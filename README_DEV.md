@@ -76,9 +76,8 @@ make watch f=bucket-request s=digipres-dev1 p=default
 # Upload the sample buckets.txt (f) to the request bucket (b)
 make upload b=bucket-request f=files/buckets.txt s=digipres-dev1 p=default
 
-# Copy then edit the sample event payload so that bucket name uses the s= prefix
-mkdir payloads
-cp bucket-request/events/sample.json payloads/bucket-request.json # Update the bucket name!
+# Generate an event payload from the sample template
+make event f=bucket-request s=digipres-dev1
 
 # Send the event payload to the locally running function
 make invoke f=bucket-request e=payloads/bucket-request.json

@@ -7,7 +7,7 @@
   "fileSchema": "message s3.inventory {  required binary bucket (STRING);  required binary key (STRING);  optional int64 size;  optional int64 last_modified_date (TIMESTAMP(MILLIS,true));  optional binary storage_class (STRING);  optional binary replication_status (STRING);}",
   "files": [
     {
-      "key": "manifests/test-stack-private/inventory/example.parquet",
+      "key": "example.parquet",
       "size": 1961,
       "MD5checksum": "ccfad504bdd9a835cf04e781b7a7ed16"
     }

@@ -258,10 +258,7 @@ mod tests {
         let manifest: InventoryManifest = serde_json::from_str(json).unwrap();
         assert_eq!(manifest.source_bucket, "test-stack-private");
         assert_eq!(manifest.files.len(), 1);
-        assert_eq!(
-            manifest.files[0].key,
-            "manifests/test-stack-private/inventory/example.parquet"
-        );
+        assert_eq!(manifest.files[0].key, "example.parquet");
     }
 
     // load tests

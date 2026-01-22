@@ -1,3 +1,9 @@
 [workspace]
 resolver = "3"
-members = ["cli", "functions/bucket-request", "shared/apputils", "shared/awsutils"]
+members = [
+    "cli",
+    "functions/bucket-request",
+    "functions/process-inventory",
+    "shared/apputils",
+    "shared/awsutils"
+]

@@ -42,6 +42,20 @@ event: ## Generate event file from sample (make event f=function s=stack)
 invoke: ## Invoke lambda function locally (make invoke f=function e=event)
 	@cargo lambda invoke -p $(f) --data-file $(e)
 
+.PHONY: invoke-bucket-request
+invoke-bucket-request: ## Invoke bucket request function locally (make invoke-bucket-request s=stack p=profile)
+	@$(MAKE) event f=bucket-request s=$(s)
+	@$(MAKE) upload b=bucket-request f=files/buckets.txt s=$(s) p=$(p)
+	@cargo lambda invoke -p bucket-request --data-file payloads/bucket-request.json
+
+.PHONY: invoke-process-inventory
+invoke-process-inventory: ## Invoke process inventory function locally (make invoke-process-inventory s=stack p=profile)
+	@$(MAKE) event f=process-inventory s=$(s)
+	@sed 's/test-stack/$(s)/g' files/manifest.json > payloads/manifest.json
+	@$(MAKE) upload b=managed f=files/example.parquet s=$(s) p=$(p)
+	@$(MAKE) upload b=managed f=payloads/manifest.json s=$(s) p=$(p)
+	@cargo lambda invoke -p process-inventory --data-file payloads/process-inventory.json
+
 .PHONY: process-inventory
 process-inventory: ## Run process-inventory cli (make process-inventory b=bucket s=stack p=profile)
 	@AWS_PROFILE=$(p) cargo run -p duracloud -- process-inventory --stack=$(s) --bucket=$(b)

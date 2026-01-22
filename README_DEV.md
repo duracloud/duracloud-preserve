@@ -72,15 +72,8 @@ payload:
 ```bash
 # Run the function locally, waiting for events
 make watch f=bucket-request s=digipres-dev1 p=default
-
-# Upload the sample buckets.txt (f) to the request bucket (b)
-make upload b=bucket-request f=files/buckets.txt s=digipres-dev1 p=default
-
-# Generate an event payload from the sample template
-make event f=bucket-request s=digipres-dev1
-
-# Send the event payload to the locally running function
-make invoke f=bucket-request e=payloads/bucket-request.json
+# Send an event payload to the locally running function
+make invoke-bucket-request s=digipres-dev1 p=default
 ```
 
 #### Output
@@ -98,7 +91,55 @@ Error variations:
 - Wonky names (too long, invalid characters)
 - Too many names (max of five names per request, extras are discarded)
 
-#### Cleanup
+### process-inventory
+
+This function processes inventory `manifest.json` files. It generates
+and uploads a consolidated (single) CSV file with the https url included
+as a column. It also uses the inventory data to generates stats:
+
+- Total number of files and total storage used
+- The same, but grouped by top level prefix (folder)
+
+The former is provided by CloudWatch metrics, but the latter is not. The
+inventory is used to provide a single path for gathering usage data.
+
+The stats are uploaded as a json file to the managed bucket.
+
+#### CLI
+
+The cli task can be used to process inventory so long as there is
+inventory available:
+
+```bash
+make process-inventory b=digipress-dev1-private s=digipress-dev1 p=default
+```
+
+#### Locally running function
+
+This is close to exactly what runs when deployed to AWS, but we provide the
+payload:
+
+```bash
+# Run the function locally, waiting for events
+make watch f=process-inventory s=digipres-dev1 p=default
+# Send an event payload to the locally running function
+make invoke-process-inventory s=digipres-dev1 p=default
+```
+
+Note: the sample parquet data refers to a `test-stack` bucket, which will appear
+in the uploaded CSV file. This can be ignored as real inventory won't contain this
+contradiction (between the source bucket and bucket name in the inventory data).
+This doesn't apply to cli usage as it processes real inventory manifests and
+parquet files.
+
+#### Output
+
+- metadata/latest/stats/$bucket.csv
+- metadata/YYYY-MM-DD/stats/$bucket.csv
+- reports/latest/manifests/$bucket.csv
+- reports/YYYY-MM-DD/manifests/$bucket.csv
+
+## Cleanup
 
 ```bash
 # reset: empties the buckets but does not delete them

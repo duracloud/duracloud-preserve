@@ -24,13 +24,13 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let manifest = File::new(config.stack.managed_bucket(), object);
-
     let stats = process_inventory::perform(&config, &manifest, date_ctx).await?;
 
     println!(
         "Processed {} files, {} bytes total",
         stats.total_files, stats.total_size
     );
+
     Ok(())
 }
 

@@ -72,6 +72,7 @@ payload:
 ```bash
 # Run the function locally, waiting for events
 make watch f=bucket-request s=digipres-dev1 p=default
+
 # Send an event payload to the locally running function
 make invoke-bucket-request s=digipres-dev1 p=default
 ```
@@ -83,9 +84,9 @@ Using an unmodified `buckets.txt` will create four new buckets:
 - `digipres-dev1-private` (private s3 bucket)
 - `digipres-dev1-private-repl` (private s3 bucket replication destination)
 - `digipres-dev1-public` (public s3 bucket)
-- `digipres-dev1-public-repl` (private s3 bucket replication destination)
+- `digipres-dev1-public-repl` (public s3 bucket replication destination)
 
-Error variations:
+Error variations to try out:
 
 - File too large or invalid (rename some other file `buckets.txt` i.e a jpg)
 - Wonky names (too long, invalid characters)
@@ -122,6 +123,7 @@ payload:
 ```bash
 # Run the function locally, waiting for events
 make watch f=process-inventory s=digipres-dev1 p=default
+
 # Send an event payload to the locally running function
 make invoke-process-inventory s=digipres-dev1 p=default
 ```
@@ -145,7 +147,7 @@ parquet files.
 # reset: empties the buckets but does not delete them
 make reset s=digipres-dev1 p=default
 
-# teardown: empties and deletes the buckets
+# teardown: empties and deletes the buckets and IAM replication role
 make teardown s=digipres-dev1 p=default
 ```
 

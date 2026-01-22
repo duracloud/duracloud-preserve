@@ -79,7 +79,7 @@ pub async fn request_config(stack: StackName) -> RequestConfig {
         .expect("failed to get account ID");
     let replication_role_arn = get_replication_role_arn(&client_config, &stack)
         .await
-        .expect("replication role not found - run scripts/create-replication-role.sh");
+        .expect("replication role not found");
 
     RequestConfig {
         account_id,

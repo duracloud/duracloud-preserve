@@ -24,6 +24,8 @@ pub enum InventoryError {
     Csv(#[from] csv::Error),
     #[error("DuckDB error: {0}")]
     DuckDB(#[from] DuckDBError),
+    #[error("Invalid inventory format: expected '{expected}', got '{actual}'")]
+    InvalidFormat { expected: String, actual: String },
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
     #[error("JSON parse error: {0}")]

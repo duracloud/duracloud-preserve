@@ -3,6 +3,7 @@ use aws_sdk_s3::primitives::ByteStream;
 use bytes::Bytes;
 
 use crate::{
+    bucket_creator::INVENTORY_FORMAT,
     config::RequestConfig,
     file::{self, File},
     inventory::{InventoryError, InventoryManifest, InventoryStats, process},
@@ -16,6 +17,13 @@ pub async fn perform(
     tracing::info!("Retrieving manifest file: {:?}", manifest_file);
     let manifest = InventoryManifest::fetch(&config.client, manifest_file).await?;
     let bucket = config.stack().managed_bucket();
+
+    if manifest.file_format != INVENTORY_FORMAT.as_str() {
+        return Err(InventoryError::InvalidFormat {
+            expected: INVENTORY_FORMAT.to_string(),
+            actual: manifest.file_format.clone(),
+        });
+    }
 
     let temp_dir = tempfile::tempdir()?;
     let mut local_paths = Vec::new();

@@ -65,7 +65,7 @@ reset: ## Reset (empty) stack buckets (make reset s=stack p=profile)
 	@AWS_PROFILE=$(p) cargo run -p duracloud -- reset --stack=$(s)
 
 .PHONY: setup
-setup: ## Create required IAM role and buckets (make setup s=stack p=profile)
+setup: ## Create required IAM roles and buckets (make setup s=stack p=profile)
 	@AWS_PROFILE=$(p) cargo run -p duracloud -- setup --stack=$(s)
 
 .PHONY: teardown

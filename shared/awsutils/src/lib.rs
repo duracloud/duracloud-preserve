@@ -1,3 +1,4 @@
+pub mod batch;
 pub mod bucket;
 pub use bucket::Name as BucketName;
 pub mod bucket_creator;

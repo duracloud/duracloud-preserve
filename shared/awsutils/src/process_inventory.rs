@@ -68,7 +68,7 @@ pub async fn perform(
 
         let stats_path = config
             .stack
-            .metadata_stats_path(&manifest.source_bucket, ctx);
+            .reports_stats_path(&manifest.source_bucket, ctx);
         let stats_file = File::new(&bucket, stats_path);
 
         tracing::info!("Uploading stats: {:?}", stats_file);

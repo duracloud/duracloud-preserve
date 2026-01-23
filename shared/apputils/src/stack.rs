@@ -1,7 +1,9 @@
 pub const MANAGED_SUFFIX: &str = "-managed";
 pub const REQUEST_SUFFIX: &str = "-bucket-request";
 
-const METADATA_PREFIX: &str = "metadata";
+const BATCH_POLICY_SUFFIX: &str = "-s3-batch-policy";
+const BATCH_ROLE_SUFFIX: &str = "-s3-batch-role";
+const REPLICATION_POLICY_SUFFIX: &str = "-s3-replication-policy";
 const REPLICATION_ROLE_SUFFIX: &str = "-s3-replication-role";
 const REPORTS_PREFIX: &str = "reports";
 
@@ -49,19 +51,24 @@ impl Name {
         &self.0
     }
 
+    /// Batch operations policy name for stack
+    pub fn batch_policy_name(&self) -> String {
+        format!("{}{}", &self.as_str(), BATCH_POLICY_SUFFIX)
+    }
+
+    /// Batch operations role name for stack
+    pub fn batch_role_name(&self) -> String {
+        format!("{}{}", &self.as_str(), BATCH_ROLE_SUFFIX)
+    }
+
     /// Get managed bucket name for stack
     pub fn managed_bucket(&self) -> String {
         format!("{}{}", &self.as_str(), MANAGED_SUFFIX)
     }
 
-    /// Manifest json destination used for batch operations
-    pub fn metadata_manifest_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{}/{}/manifests/{}.json", METADATA_PREFIX, date_ctx, bucket)
-    }
-
-    /// Stats json destination used for storage reports
-    pub fn metadata_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{}/{}/stats/{}.json", METADATA_PREFIX, date_ctx, bucket)
+    /// Replication policy name for stack
+    pub fn replication_policy_name(&self) -> String {
+        format!("{}{}", &self.as_str(), REPLICATION_POLICY_SUFFIX)
     }
 
     /// Replication role name for stack
@@ -72,6 +79,11 @@ impl Name {
     /// Manifest csv destination for user access
     pub fn reports_manifest_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
         format!("{}/{}/manifests/{}.csv", REPORTS_PREFIX, date_ctx, bucket)
+    }
+
+    /// Stats json destination used for storage reports
+    pub fn reports_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
+        format!("{}/{}/stats/{}.json", REPORTS_PREFIX, date_ctx, bucket)
     }
 
     /// Storage html reports destination for user access
@@ -98,9 +110,30 @@ mod tests {
     }
 
     #[test]
+    fn test_batch_policy_name() {
+        let stack = Name::new("test-stack").unwrap();
+        assert_eq!(stack.batch_policy_name(), "test-stack-s3-batch-policy");
+    }
+
+    #[test]
+    fn test_batch_role_name() {
+        let stack = Name::new("test-stack").unwrap();
+        assert_eq!(stack.batch_role_name(), "test-stack-s3-batch-role");
+    }
+
+    #[test]
     fn test_managed_bucket_name() {
         let stack = Name::new("test-stack").unwrap();
         assert_eq!(stack.managed_bucket(), "test-stack-managed");
+    }
+
+    #[test]
+    fn test_replication_policy_name() {
+        let stack = Name::new("test-stack").unwrap();
+        assert_eq!(
+            stack.replication_policy_name(),
+            "test-stack-s3-replication-policy"
+        );
     }
 
     #[test]
@@ -119,29 +152,20 @@ mod tests {
     }
 
     #[test]
-    fn test_metadata_manifest_path() {
-        let stack = Name::new("test-stack").unwrap();
-        assert_eq!(
-            stack.metadata_manifest_path("my-bucket", DateCtx::Latest),
-            "metadata/latest/manifests/my-bucket.json"
-        );
-    }
-
-    #[test]
-    fn test_metadata_stats_path() {
-        let stack = Name::new("test-stack").unwrap();
-        assert_eq!(
-            stack.metadata_stats_path("my-bucket", DateCtx::Latest),
-            "metadata/latest/stats/my-bucket.json"
-        );
-    }
-
-    #[test]
     fn test_reports_manifest_path() {
         let stack = Name::new("test-stack").unwrap();
         assert_eq!(
             stack.reports_manifest_path("my-bucket", DateCtx::Latest),
             "reports/latest/manifests/my-bucket.csv"
+        );
+    }
+
+    #[test]
+    fn test_reports_stats_path() {
+        let stack = Name::new("test-stack").unwrap();
+        assert_eq!(
+            stack.reports_stats_path("my-bucket", DateCtx::Latest),
+            "reports/latest/stats/my-bucket.json"
         );
     }
 

@@ -42,7 +42,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         println!("\nPlanned actions:");
         println!("\t- Empty all bucket contents");
         println!("\t- Delete all buckets");
-        println!("\t- Delete replication IAM role");
+        println!("\t- Delete IAM roles (replication, batch)");
     } else {
         println!("\nPlanned actions:");
         println!("\t- Empty all bucket contents");
@@ -81,9 +81,24 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             println!("done");
         }
 
+        print!("Deleting batch role... ");
+        io::stdout().flush()?;
+        delete_role(
+            &iam_client,
+            &stack.batch_role_name(),
+            &stack.batch_policy_name(),
+        )
+        .await?;
+        println!("done");
+
         print!("\nDeleting replication role... ");
         io::stdout().flush()?;
-        delete_replication_role(&iam_client, &stack).await?;
+        delete_role(
+            &iam_client,
+            &stack.replication_role_name(),
+            &stack.replication_policy_name(),
+        )
+        .await?;
         println!("done");
 
         println!("\nAll stack resources destroyed");
@@ -94,18 +109,16 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Delete the stack replication role
-async fn delete_replication_role(
+/// Delete an IAM role and its associated policy
+async fn delete_role(
     client: &IamClient,
-    stack: &StackName,
+    role_name: &str,
+    policy_name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let role_name = stack.replication_role_name();
-    let policy_name = format!("{}-s3-replication-policy", stack.as_str());
-
     match client
         .delete_role_policy()
-        .role_name(&role_name)
-        .policy_name(&policy_name)
+        .role_name(role_name)
+        .policy_name(policy_name)
         .send()
         .await
     {
@@ -121,7 +134,7 @@ async fn delete_replication_role(
         }
     }
 
-    match client.delete_role().role_name(&role_name).send().await {
+    match client.delete_role().role_name(role_name).send().await {
         Ok(_) => {}
         Err(e) => {
             let is_not_found = e

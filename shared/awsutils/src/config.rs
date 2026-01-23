@@ -33,6 +33,14 @@ pub async fn get_account_id(config: &SdkConfig) -> Result<String, RequestError> 
         .ok_or_else(|| RequestError::S3Error("no account ID in caller identity".to_string()))
 }
 
+/// Get the S3 Batch Operations role ARN for the stack.
+pub async fn get_batch_role_arn(
+    config: &SdkConfig,
+    stack: &StackName,
+) -> Result<String, RequestError> {
+    get_role_arn(config, &stack.batch_role_name()).await
+}
+
 /// Extract the region string from an AWS S3 client configuration
 pub fn get_region(client: &aws_sdk_s3::Client) -> Result<String, RequestError> {
     client
@@ -43,25 +51,24 @@ pub fn get_region(client: &aws_sdk_s3::Client) -> Result<String, RequestError> {
 }
 
 /// Get the S3 replication role ARN for the stack.
-/// Returns an error if the role does not exist.
 pub async fn get_replication_role_arn(
     config: &SdkConfig,
     stack: &StackName,
 ) -> Result<String, RequestError> {
+    get_role_arn(config, &stack.replication_role_name()).await
+}
+
+/// Get an IAM role ARN by name.
+/// Returns an error if the role does not exist.
+async fn get_role_arn(config: &SdkConfig, role_name: &str) -> Result<String, RequestError> {
     let iam_client = aws_sdk_iam::Client::new(config);
-    let role_name = stack.replication_role_name();
 
     let response = iam_client
         .get_role()
-        .role_name(&role_name)
+        .role_name(role_name)
         .send()
         .await
-        .map_err(|e| {
-            RequestError::S3Error(format!(
-                "failed to get replication role '{}': {}",
-                role_name, e
-            ))
-        })?;
+        .map_err(|e| RequestError::S3Error(format!("failed to get role '{}': {}", role_name, e)))?;
 
     response
         .role()

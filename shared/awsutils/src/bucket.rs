@@ -20,7 +20,7 @@ pub const MAX_BUCKETS_REQUEST_FILE_SIZE: u8 = 32;
 pub const MAX_LEN_FOR_REQUEST_NAME: u8 = 63;
 
 const PUBLIC_SUFFIX: &str = "-public";
-const REPLICATION_SUFFIX: &str = "-repl";
+pub const REPLICATION_SUFFIX: &str = "-repl";
 
 /// Create and setup an S3 bucket. If setup fails attempt to rollback.
 async fn create(config: &RequestConfig, bucket: &Bucket) -> Result<(), RequestError> {

@@ -6,8 +6,8 @@ use awsutils::{
 };
 
 pub async fn cleanup_bucket(config: &RequestConfig, bucket: &str) {
-    let _ = empty(&config.s3_client, bucket).await;
-    let _ = delete(&config.s3_client, bucket).await;
+    let _ = empty(&config.client, bucket).await;
+    let _ = delete(&config.client, bucket).await;
 }
 
 pub fn timestamp() -> u64 {

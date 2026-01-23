@@ -36,7 +36,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let file = File::new(stack.request_bucket(), filename.into_owned());
 
     awsutils::file::upload(
-        &config.s3_client,
+        &config.client,
         &file,
         content.into_bytes(),
         content_type::TEXT_PLAIN,

@@ -23,7 +23,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         args.bucket, date_ctx
     );
 
-    let manifest = File::new(config.stack.managed_bucket(), object);
+    let manifest = File::new(config.stack().managed_bucket(), object);
     let stats = process_inventory::perform(&config, &manifest, date_ctx).await?;
 
     println!(
@@ -37,7 +37,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 /// Determine which inventory to use: today's if available, otherwise yesterday's.
 async fn resolve_date_ctx(config: &RequestConfig, target_bucket: &str) -> DateCtx {
     let today_manifest = File::new(
-        config.stack.managed_bucket(),
+        config.stack().managed_bucket(),
         format!(
             "manifests/{}/inventory/{}T01-00Z/manifest.json",
             target_bucket,
@@ -45,7 +45,7 @@ async fn resolve_date_ctx(config: &RequestConfig, target_bucket: &str) -> DateCt
         ),
     );
 
-    if file::exists(&config.s3_client, &today_manifest).await {
+    if file::exists(&config.client, &today_manifest).await {
         DateCtx::Today
     } else {
         DateCtx::Yesterday

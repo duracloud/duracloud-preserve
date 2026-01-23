@@ -19,7 +19,7 @@ use common::{cleanup_bucket, timestamp};
 
 async fn verify_versioning_enabled(config: &RequestConfig, bucket: &str) {
     let result = config
-        .s3_client
+        .client
         .get_bucket_versioning()
         .bucket(bucket)
         .send()
@@ -36,7 +36,7 @@ async fn verify_versioning_enabled(config: &RequestConfig, bucket: &str) {
 
 async fn verify_lifecycle_policy(config: &RequestConfig, bucket: &str, expected_class: &str) {
     let result = config
-        .s3_client
+        .client
         .get_bucket_lifecycle_configuration()
         .bucket(bucket)
         .send()
@@ -60,7 +60,7 @@ async fn verify_lifecycle_policy(config: &RequestConfig, bucket: &str, expected_
 
 async fn verify_notifications_enabled(config: &RequestConfig, bucket: &str) {
     let result = config
-        .s3_client
+        .client
         .get_bucket_notification_configuration()
         .bucket(bucket)
         .send()
@@ -76,7 +76,7 @@ async fn verify_notifications_enabled(config: &RequestConfig, bucket: &str) {
 
 async fn verify_inventory_configured(config: &RequestConfig, bucket: &str) {
     let result = config
-        .s3_client
+        .client
         .get_bucket_inventory_configuration()
         .bucket(bucket)
         .id("inventory")
@@ -93,7 +93,7 @@ async fn verify_inventory_configured(config: &RequestConfig, bucket: &str) {
 
 async fn verify_logging_enabled(config: &RequestConfig, bucket: &str) {
     let result = config
-        .s3_client
+        .client
         .get_bucket_logging()
         .bucket(bucket)
         .send()
@@ -112,7 +112,7 @@ async fn verify_logging_enabled(config: &RequestConfig, bucket: &str) {
 
 async fn verify_replication_configured(config: &RequestConfig, src: &str, dest: &str) {
     let result = config
-        .s3_client
+        .client
         .get_bucket_replication()
         .bucket(src)
         .send()
@@ -140,7 +140,7 @@ async fn verify_replication_configured(config: &RequestConfig, src: &str, dest: 
 
 async fn verify_public_access_block_disabled(config: &RequestConfig, bucket: &str) {
     let result = config
-        .s3_client
+        .client
         .get_public_access_block()
         .bucket(bucket)
         .send()
@@ -166,7 +166,7 @@ async fn verify_public_access_block_disabled(config: &RequestConfig, bucket: &st
 
 async fn verify_public_read_policy(config: &RequestConfig, bucket: &str) {
     let result = config
-        .s3_client
+        .client
         .get_bucket_policy()
         .bucket(bucket)
         .send()
@@ -188,7 +188,7 @@ async fn verify_public_read_policy(config: &RequestConfig, bucket: &str) {
 
 async fn verify_no_bucket_policy(config: &RequestConfig, bucket: &str) {
     let result = config
-        .s3_client
+        .client
         .get_bucket_policy()
         .bucket(bucket)
         .send()
@@ -207,7 +207,7 @@ async fn verify_no_bucket_policy(config: &RequestConfig, bucket: &str) {
 #[ignore]
 async fn test_create_standard_bucket() {
     let config = test_config().await;
-    let bucket_name = format!("{}-inttest-std-{}", config.stack.as_str(), timestamp());
+    let bucket_name = format!("{}-inttest-std-{}", config.stack().as_str(), timestamp());
 
     let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Standard);
     let creator = BucketCreator::new(&config, &bucket);
@@ -229,7 +229,7 @@ async fn test_create_standard_bucket() {
 #[ignore]
 async fn test_create_public_bucket() {
     let config = test_config().await;
-    let bucket_name = format!("{}-inttest-pub-{}", config.stack.as_str(), timestamp());
+    let bucket_name = format!("{}-inttest-pub-{}", config.stack().as_str(), timestamp());
 
     let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Public);
     let creator = BucketCreator::new(&config, &bucket);
@@ -252,7 +252,7 @@ async fn test_create_public_bucket() {
 #[ignore]
 async fn test_create_replication_bucket() {
     let config = test_config().await;
-    let bucket_name = format!("{}-inttest-repl-{}", config.stack.as_str(), timestamp());
+    let bucket_name = format!("{}-inttest-repl-{}", config.stack().as_str(), timestamp());
 
     let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Replication);
     let creator = BucketCreator::new(&config, &bucket);
@@ -271,8 +271,8 @@ async fn test_create_replication_bucket() {
 async fn test_create_bucket_pair_with_replication() {
     let config = test_config().await;
     let ts = timestamp();
-    let primary_name = format!("{}-inttest-pair-{}", config.stack.as_str(), ts);
-    let repl_name = format!("{}-inttest-pair-{}-repl", config.stack.as_str(), ts);
+    let primary_name = format!("{}-inttest-pair-{}", config.stack().as_str(), ts);
+    let repl_name = format!("{}-inttest-pair-{}-repl", config.stack().as_str(), ts);
 
     let primary = Bucket(Name::new(&primary_name).unwrap(), Type::Standard);
     let replication = Bucket(Name::new(&repl_name).unwrap(), Type::Replication);
@@ -312,21 +312,25 @@ async fn test_create_bucket_pair_with_replication() {
 #[ignore]
 async fn test_rollback_deletes_bucket() {
     let config = test_config().await;
-    let bucket_name = format!("{}-inttest-rollback-{}", config.stack.as_str(), timestamp());
+    let bucket_name = format!(
+        "{}-inttest-rollback-{}",
+        config.stack().as_str(),
+        timestamp()
+    );
     let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Standard);
 
     let creator = BucketCreator::new(&config, &bucket);
     creator.create().await.expect("bucket creation failed");
 
     assert!(
-        exists(&config.s3_client, &bucket_name).await,
+        exists(&config.client, &bucket_name).await,
         "bucket should exist after creation"
     );
 
     creator.rollback().await.expect("rollback failed");
 
     assert!(
-        !exists(&config.s3_client, &bucket_name).await,
+        !exists(&config.client, &bucket_name).await,
         "bucket should not exist after rollback"
     );
 }

@@ -3,14 +3,76 @@ use apputils::StackName;
 use crate::bucket::RequestError;
 use aws_config::{BehaviorVersion, SdkConfig};
 
-/// Configuration elements required for interacting with S3 in a stack context
+/// Base configuration shared across request types
 #[derive(Debug)]
-pub struct RequestConfig {
+pub struct BaseConfig {
     pub account_id: String,
     pub debug_handler: bool,
-    pub replication_role_arn: String,
-    pub s3_client: aws_sdk_s3::Client,
+    pub role_arn: String,
     pub stack: StackName,
+}
+
+/// Configuration for S3 Batch/Control operations
+#[derive(Debug)]
+pub struct BatchConfig {
+    pub base: BaseConfig,
+    pub client: aws_sdk_s3control::Client,
+}
+
+impl BatchConfig {
+    pub fn account_id(&self) -> &str {
+        &self.base.account_id
+    }
+    pub fn role_arn(&self) -> &str {
+        &self.base.role_arn
+    }
+    pub fn stack(&self) -> &StackName {
+        &self.base.stack
+    }
+}
+
+/// Configuration for S3 bucket operations
+#[derive(Debug)]
+pub struct RequestConfig {
+    pub base: BaseConfig,
+    pub client: aws_sdk_s3::Client,
+}
+
+impl RequestConfig {
+    pub fn account_id(&self) -> &str {
+        &self.base.account_id
+    }
+    pub fn role_arn(&self) -> &str {
+        &self.base.role_arn
+    }
+    pub fn stack(&self) -> &StackName {
+        &self.base.stack
+    }
+}
+
+async fn base_config(sdk_config: &SdkConfig, stack: StackName, role_name: &str) -> BaseConfig {
+    let account_id = get_account_id(sdk_config)
+        .await
+        .expect("failed to get account ID");
+    let role_arn = get_role_arn(sdk_config, role_name)
+        .await
+        .expect("role not found");
+
+    BaseConfig {
+        account_id,
+        debug_handler: false,
+        role_arn,
+        stack,
+    }
+}
+
+pub async fn batch_config(stack: StackName) -> BatchConfig {
+    let sdk_config = default_config().await;
+    let role_name = stack.batch_role_name();
+    let base = base_config(&sdk_config, stack, &role_name).await;
+    let client = aws_sdk_s3control::Client::new(&sdk_config);
+
+    BatchConfig { base, client }
 }
 
 /// Load default aws sdk config
@@ -78,23 +140,12 @@ async fn get_role_arn(config: &SdkConfig, role_name: &str) -> Result<String, Req
 
 /// Load aws sdk config for a bucket request
 pub async fn request_config(stack: StackName) -> RequestConfig {
-    let client_config = default_config().await;
-    let s3_client = aws_sdk_s3::Client::new(&client_config);
+    let sdk_config = default_config().await;
+    let role_name = stack.replication_role_name();
+    let base = base_config(&sdk_config, stack, &role_name).await;
+    let client = aws_sdk_s3::Client::new(&sdk_config);
 
-    let account_id = get_account_id(&client_config)
-        .await
-        .expect("failed to get account ID");
-    let replication_role_arn = get_replication_role_arn(&client_config, &stack)
-        .await
-        .expect("replication role not found");
-
-    RequestConfig {
-        account_id,
-        debug_handler: false,
-        replication_role_arn,
-        s3_client,
-        stack,
-    }
+    RequestConfig { base, client }
 }
 
 /// Load test config from TEST_STACK env var (defaults to "inttest")

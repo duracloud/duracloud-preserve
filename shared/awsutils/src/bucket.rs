@@ -274,8 +274,8 @@ pub fn review_bucket_names(
 
     for name in names {
         let bucket = Name::new(name)?;
-        let primary = Request::primary_bucket(&config.stack, &bucket)?;
-        let replication = Request::replication_bucket(&config.stack, &bucket)?;
+        let primary = Request::primary_bucket(config.stack(), &bucket)?;
+        let replication = Request::replication_bucket(config.stack(), &bucket)?;
         buckets.push((primary, replication));
     }
 
@@ -426,7 +426,7 @@ impl std::fmt::Display for Type {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_client::TestClientBuilder;
+    use crate::{config::BaseConfig, test_client::TestClientBuilder};
 
     #[tokio::test]
     async fn test_get_bucket_names() {
@@ -471,11 +471,13 @@ mod tests {
         let stack = StackName::new("test-stack").unwrap();
         let client = TestClientBuilder::new().ok().build();
         let config = RequestConfig {
-            account_id: "123456789".to_string(),
-            debug_handler: false,
-            replication_role_arn: "123456789".to_string(),
-            s3_client: client,
-            stack,
+            base: BaseConfig {
+                account_id: "123456789".to_string(),
+                debug_handler: false,
+                role_arn: "123456789".to_string(),
+                stack,
+            },
+            client,
         };
 
         let names = vec!["example".to_string(), "data-public".to_string()];

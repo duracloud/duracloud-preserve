@@ -14,15 +14,18 @@ pub(crate) async fn function_handler(
 
     tracing::info!("Bucket: {:?}, Object: {:?}", bucket, object);
 
-    if bucket != &config.stack.managed_bucket() {
-        panic!("Not the managed bucket for this stack: {:?}", config.stack);
+    if bucket != &config.stack().managed_bucket() {
+        panic!(
+            "Not the managed bucket for this stack: {:?}",
+            config.stack()
+        );
     }
 
     if !object.ends_with("manifest.json") {
         panic!("Not an inventory manifest file: {:?}", object);
     }
 
-    if config.debug_handler {
+    if config.base.debug_handler {
         tracing::info!("Debug handler mode enabled, skipping perform function.");
         return Ok(());
     }
@@ -47,7 +50,7 @@ pub(crate) async fn function_handler(
 mod tests {
     use super::*;
     use apputils::StackName;
-    use awsutils::test_client::TestClientBuilder;
+    use awsutils::{config::BaseConfig, test_client::TestClientBuilder};
     use lambda_runtime::{Context, LambdaEvent};
 
     #[tokio::test]
@@ -60,11 +63,13 @@ mod tests {
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let config = RequestConfig {
-            account_id: "123456789".to_string(),
-            debug_handler: true,
-            replication_role_arn: "123456789".to_string(),
-            s3_client: client,
-            stack: StackName::new("test-stack").unwrap(),
+            base: BaseConfig {
+                account_id: "123456789".to_string(),
+                debug_handler: true,
+                role_arn: "123456789".to_string(),
+                stack: StackName::new("test-stack").unwrap(),
+            },
+            client,
         };
         let response = function_handler(&config, event).await.unwrap();
         assert_eq!((), response);
@@ -82,11 +87,13 @@ mod tests {
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let config = RequestConfig {
-            account_id: "123456789".to_string(),
-            debug_handler: true,
-            replication_role_arn: "123456789".to_string(),
-            s3_client: client,
-            stack: StackName::new("test-stack").unwrap(),
+            base: BaseConfig {
+                account_id: "123456789".to_string(),
+                debug_handler: true,
+                role_arn: "123456789".to_string(),
+                stack: StackName::new("test-stack").unwrap(),
+            },
+            client,
         };
         function_handler(&config, event).await.unwrap();
     }

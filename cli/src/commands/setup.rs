@@ -28,17 +28,17 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     println!("Replication role: {}", replication_role_arn);
 
     let config = request_config(stack.clone()).await;
-    println!("Account: {}", config.account_id);
+    println!("Account: {}", config.account_id());
 
     let managed_bucket = Bucket(Name::new(&stack.managed_bucket())?, Type::Managed);
-    if !exists(&config.s3_client, managed_bucket.name()).await {
+    if !exists(&config.client, managed_bucket.name()).await {
         let creator = BucketCreator::new(&config, &managed_bucket);
         creator.create().await?;
         println!("Created bucket: {}", managed_bucket.0.as_str());
     }
 
     let request_bucket = Bucket(Name::new(&stack.request_bucket())?, Type::Request);
-    if !exists(&config.s3_client, request_bucket.name()).await {
+    if !exists(&config.client, request_bucket.name()).await {
         let creator = BucketCreator::new(&config, &request_bucket);
         creator.create().await?;
         println!("Created bucket: {}", request_bucket.0.as_str());
@@ -216,7 +216,7 @@ async fn create_or_get_role(
 async fn set_managed_bucket_policy(
     config: &RequestConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let managed_bucket = config.stack.managed_bucket();
+    let managed_bucket = config.stack().managed_bucket();
 
     let policy = serde_json::json!({
         "Version": "2012-10-17",
@@ -230,17 +230,17 @@ async fn set_managed_bucket_policy(
             "Resource": format!("arn:aws:s3:::{}/*", managed_bucket),
             "Condition": {
                 "StringEquals": {
-                    "aws:SourceAccount": &config.account_id
+                    "aws:SourceAccount": &config.account_id()
                 },
                 "ArnLike": {
-                    "aws:SourceArn": format!("arn:aws:s3:::{}*", config.stack.as_str())
+                    "aws:SourceArn": format!("arn:aws:s3:::{}*", config.stack().as_str())
                 }
             }
         }]
     });
 
     config
-        .s3_client
+        .client
         .put_bucket_policy()
         .bucket(&managed_bucket)
         .policy(policy.to_string())

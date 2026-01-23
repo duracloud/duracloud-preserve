@@ -121,17 +121,19 @@ mod tests {
     use crate::{
         bucket::{Bucket, Name, RequestError, Type},
         bucket_creator::BucketCreator,
-        config::RequestConfig,
+        config::{BaseConfig, RequestConfig},
     };
     use apputils::StackName;
 
     fn test_config_with_client(client: aws_sdk_s3::Client) -> RequestConfig {
         RequestConfig {
-            account_id: "123456789".to_string(),
-            debug_handler: false,
-            replication_role_arn: "123456789".to_string(),
-            s3_client: client,
-            stack: StackName::new("test-stack").unwrap(),
+            base: BaseConfig {
+                account_id: "123456789".to_string(),
+                debug_handler: false,
+                role_arn: "123456789".to_string(),
+                stack: StackName::new("test-stack").unwrap(),
+            },
+            client,
         }
     }
 

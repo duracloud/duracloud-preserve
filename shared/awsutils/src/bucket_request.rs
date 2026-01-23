@@ -7,7 +7,7 @@ use tracing;
 pub async fn perform(config: &RequestConfig, file: &File) -> Result<(), RequestError> {
     tracing::info!("Retrieving request file from S3");
 
-    let names = match bucket::get_bucket_names(&config.s3_client, file).await {
+    let names = match bucket::get_bucket_names(&config.client, file).await {
         Ok(names) => names,
         Err(e) => {
             tracing::error!("Error getting bucket names: {}", e);
@@ -41,6 +41,6 @@ pub async fn perform(config: &RequestConfig, file: &File) -> Result<(), RequestE
     }
 
     tracing::info!("Perform complete");
-    file::delete(&config.s3_client, file).await?;
+    file::delete(&config.client, file).await?;
     Ok(())
 }

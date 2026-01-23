@@ -14,8 +14,8 @@ pub async fn perform(
     date_ctx: DateCtx,
 ) -> Result<InventoryStats, InventoryError> {
     tracing::info!("Retrieving manifest file: {:?}", manifest_file);
-    let manifest = InventoryManifest::fetch(&config.s3_client, manifest_file).await?;
-    let bucket = config.stack.managed_bucket();
+    let manifest = InventoryManifest::fetch(&config.client, manifest_file).await?;
+    let bucket = config.stack().managed_bucket();
 
     let temp_dir = tempfile::tempdir()?;
     let mut local_paths = Vec::new();
@@ -24,7 +24,7 @@ pub async fn perform(
         let file = File::new(&bucket, &entry.key);
         tracing::info!("Downloading inventory file: {:?}", file);
 
-        let response = file::download(&config.s3_client, &file)
+        let response = file::download(&config.client, &file)
             .await
             .map_err(|e| InventoryError::S3(Box::new(e)))?;
         let bytes = response
@@ -53,13 +53,13 @@ pub async fn perform(
 
     for ctx in [stack::DateCtx::Latest, date_ctx] {
         let csv_path = config
-            .stack
+            .stack()
             .reports_manifest_path(&manifest.source_bucket, ctx);
         let csv_file = File::new(&bucket, csv_path);
 
         tracing::info!("Uploading csv: {:?}", csv_file);
         file::upload(
-            &config.s3_client,
+            &config.client,
             &csv_file,
             ByteStream::from(csv_bytes.clone()),
             "text/csv",
@@ -67,13 +67,13 @@ pub async fn perform(
         .await?;
 
         let stats_path = config
-            .stack
+            .stack()
             .reports_stats_path(&manifest.source_bucket, ctx);
         let stats_file = File::new(&bucket, stats_path);
 
         tracing::info!("Uploading stats: {:?}", stats_file);
         file::upload(
-            &config.s3_client,
+            &config.client,
             &stats_file,
             ByteStream::from(stats_bytes.clone()),
             "application/json",

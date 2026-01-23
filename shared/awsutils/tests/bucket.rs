@@ -23,20 +23,20 @@ async fn test_get_stack_buckets() {
     let config = test_config().await;
 
     let ts = timestamp();
-    let bucket_name = format!("{}-inttest-discovery-{}", config.stack.as_str(), ts);
+    let bucket_name = format!("{}-inttest-discovery-{}", config.stack().as_str(), ts);
     let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Standard);
     let creator = BucketCreator::new(&config, &bucket);
 
     creator.create().await.expect("bucket creation failed");
 
-    let buckets = get_stack_buckets(&config.s3_client, &config.stack)
+    let buckets = get_stack_buckets(&config.client, &config.stack())
         .await
         .expect("get_stack_buckets failed");
 
     let found = buckets.iter().any(|b| b.0.as_str() == bucket_name);
     assert!(found, "test bucket not found in discovery");
 
-    delete(&config.s3_client, &bucket_name)
+    delete(&config.client, &bucket_name)
         .await
         .expect("cleanup failed");
 }
@@ -47,8 +47,8 @@ async fn test_get_stack_buckets_by_type() {
     let config = test_config().await;
 
     let ts = timestamp();
-    let std_name = format!("{}-inttest-type-std-{}", config.stack.as_str(), ts);
-    let repl_name = format!("{}-inttest-type-repl-{}", config.stack.as_str(), ts);
+    let std_name = format!("{}-inttest-type-std-{}", config.stack().as_str(), ts);
+    let repl_name = format!("{}-inttest-type-repl-{}", config.stack().as_str(), ts);
 
     let std_bucket = Bucket(Name::new(&std_name).unwrap(), Type::Standard);
     let repl_bucket = Bucket(Name::new(&repl_name).unwrap(), Type::Replication);
@@ -65,10 +65,9 @@ async fn test_get_stack_buckets_by_type() {
         .await
         .expect("repl bucket creation failed");
 
-    let std_buckets =
-        get_stack_buckets_by_type(&config.s3_client, &config.stack, &[Type::Standard])
-            .await
-            .expect("get_stack_buckets_by_type failed");
+    let std_buckets = get_stack_buckets_by_type(&config.client, &config.stack(), &[Type::Standard])
+        .await
+        .expect("get_stack_buckets_by_type failed");
 
     let found_std = std_buckets.iter().any(|b| b.0.as_str() == std_name);
     let found_repl_in_std = std_buckets.iter().any(|b| b.0.as_str() == repl_name);
@@ -79,10 +78,10 @@ async fn test_get_stack_buckets_by_type() {
         "replication bucket should not be in standard filter"
     );
 
-    delete(&config.s3_client, &std_name)
+    delete(&config.client, &std_name)
         .await
         .expect("cleanup failed");
-    delete(&config.s3_client, &repl_name)
+    delete(&config.client, &repl_name)
         .await
         .expect("cleanup failed");
 }
@@ -93,7 +92,7 @@ async fn test_empty_bucket() {
     let config = test_config().await;
 
     let ts = timestamp();
-    let bucket_name = format!("{}-inttest-empty-{}", config.stack.as_str(), ts);
+    let bucket_name = format!("{}-inttest-empty-{}", config.stack().as_str(), ts);
     let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Standard);
     let creator = BucketCreator::new(&config, &bucket);
 
@@ -102,7 +101,7 @@ async fn test_empty_bucket() {
 
     // Create some objects
     config
-        .s3_client
+        .client
         .put_object()
         .bucket(&bucket_name)
         .key("test1.txt")
@@ -112,7 +111,7 @@ async fn test_empty_bucket() {
         .expect("put object failed");
 
     config
-        .s3_client
+        .client
         .put_object()
         .bucket(&bucket_name)
         .key("test2.txt")
@@ -123,7 +122,7 @@ async fn test_empty_bucket() {
 
     // Overwrite to create versions
     config
-        .s3_client
+        .client
         .put_object()
         .bucket(&bucket_name)
         .key("test1.txt")
@@ -132,12 +131,12 @@ async fn test_empty_bucket() {
         .await
         .expect("put object failed");
 
-    empty(&config.s3_client, &bucket_name)
+    empty(&config.client, &bucket_name)
         .await
         .expect("empty_bucket failed");
 
     let list_result = config
-        .s3_client
+        .client
         .list_object_versions()
         .bucket(&bucket_name)
         .send()
@@ -153,12 +152,12 @@ async fn test_empty_bucket() {
         "bucket should have no delete markers"
     );
 
-    delete(&config.s3_client, &bucket_name)
+    delete(&config.client, &bucket_name)
         .await
         .expect("cleanup failed");
 
     assert!(
-        !exists(&config.s3_client, &bucket_name).await,
+        !exists(&config.client, &bucket_name).await,
         "bucket should not exist after deletion"
     );
 }

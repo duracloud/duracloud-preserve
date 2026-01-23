@@ -11,6 +11,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const MANIFEST_PREFIX: &str = "batch/manifests/";
 const REPORT_PREFIX: &str = "batch/reports/";
 
+pub enum BatchError {}
+
 pub async fn create_checksum_job(
     client: &s3control::Client,
     account_id: &str,

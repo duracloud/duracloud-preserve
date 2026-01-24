@@ -265,6 +265,38 @@ pub async fn get_stack_buckets_by_type(
         .collect())
 }
 
+/// Pair source buckets with their replication buckets.
+/// Returns an error if any source bucket lacks a matching replication bucket.
+pub fn pair_buckets(
+    source_buckets: Vec<Bucket>,
+    replication_buckets: Vec<Bucket>,
+) -> Result<Vec<(Bucket, Bucket)>, RequestError> {
+    let mut repl_map: std::collections::HashMap<String, Bucket> = replication_buckets
+        .into_iter()
+        .filter_map(|b| {
+            let name = b.name().to_string();
+            name.strip_suffix(REPLICATION_SUFFIX)
+                .map(|base| (base.to_string(), b))
+        })
+        .collect();
+
+    source_buckets
+        .into_iter()
+        .map(|source| {
+            let source_name = source.name().to_string();
+            repl_map
+                .remove(&source_name)
+                .map(|repl| (source, repl))
+                .ok_or_else(|| {
+                    RequestError::S3Error(format!(
+                        "no replication bucket found for '{}'",
+                        source_name
+                    ))
+                })
+        })
+        .collect()
+}
+
 /// Check that user supplied bucket names are ok and make ready to create
 pub fn review_bucket_names(
     config: &RequestConfig,
@@ -428,6 +460,30 @@ mod tests {
     use super::*;
     use crate::{config::BaseConfig, test_client::TestClientBuilder};
 
+    #[test]
+    fn test_name_new() {
+        assert!(Name::new("").is_err());
+
+        // ok
+        assert_eq!(Name::new("test").unwrap().as_str(), "test");
+        assert_eq!(Name::new("TEsT").unwrap().as_str(), "test");
+        assert_eq!(Name::new("test-stack").unwrap().as_str(), "test-stack");
+        assert_eq!(Name::new("test-stack-1").unwrap().as_str(), "test-stack-1");
+
+        // dash as prefix or suffix
+        assert!(Name::new("-test").is_err());
+        assert!(Name::new("test-").is_err());
+
+        // length
+        assert!(Name::new("t".repeat(MAX_LEN_FOR_REQUEST_NAME as usize).as_str()).is_ok());
+        assert!(Name::new("t".repeat((MAX_LEN_FOR_REQUEST_NAME as usize) + 1).as_str()).is_err());
+
+        // invalid chars
+        assert!(Name::new("test ").is_err());
+        assert!(Name::new("test_").is_err());
+        assert!(Name::new("test@").is_err());
+    }
+
     #[tokio::test]
     async fn test_get_bucket_names() {
         let content = "123\n456\n789\n234\n567\n890";
@@ -467,6 +523,45 @@ mod tests {
     }
 
     #[test]
+    fn test_pair_buckets() {
+        let source_buckets = vec![
+            Bucket(Name::new("alpha").unwrap(), Type::Standard),
+            Bucket(Name::new("beta").unwrap(), Type::Public),
+        ];
+        let replication_buckets = vec![
+            Bucket(Name::new("beta-repl").unwrap(), Type::Replication),
+            Bucket(Name::new("alpha-repl").unwrap(), Type::Replication),
+        ];
+
+        let pairs = pair_buckets(source_buckets, replication_buckets).unwrap();
+
+        assert_eq!(pairs.len(), 2);
+        assert_eq!(pairs[0].0.name(), "alpha");
+        assert_eq!(pairs[0].1.name(), "alpha-repl");
+        assert_eq!(pairs[1].0.name(), "beta");
+        assert_eq!(pairs[1].1.name(), "beta-repl");
+    }
+
+    #[test]
+    fn test_pair_buckets_missing_replication() {
+        let source_buckets = vec![
+            Bucket(Name::new("alpha").unwrap(), Type::Standard),
+            Bucket(Name::new("beta").unwrap(), Type::Public),
+        ];
+        let replication_buckets = vec![
+            Bucket(Name::new("alpha-repl").unwrap(), Type::Replication),
+            // missing beta-repl
+        ];
+
+        let result = pair_buckets(source_buckets, replication_buckets);
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, RequestError::S3Error(_)));
+        assert!(err.to_string().contains("beta"));
+    }
+
+    #[test]
     fn test_review_bucket_names() {
         let stack = StackName::new("test-stack").unwrap();
         let client = TestClientBuilder::new().ok().build();
@@ -497,30 +592,6 @@ mod tests {
         assert_eq!(result[1].0.1, Type::Public);
         assert_eq!(result[1].1.0.as_str(), "test-stack-data-public-repl");
         assert_eq!(result[1].1.1, Type::Replication);
-    }
-
-    #[test]
-    fn test_name_new() {
-        assert!(Name::new("").is_err());
-
-        // ok
-        assert_eq!(Name::new("test").unwrap().as_str(), "test");
-        assert_eq!(Name::new("TEsT").unwrap().as_str(), "test");
-        assert_eq!(Name::new("test-stack").unwrap().as_str(), "test-stack");
-        assert_eq!(Name::new("test-stack-1").unwrap().as_str(), "test-stack-1");
-
-        // dash as prefix or suffix
-        assert!(Name::new("-test").is_err());
-        assert!(Name::new("test-").is_err());
-
-        // length
-        assert!(Name::new("t".repeat(MAX_LEN_FOR_REQUEST_NAME as usize).as_str()).is_ok());
-        assert!(Name::new("t".repeat((MAX_LEN_FOR_REQUEST_NAME as usize) + 1).as_str()).is_err());
-
-        // invalid chars
-        assert!(Name::new("test ").is_err());
-        assert!(Name::new("test_").is_err());
-        assert!(Name::new("test@").is_err());
     }
 
     #[test]

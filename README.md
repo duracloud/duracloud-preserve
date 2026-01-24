@@ -21,30 +21,35 @@ AWS resources used:
 ### bucket-request
 
 Triggered by: s3 event
+Dependencies: None
 
 Create new user buckets upon upload of file containing bucket names, and applies prefab configuration.
 
 ### process-inventory
 
 Triggered by: s3 event
+Dependencies: None
 
 1. Processes parquet formatted inventory into a single human readable csv.
 2. Generates storage usage stats including by (top level) prefix.
 
 ### generate-checksums
 
-Triggered by: eventbridge event (1st of month)
+Triggered by: eventbridge event (schedule: TBD)
+Dependencies: None
 
 Starts S3 batch jobs to generate checksum reports.
 
 ### checksum-verification
 
-Triggered by: eventbridge event (2nd of month)
+Triggered by: eventbridge event (schedule: TBD)
+Dependencies: generate-checksums
 
 Compares checksum reports for source and replication destination buckets.
 
 ### storage-report
 
-Triggered by: eventbridge event
+Triggered by: eventbridge event (schedule: daily)
+Dependencies: process-inventory
 
 Generates a consolidated storage report for all buckets.

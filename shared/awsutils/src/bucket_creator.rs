@@ -126,7 +126,7 @@ impl<'a> BucketCreator<'a> {
 
     async fn setup_replication_bucket(&self) -> Result<(), RequestError> {
         self.enable_versioning().await?;
-        self.add_lifecycle(TransitionStorageClass::Glacier).await
+        self.add_lifecycle(TransitionStorageClass::GlacierIr).await
     }
 
     async fn setup_standard_bucket(&self) -> Result<(), RequestError> {

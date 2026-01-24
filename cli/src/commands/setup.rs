@@ -82,6 +82,11 @@ async fn create_or_get_batch_role(
                 "Effect": "Allow",
                 "Action": "s3:PutObject",
                 "Resource": format!("arn:aws:s3:::{}/*", stack.managed_bucket())
+            },
+            {
+                "Effect": "Allow",
+                "Action": "s3:PutInventoryConfiguration",
+                "Resource": format!("arn:aws:s3:::{}*", stack.as_str())
             }
         ]
     });

@@ -99,6 +99,7 @@ pub struct InventoryProcessor {
 impl InventoryProcessor {
     pub fn load(parquet_files: &[&str]) -> Result<Self, InventoryError> {
         let conn = Connection::open_in_memory()?;
+        conn.execute_batch("LOAD parquet;")?;
 
         let files_list = parquet_files
             .iter()

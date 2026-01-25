@@ -10,9 +10,9 @@ path = "src/main.rs"
 [dependencies]
 apputils = { path = "../shared/apputils" }
 awsutils = { path = "../shared/awsutils" }
-aws-config = { version = "1.6", features = ["behavior-version-latest"] }
+aws-config = { version = "1.8", features = ["behavior-version-latest"] }
 aws-sdk-iam = "1"
-aws-sdk-s3 = "1.116.0"
+aws-sdk-s3 = "1.120.0"
 aws-sdk-sts = "1"
 clap = { version = "4", default-features = false, features = ["derive", "std"] }
 rand = "0.9"

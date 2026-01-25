@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 apputils = { path = "../../shared/apputils/" }
-aws_lambda_events = { version = "1.0.0", default-features = false, features = ["s3"] }
+aws_lambda_events = { version = "1.0.3", default-features = false, features = ["s3"] }
 awsutils = { path = "../../shared/awsutils" }
-lambda_runtime = "1.0.1"
-serde_json = "1.0.145"
+lambda_runtime = "1.0.2"
+serde_json = "1.0.149"
 tokio = { version = "1", features = ["macros"] }

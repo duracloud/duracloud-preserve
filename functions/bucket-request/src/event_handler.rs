@@ -61,8 +61,7 @@ mod tests {
             },
             client,
         };
-        let response = function_handler(&config, event).await.unwrap();
-        assert_eq!((), response);
+        function_handler(&config, event).await.unwrap();
     }
 
     #[tokio::test]

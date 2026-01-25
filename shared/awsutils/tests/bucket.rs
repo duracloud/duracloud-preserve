@@ -29,7 +29,7 @@ async fn test_get_stack_buckets() {
 
     creator.create().await.expect("bucket creation failed");
 
-    let buckets = get_stack_buckets(&config.client, &config.stack())
+    let buckets = get_stack_buckets(&config.client, config.stack())
         .await
         .expect("get_stack_buckets failed");
 
@@ -65,7 +65,7 @@ async fn test_get_stack_buckets_by_type() {
         .await
         .expect("repl bucket creation failed");
 
-    let std_buckets = get_stack_buckets_by_type(&config.client, &config.stack(), &[Type::Standard])
+    let std_buckets = get_stack_buckets_by_type(&config.client, config.stack(), &[Type::Standard])
         .await
         .expect("get_stack_buckets_by_type failed");
 

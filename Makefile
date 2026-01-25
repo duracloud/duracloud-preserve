@@ -26,7 +26,7 @@ build-lambda-release: ## Build lambda functions with release profile (make build
 .PHONY: ci
 ci: test ## Run the ci checks locally
 	@cargo fmt -- --check
-	@cargo clippy -- -D warnings
+	@cargo clippy --workspace --all-features -- -D warnings
 	@cargo audit
 
 .PHONY: help

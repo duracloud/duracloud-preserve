@@ -102,7 +102,7 @@ async fn verify_logging_enabled(config: &RequestConfig, bucket: &str) {
 
     let logging = result
         .logging_enabled()
-        .expect(&format!("logging not enabled on {}", bucket));
+        .unwrap_or_else(|| panic!("logging not enabled on {}", bucket));
     assert!(
         logging.target_prefix().contains("audit/"),
         "unexpected logging prefix on {}",
@@ -128,7 +128,7 @@ async fn verify_replication_configured(config: &RequestConfig, src: &str, dest: 
     let dest_arn = format!("arn:aws:s3:::{}", dest);
     let has_dest = rules.iter().any(|rule| {
         rule.destination()
-            .map(|d| d.bucket() == &dest_arn)
+            .map(|d| d.bucket() == dest_arn)
             .unwrap_or(false)
     });
     assert!(

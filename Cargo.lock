@@ -68,6 +68,11 @@ name = "apputils"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "csv",
+ "duckdb",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -836,8 +841,6 @@ dependencies = [
  "aws-smithy-types",
  "bytes",
  "chrono",
- "csv",
- "duckdb",
  "futures",
  "http 1.4.0",
  "serde",

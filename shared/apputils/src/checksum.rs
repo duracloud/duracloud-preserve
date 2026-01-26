@@ -32,6 +32,8 @@ pub enum VerificationStatus {
     Mismatch,
     MissingReplica,
     MissingSource,
+    FailedSource,
+    FailedReplication,
 }
 
 impl VerificationStatus {
@@ -41,6 +43,8 @@ impl VerificationStatus {
             Self::Mismatch => "mismatch",
             Self::MissingReplica => "missing_replica",
             Self::MissingSource => "missing_source",
+            Self::FailedSource => "failed_source",
+            Self::FailedReplication => "failed_replication",
         }
     }
 }
@@ -65,6 +69,16 @@ pub struct MissingObject {
     pub version_id: String,
 }
 
+/// A failed checksum task
+#[derive(Debug, Clone)]
+pub struct FailedTask {
+    pub bucket: String,
+    pub key: String,
+    pub version_id: String,
+    pub error_code: String,
+    pub http_status_code: String,
+}
+
 /// Summary statistics for verification
 #[derive(Debug, Serialize)]
 pub struct VerificationStats {
@@ -73,6 +87,8 @@ pub struct VerificationStats {
     pub mismatches: usize,
     pub missing_replica: usize,
     pub missing_source: usize,
+    pub failed_source: usize,
+    pub failed_replication: usize,
 }
 
 /// Handles csv format checksum report files from S3
@@ -251,19 +267,80 @@ impl ChecksumVerifier {
         Ok(results)
     }
 
+    /// Find failed tasks in source
+    pub fn failed_in_source(&self) -> Result<Vec<FailedTask>, ChecksumError> {
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT bucket, key, version_id, error_code, http_status_code
+            FROM source
+            WHERE task_status = 'failed'
+            "#,
+        )?;
+
+        let mut rows = stmt.query([])?;
+        let mut results = Vec::new();
+
+        while let Some(row) = rows.next()? {
+            results.push(FailedTask {
+                bucket: row.get(0)?,
+                key: row.get(1)?,
+                version_id: row.get(2)?,
+                error_code: row.get(3)?,
+                http_status_code: row.get(4)?,
+            });
+        }
+
+        Ok(results)
+    }
+
+    /// Find failed tasks in replication
+    pub fn failed_in_replication(&self) -> Result<Vec<FailedTask>, ChecksumError> {
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT bucket, key, version_id, error_code, http_status_code
+            FROM replication
+            WHERE task_status = 'failed'
+            "#,
+        )?;
+
+        let mut rows = stmt.query([])?;
+        let mut results = Vec::new();
+
+        while let Some(row) = rows.next()? {
+            results.push(FailedTask {
+                bucket: row.get(0)?,
+                key: row.get(1)?,
+                version_id: row.get(2)?,
+                error_code: row.get(3)?,
+                http_status_code: row.get(4)?,
+            });
+        }
+
+        Ok(results)
+    }
+
     /// Get summary statistics
     pub fn stats(&self) -> Result<VerificationStats, ChecksumError> {
         let matches = self.find_matches()?.len();
         let mismatches = self.find_mismatches()?.len();
         let missing_replica = self.objects_only_in_source()?.len();
         let missing_source = self.objects_only_in_replication()?.len();
+        let failed_source = self.failed_in_source()?.len();
+        let failed_replication = self.failed_in_replication()?.len();
 
         Ok(VerificationStats {
-            total_objects: matches + mismatches + missing_replica + missing_source,
+            total_objects: matches
+                + mismatches
+                + missing_replica
+                + missing_source
+                + failed_source
+                + failed_replication,
             matches,
             mismatches,
             missing_replica,
             missing_source,
+            failed_source,
+            failed_replication,
         })
     }
 
@@ -322,6 +399,30 @@ impl ChecksumVerifier {
                 &obj.key,
                 &obj.version_id,
                 VerificationStatus::MissingSource.as_str(),
+                "",
+                "",
+                "",
+            ])?;
+        }
+
+        for task in self.failed_in_source()? {
+            csv_writer.write_record([
+                &task.bucket,
+                &task.key,
+                &task.version_id,
+                VerificationStatus::FailedSource.as_str(),
+                "",
+                "",
+                "",
+            ])?;
+        }
+
+        for task in self.failed_in_replication()? {
+            csv_writer.write_record([
+                &task.bucket,
+                &task.key,
+                &task.version_id,
+                VerificationStatus::FailedReplication.as_str(),
                 "",
                 "",
                 "",
@@ -469,6 +570,8 @@ mod tests {
         assert_eq!(stats.mismatches, 0);
         assert_eq!(stats.missing_replica, 0);
         assert_eq!(stats.missing_source, 0);
+        assert_eq!(stats.failed_source, 0);
+        assert_eq!(stats.failed_replication, 0);
     }
 
     #[test]

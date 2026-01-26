@@ -437,7 +437,134 @@ impl ChecksumVerifier {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use duckdb::Connection;
 
+    // Test row with all fields
+    struct TestRow {
+        bucket: &'static str,
+        key: &'static str,
+        version_id: &'static str,
+        task_status: &'static str,
+        error_code: &'static str,
+        http_status_code: &'static str,
+        checksum: &'static str,
+        checksum_algorithm: &'static str,
+    }
+
+    // Helper for succeeded rows (common case)
+    fn row(key: &'static str, version_id: &'static str, checksum: &'static str) -> TestRow {
+        TestRow {
+            bucket: "test-bucket",
+            key,
+            version_id,
+            task_status: "succeeded",
+            error_code: "",
+            http_status_code: "200",
+            checksum,
+            checksum_algorithm: "SHA256",
+        }
+    }
+
+    // Helper for failed rows
+    fn failed_row(key: &'static str, version_id: &'static str) -> TestRow {
+        TestRow {
+            bucket: "test-bucket",
+            key,
+            version_id,
+            task_status: "failed",
+            error_code: "InternalError",
+            http_status_code: "500",
+            checksum: "",
+            checksum_algorithm: "",
+        }
+    }
+
+    fn create_test_verifier(
+        source_rows: &[TestRow],
+        replication_rows: &[TestRow],
+    ) -> ChecksumVerifier {
+        let conn = Connection::open_in_memory().unwrap();
+
+        conn.execute_batch(
+            r#"
+            CREATE TABLE source (
+                bucket VARCHAR,
+                key VARCHAR,
+                version_id VARCHAR,
+                task_status VARCHAR,
+                error_code VARCHAR,
+                http_status_code VARCHAR,
+                result_message VARCHAR,
+                checksum VARCHAR,
+                checksum_algorithm VARCHAR
+            );
+            CREATE TABLE replication (
+                bucket VARCHAR,
+                key VARCHAR,
+                version_id VARCHAR,
+                task_status VARCHAR,
+                error_code VARCHAR,
+                http_status_code VARCHAR,
+                result_message VARCHAR,
+                checksum VARCHAR,
+                checksum_algorithm VARCHAR
+            );
+            "#,
+        )
+        .unwrap();
+
+        let mut source_stmt = conn
+            .prepare(
+                r#"
+                INSERT INTO source (bucket, key, version_id, task_status, error_code, http_status_code, result_message, checksum, checksum_algorithm)
+                VALUES (?, ?, ?, ?, ?, ?, '', ?, ?)
+                "#,
+            )
+            .unwrap();
+
+        for r in source_rows {
+            source_stmt
+                .execute(duckdb::params![
+                    r.bucket,
+                    r.key,
+                    r.version_id,
+                    r.task_status,
+                    r.error_code,
+                    r.http_status_code,
+                    r.checksum,
+                    r.checksum_algorithm
+                ])
+                .unwrap();
+        }
+
+        let mut repl_stmt = conn
+            .prepare(
+                r#"
+                INSERT INTO replication (bucket, key, version_id, task_status, error_code, http_status_code, result_message, checksum, checksum_algorithm)
+                VALUES (?, ?, ?, ?, ?, ?, '', ?, ?)
+                "#,
+            )
+            .unwrap();
+
+        for r in replication_rows {
+            repl_stmt
+                .execute(duckdb::params![
+                    r.bucket,
+                    r.key,
+                    r.version_id,
+                    r.task_status,
+                    r.error_code,
+                    r.http_status_code,
+                    r.checksum,
+                    r.checksum_algorithm
+                ])
+                .unwrap();
+        }
+
+        ChecksumVerifier { conn }
+    }
+
+    // Tests using CSV fixtures (the fully happy path)
     #[test]
     fn test_load_valid_csv() {
         let verifier = ChecksumVerifier::load(
@@ -502,85 +629,160 @@ mod tests {
         assert_eq!(algorithm, "SHA256");
     }
 
+    // Tests using in-memory data
     #[test]
-    fn test_find_matches() {
-        let verifier = ChecksumVerifier::load(
-            "../../files/checksum-source.csv",
-            "../../files/checksum-replication.csv",
-        )
-        .unwrap();
-
-        let matches = verifier.find_matches().unwrap();
-        assert_eq!(matches.len(), 4);
-
-        for result in &matches {
-            assert_eq!(result.status, VerificationStatus::Ok);
-            assert!(!result.checksum_source.is_empty());
-            assert!(result.checksum_replication.is_empty());
-        }
-    }
-
-    #[test]
-    fn test_find_mismatches_empty_when_all_match() {
-        let verifier = ChecksumVerifier::load(
-            "../../files/checksum-source.csv",
-            "../../files/checksum-replication.csv",
-        )
-        .unwrap();
-
-        let mismatches = verifier.find_mismatches().unwrap();
-        assert!(mismatches.is_empty());
-    }
-
-    #[test]
-    fn test_objects_only_in_source_empty_when_all_present() {
-        let verifier = ChecksumVerifier::load(
-            "../../files/checksum-source.csv",
-            "../../files/checksum-replication.csv",
-        )
-        .unwrap();
-
-        let missing = verifier.objects_only_in_source().unwrap();
-        assert!(missing.is_empty());
-    }
-
-    #[test]
-    fn test_objects_only_in_replication_empty_when_all_present() {
-        let verifier = ChecksumVerifier::load(
-            "../../files/checksum-source.csv",
-            "../../files/checksum-replication.csv",
-        )
-        .unwrap();
-
-        let missing = verifier.objects_only_in_replication().unwrap();
-        assert!(missing.is_empty());
-    }
-
-    #[test]
-    fn test_stats() {
-        let verifier = ChecksumVerifier::load(
-            "../../files/checksum-source.csv",
-            "../../files/checksum-replication.csv",
-        )
-        .unwrap();
+    fn test_all_match() {
+        let verifier = create_test_verifier(
+            &[
+                row("file1.pdf", "v1", "AAAA"),
+                row("file2.pdf", "v1", "BBBB"),
+                row("file3.pdf", "v1", "CCCC"),
+            ],
+            &[
+                row("file1.pdf", "v1", "AAAA"),
+                row("file2.pdf", "v1", "BBBB"),
+                row("file3.pdf", "v1", "CCCC"),
+            ],
+        );
 
         let stats = verifier.stats().unwrap();
-        assert_eq!(stats.total_objects, 4);
-        assert_eq!(stats.matches, 4);
+        assert_eq!(stats.matches, 3);
         assert_eq!(stats.mismatches, 0);
         assert_eq!(stats.missing_replica, 0);
         assert_eq!(stats.missing_source, 0);
         assert_eq!(stats.failed_source, 0);
         assert_eq!(stats.failed_replication, 0);
+        assert_eq!(stats.total_objects, 3);
     }
 
     #[test]
-    fn test_write_csv() {
-        let verifier = ChecksumVerifier::load(
-            "../../files/checksum-source.csv",
-            "../../files/checksum-replication.csv",
-        )
-        .unwrap();
+    fn test_mismatch() {
+        let verifier = create_test_verifier(
+            &[row("file.pdf", "v1", "AAAA")],
+            &[row("file.pdf", "v1", "BBBB")],
+        );
+
+        let stats = verifier.stats().unwrap();
+        assert_eq!(stats.mismatches, 1);
+        assert_eq!(stats.matches, 0);
+
+        let mismatches = verifier.find_mismatches().unwrap();
+        assert_eq!(mismatches.len(), 1);
+        assert_eq!(mismatches[0].key, "file.pdf");
+        assert_eq!(mismatches[0].checksum_source, "AAAA");
+        assert_eq!(mismatches[0].checksum_replication, "BBBB");
+    }
+
+    #[test]
+    fn test_missing_from_replication() {
+        let verifier = create_test_verifier(
+            &[
+                row("file1.pdf", "v1", "AAAA"),
+                row("file2.pdf", "v1", "BBBB"),
+            ],
+            &[row("file1.pdf", "v1", "AAAA")],
+        );
+
+        let stats = verifier.stats().unwrap();
+        assert_eq!(stats.matches, 1);
+        assert_eq!(stats.missing_replica, 1);
+
+        let missing = verifier.objects_only_in_source().unwrap();
+        assert_eq!(missing.len(), 1);
+        assert_eq!(missing[0].key, "file2.pdf");
+    }
+
+    #[test]
+    fn test_missing_from_source() {
+        let verifier = create_test_verifier(
+            &[row("file1.pdf", "v1", "AAAA")],
+            &[
+                row("file1.pdf", "v1", "AAAA"),
+                row("file2.pdf", "v1", "BBBB"),
+            ],
+        );
+
+        let stats = verifier.stats().unwrap();
+        assert_eq!(stats.matches, 1);
+        assert_eq!(stats.missing_source, 1);
+
+        let missing = verifier.objects_only_in_replication().unwrap();
+        assert_eq!(missing.len(), 1);
+        assert_eq!(missing[0].key, "file2.pdf");
+    }
+
+    #[test]
+    fn test_failed_source() {
+        let verifier = create_test_verifier(
+            &[failed_row("file.pdf", "v1")],
+            &[row("file.pdf", "v1", "AAAA")],
+        );
+
+        let stats = verifier.stats().unwrap();
+        assert_eq!(stats.failed_source, 1);
+        assert_eq!(stats.matches, 0);
+
+        let failed = verifier.failed_in_source().unwrap();
+        assert_eq!(failed.len(), 1);
+        assert_eq!(failed[0].key, "file.pdf");
+        assert_eq!(failed[0].error_code, "InternalError");
+    }
+
+    #[test]
+    fn test_failed_replication() {
+        let verifier = create_test_verifier(
+            &[row("file.pdf", "v1", "AAAA")],
+            &[failed_row("file.pdf", "v1")],
+        );
+
+        let stats = verifier.stats().unwrap();
+        assert_eq!(stats.failed_replication, 1);
+        assert_eq!(stats.matches, 0);
+
+        let failed = verifier.failed_in_replication().unwrap();
+        assert_eq!(failed.len(), 1);
+        assert_eq!(failed[0].key, "file.pdf");
+    }
+
+    #[test]
+    fn test_mixed_scenarios() {
+        let verifier = create_test_verifier(
+            &[
+                row("match.pdf", "v1", "AAAA"),        // matches
+                row("mismatch.pdf", "v1", "BBBB"),     // mismatch
+                row("source-only.pdf", "v1", "CCCC"),  // missing from replication
+                failed_row("failed-source.pdf", "v1"), // failed in source
+            ],
+            &[
+                row("match.pdf", "v1", "AAAA"),      // matches
+                row("mismatch.pdf", "v1", "XXXX"),   // mismatch (different checksum)
+                row("repl-only.pdf", "v1", "DDDD"),  // missing from source
+                failed_row("failed-repl.pdf", "v1"), // failed in replication
+            ],
+        );
+
+        let stats = verifier.stats().unwrap();
+        assert_eq!(stats.matches, 1);
+        assert_eq!(stats.mismatches, 1);
+        assert_eq!(stats.missing_replica, 1);
+        assert_eq!(stats.missing_source, 1);
+        assert_eq!(stats.failed_source, 1);
+        assert_eq!(stats.failed_replication, 1);
+        assert_eq!(stats.total_objects, 6);
+    }
+
+    #[test]
+    fn test_write_csv_mixed() {
+        let verifier = create_test_verifier(
+            &[
+                row("match.pdf", "v1", "AAAA"),
+                row("mismatch.pdf", "v1", "BBBB"),
+            ],
+            &[
+                row("match.pdf", "v1", "AAAA"),
+                row("mismatch.pdf", "v1", "XXXX"),
+            ],
+        );
 
         let mut output = Vec::new();
         verifier.write_csv(&mut output).unwrap();
@@ -588,17 +790,30 @@ mod tests {
         let csv = String::from_utf8(output).unwrap();
         let lines: Vec<&str> = csv.lines().collect();
 
-        // Header + 4 data rows
-        assert_eq!(lines.len(), 5);
-        assert_eq!(
-            lines[0],
-            "bucket,key,version_id,status,checksum_algorithm,checksum_source,checksum_replication"
+        assert_eq!(lines.len(), 3); // header + 2 rows
+        assert!(csv.contains(",ok,"));
+        assert!(csv.contains(",mismatch,"));
+    }
+
+    #[test]
+    fn test_version_id_distinction() {
+        // Same key but different versions should be treated as different objects
+        let verifier = create_test_verifier(
+            &[row("file.pdf", "v1", "AAAA"), row("file.pdf", "v2", "BBBB")],
+            &[row("file.pdf", "v1", "AAAA"), row("file.pdf", "v2", "BBBB")],
         );
 
-        // All should be "ok" status
-        for line in &lines[1..] {
-            assert!(line.contains(",ok,"));
-            assert!(line.contains(",SHA256,"));
-        }
+        let stats = verifier.stats().unwrap();
+        assert_eq!(stats.matches, 2);
+        assert_eq!(stats.total_objects, 2);
+    }
+
+    #[test]
+    fn test_empty_tables() {
+        let verifier = create_test_verifier(&[], &[]);
+
+        let stats = verifier.stats().unwrap();
+        assert_eq!(stats.total_objects, 0);
+        assert_eq!(stats.matches, 0);
     }
 }

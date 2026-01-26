@@ -4,7 +4,7 @@ Simplified configuration, access control and digital preservation for AWS S3.
 
 ## Summary
 
-The goal of DuraCloud is to make it easy for users to choose any off the shelf S3 client and interact with S3 gaining more advanced features by default. Advanced features are described in more detail below and in user documentation but in brief: versioning, inventory, replication, logging etc. is enabled as buckets are created without a user having to do anything in AWS. Periodically checksum verification is performed to ensure that file integrity is maintained between the primary and replicated (backup) files. This builds on the already impressive levels of durability provided by S3 by adding a further automated guarantee that files are what they are intended to be.
+The goal of DuraCloud is to make it easy for users to choose any off the shelf S3 client and interact with S3 gaining more advanced features by default. Advanced features are described in more detail below and in user documentation but in brief: versioning, inventory, replication, logging etc. is enabled as buckets are created without a user having to do anything in AWS. Periodically checksum verification is performed to ensure that file integrity is maintained between the primary and replicated (backup) files. This builds on the already impressive levels of durability provided by S3 in adding a further automated guarantee that files are what they are intended to be.
 
 Links to additional reading (TODO).
 
@@ -42,10 +42,10 @@ Starts S3 batch jobs to generate checksum reports.
 
 ### checksum-verification
 
-Triggered by: eventbridge event (schedule: TBD)
+Triggered by: s3 event
 Dependencies: generate-checksums
 
-Compares checksum reports for source and replication destination buckets.
+Compares checksum reports for source and replication destination buckets. Creates a consolidated checksum report CSV file and results metadata.
 
 ### storage-report
 

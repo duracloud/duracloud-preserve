@@ -8,6 +8,9 @@ const REPLICATION_POLICY_SUFFIX: &str = "-s3-replication-policy";
 const REPLICATION_ROLE_SUFFIX: &str = "-s3-replication-role";
 const REPORTS_PREFIX: &str = "reports";
 
+pub const DISALLOWED_AFFIXES: &[&str] = &[".", "-"];
+pub const STACK_BUCKET_DELIMITER: &str = "-";
+
 /// Date context for stack related outputs (reports etc.)
 #[derive(Debug, Clone, Copy)]
 pub enum DateCtx {
@@ -41,8 +44,10 @@ impl Name {
     pub fn new(name: &str) -> Result<Self, &'static str> {
         let name = name.to_lowercase();
 
-        if name.starts_with("-") || name.ends_with("-") {
-            return Err("Name cannot start or end with dash");
+        for affix in DISALLOWED_AFFIXES {
+            if name.starts_with(affix) || name.ends_with(affix) {
+                return Err("Name cannot start or end with {affix}");
+            }
         }
 
         Ok(Self(name.to_string()))
@@ -111,6 +116,8 @@ mod tests {
     fn test_name_new() {
         assert_eq!(Name::new("test-stack").unwrap().as_str(), "test-stack");
         assert_eq!(Name::new("test-STaCK").unwrap().as_str(), "test-stack");
+        assert!(Name::new(".test-stack").is_err());
+        assert!(Name::new("test-stack.").is_err());
         assert!(Name::new("-test-stack").is_err());
         assert!(Name::new("test-stack-").is_err());
     }

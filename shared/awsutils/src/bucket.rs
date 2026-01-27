@@ -3,7 +3,10 @@ use crate::{
     config::RequestConfig,
     file::{File, download},
 };
-use apputils::{StackName, content_type};
+use apputils::{
+    StackName, content_type,
+    stack::{DISALLOWED_AFFIXES, STACK_BUCKET_DELIMITER},
+};
 
 use aws_sdk_s3::Client;
 use thiserror::Error;
@@ -224,7 +227,7 @@ pub async fn get_stack_buckets(
     client: &Client,
     stack: &StackName,
 ) -> Result<Vec<Bucket>, RequestError> {
-    let prefix = format!("{}-", stack.as_str());
+    let prefix = format!("{}{}", stack.as_str(), STACK_BUCKET_DELIMITER);
     let mut buckets = Vec::new();
 
     let response = client
@@ -342,11 +345,13 @@ impl Name {
             ));
         }
 
-        if name.starts_with("-") || name.ends_with("-") {
-            return Err(RequestError::ValidationError(format!(
-                "name cannot start or end with dash ({})",
-                name
-            )));
+        for affix in DISALLOWED_AFFIXES {
+            if name.starts_with(affix) || name.ends_with(affix) {
+                return Err(RequestError::ValidationError(format!(
+                    "name cannot start or end with {} ({})",
+                    affix, name
+                )));
+            }
         }
 
         if name.len() > MAX_LEN_FOR_REQUEST_NAME as usize {
@@ -389,7 +394,12 @@ impl Request {
             )));
         }
 
-        let name = Name::new(&format!("{}-{}", stack.as_str(), partial.as_str()))?;
+        let name = Name::new(&format!(
+            "{}{}{}",
+            stack.as_str(),
+            STACK_BUCKET_DELIMITER,
+            partial.as_str()
+        ))?;
         if name.as_str().ends_with(PUBLIC_SUFFIX) {
             Ok(Bucket(name, Type::Public))
         } else {
@@ -399,8 +409,9 @@ impl Request {
 
     pub fn replication_bucket(stack: &StackName, partial: &Name) -> Result<Bucket, RequestError> {
         let name = Name::new(&format!(
-            "{}-{}{}",
+            "{}{}{}{}",
             stack.as_str(),
+            STACK_BUCKET_DELIMITER,
             partial.as_str(),
             REPLICATION_SUFFIX
         ))?;
@@ -470,6 +481,10 @@ mod tests {
         assert_eq!(Name::new("test-stack").unwrap().as_str(), "test-stack");
         assert_eq!(Name::new("test-stack-1").unwrap().as_str(), "test-stack-1");
 
+        // period as prefix or suffix
+        assert!(Name::new(".test").is_err());
+        assert!(Name::new("test.").is_err());
+
         // dash as prefix or suffix
         assert!(Name::new("-test").is_err());
         assert!(Name::new("test-").is_err());
@@ -482,6 +497,7 @@ mod tests {
         assert!(Name::new("test ").is_err());
         assert!(Name::new("test_").is_err());
         assert!(Name::new("test@").is_err());
+        assert!(Name::new("test.").is_err());
     }
 
     #[tokio::test]

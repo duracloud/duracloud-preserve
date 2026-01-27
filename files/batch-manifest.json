@@ -1,0 +1,13 @@
+{
+  "Format": "Report_CSV_20180820",
+  "ReportCreationDate": "2026-01-24T01:26:27.366827532Z",
+  "Results": [
+    {
+      "TaskExecutionStatus": "succeeded",
+      "Bucket": "test-stack-managed",
+      "MD5Checksum": "189f6e3ce7c682d3e623d0ba3de97339",
+      "Key": "batch/reports/test-stack-private-repl/job-90330b55-cd00-48fa-a2f4-956bf9f0bfe8/results/2d5f90c840f35d611f325e21cb0bcf935b696d63.csv"
+    }
+  ],
+  "ReportSchema": "Bucket, Key, VersionId, TaskStatus, ErrorCode, HTTPStatusCode, ResultMessage"
+}

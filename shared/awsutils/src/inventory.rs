@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn test_deserialize_manifest() {
-        let json = include_str!("../../../files/manifest.json");
+        let json = include_str!("../../../files/inventory-manifest.json");
         let manifest: InventoryManifest = serde_json::from_str(json).unwrap();
         assert_eq!(manifest.source_bucket, "test-stack-private");
         assert_eq!(manifest.files.len(), 1);

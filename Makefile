@@ -51,7 +51,7 @@ invoke-bucket-request: ## Invoke bucket request function locally (make invoke-bu
 .PHONY: invoke-process-inventory
 invoke-process-inventory: ## Invoke process inventory function locally (make invoke-process-inventory s=stack p=profile)
 	@$(MAKE) event f=process-inventory s=$(s)
-	@sed 's/test-stack/$(s)/g' files/manifest.json > payloads/manifest.json
+	@sed 's/test-stack/$(s)/g' files/inventory-manifest.json > payloads/manifest.json
 	@$(MAKE) upload b=managed f=files/example.parquet s=$(s) p=$(p)
 	@$(MAKE) upload b=managed f=payloads/manifest.json s=$(s) p=$(p)
 	@cargo lambda invoke -p process-inventory --data-file payloads/process-inventory.json

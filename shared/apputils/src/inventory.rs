@@ -84,45 +84,6 @@ impl InventoryProcessor {
         })
     }
 
-    pub fn totals(&self) -> Result<(usize, i64), InventoryError> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT COUNT(*), COALESCE(SUM(size), 0) FROM inventory")?;
-        let mut rows = stmt.query([])?;
-        let row = rows.next()?.expect("COUNT always returns a row");
-        let total_files: i64 = row.get(0)?;
-        let total_size: i64 = row.get(1)?;
-        Ok((total_files as usize, total_size))
-    }
-
-    fn prefix_stats(&self) -> Result<Vec<PrefixStats>, InventoryError> {
-        let mut stmt = self.conn.prepare(
-            r#"
-            SELECT
-                CASE WHEN key LIKE '%/%'
-                     THEN split_part(key, '/', 1)
-                     ELSE '' END as prefix,
-                COUNT(*)::INTEGER as total_files,
-                COALESCE(SUM(size), 0) as total_size
-            FROM inventory
-            GROUP BY prefix
-            "#,
-        )?;
-
-        let mut rows = stmt.query([])?;
-        let mut by_prefix = Vec::new();
-
-        while let Some(row) = rows.next()? {
-            by_prefix.push(PrefixStats {
-                prefix: row.get(0)?,
-                total_files: row.get::<_, i32>(1)? as u32,
-                total_size: row.get(2)?,
-            });
-        }
-
-        Ok(by_prefix)
-    }
-
     pub fn write_csv(&self, writer: impl Write) -> Result<&Self, InventoryError> {
         let mut stmt = self.conn.prepare(
             "SELECT bucket, key, size, last_modified_date::VARCHAR, storage_class, replication_status, url FROM inventory",
@@ -162,6 +123,46 @@ impl InventoryProcessor {
 
         csv_writer.flush()?;
         Ok(self)
+    }
+
+    // private
+    fn prefix_stats(&self) -> Result<Vec<PrefixStats>, InventoryError> {
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                CASE WHEN key LIKE '%/%'
+                     THEN split_part(key, '/', 1)
+                     ELSE '' END as prefix,
+                COUNT(*)::INTEGER as total_files,
+                COALESCE(SUM(size), 0) as total_size
+            FROM inventory
+            GROUP BY prefix
+            "#,
+        )?;
+
+        let mut rows = stmt.query([])?;
+        let mut by_prefix = Vec::new();
+
+        while let Some(row) = rows.next()? {
+            by_prefix.push(PrefixStats {
+                prefix: row.get(0)?,
+                total_files: row.get::<_, i32>(1)? as u32,
+                total_size: row.get(2)?,
+            });
+        }
+
+        Ok(by_prefix)
+    }
+
+    fn totals(&self) -> Result<(usize, i64), InventoryError> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT COUNT(*), COALESCE(SUM(size), 0) FROM inventory")?;
+        let mut rows = stmt.query([])?;
+        let row = rows.next()?.expect("COUNT always returns a row");
+        let total_files: i64 = row.get(0)?;
+        let total_size: i64 = row.get(1)?;
+        Ok((total_files as usize, total_size))
     }
 }
 

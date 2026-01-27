@@ -35,7 +35,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\nFound {} bucket(s):", buckets.len());
     for bucket in &buckets {
-        println!("  {} ({})", bucket.0.as_str(), bucket.1);
+        println!("\t{} ({})", bucket.name(), bucket.bucket_type());
     }
 
     if args.destroy {
@@ -61,8 +61,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    for bucket in &buckets {
-        let name = bucket.0.as_str();
+    for b in &buckets {
+        let name = b.name();
 
         println!("\nProcessing bucket: {}", name);
 
@@ -73,8 +73,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if args.destroy {
-        for bucket in &buckets {
-            let name = bucket.0.as_str();
+        for b in &buckets {
+            let name = b.name();
             print!("\tDeleting bucket {}... ", name);
             io::stdout().flush()?;
             bucket::delete(&s3_client, name).await?;

@@ -41,8 +41,8 @@ impl<'a> BucketCreator<'a> {
         let constraint = BucketLocationConstraint::from(region.as_str());
 
         let stack = self.config.stack().as_str();
-        let bucket_name = self.bucket.0.as_str();
-        let bucket_type = self.bucket.1.to_string();
+        let bucket_name = self.bucket.name();
+        let bucket_type = self.bucket.bucket_type().to_string();
 
         let cfg = CreateBucketConfiguration::builder()
             .location_constraint(constraint)
@@ -84,7 +84,7 @@ impl<'a> BucketCreator<'a> {
     }
 
     pub async fn rollback(&self) -> Result<(), RequestError> {
-        let bucket_name = self.bucket.0.as_str();
+        let bucket_name = self.bucket.name();
 
         self.config
             .client
@@ -100,13 +100,13 @@ impl<'a> BucketCreator<'a> {
     }
 
     pub async fn setup(&self) -> Result<(), RequestError> {
-        match self.bucket.1 {
+        match self.bucket.bucket_type() {
             Type::Public => self.setup_public_bucket().await,
             Type::Replication => self.setup_replication_bucket().await,
             Type::Standard => self.setup_standard_bucket().await,
             _ => Err(RequestError::UnsupportedOperation(format!(
                 "setup not supported for {} buckets",
-                self.bucket.1
+                self.bucket.bucket_type()
             ))),
         }
     }
@@ -141,7 +141,7 @@ impl<'a> BucketCreator<'a> {
     }
 
     async fn add_deny_upload_policy(&self) -> Result<(), RequestError> {
-        let bucket_name = self.bucket.0.as_str();
+        let bucket_name = self.bucket.name();
 
         let policy = serde_json::json!({
             "Version": "2012-10-17",
@@ -175,7 +175,7 @@ impl<'a> BucketCreator<'a> {
         &self,
         transition_class: TransitionStorageClass,
     ) -> Result<(), RequestError> {
-        let bucket_name = self.bucket.0.as_str();
+        let bucket_name = self.bucket.name();
 
         let expiration = LifecycleRule::builder()
             .id("ExpireOldVersions")
@@ -246,7 +246,7 @@ impl<'a> BucketCreator<'a> {
     }
 
     async fn add_public_access_policy(&self) -> Result<(), RequestError> {
-        let bucket_name = self.bucket.0.as_str();
+        let bucket_name = self.bucket.name();
 
         let policy = serde_json::json!({
             "Version": "2012-10-17",
@@ -277,7 +277,7 @@ impl<'a> BucketCreator<'a> {
     }
 
     async fn enable_bucket_logging(&self) -> Result<(), RequestError> {
-        let bucket_name = self.bucket.0.as_str();
+        let bucket_name = self.bucket.name();
         let dest_bucket = self.config.stack().managed_bucket();
 
         self.config
@@ -313,7 +313,7 @@ impl<'a> BucketCreator<'a> {
     }
 
     async fn enable_inventory(&self) -> Result<(), RequestError> {
-        let bucket_name = self.bucket.0.as_str();
+        let bucket_name = self.bucket.name();
         let dest_bucket = self.config.stack().managed_bucket();
 
         self.config
@@ -380,7 +380,7 @@ impl<'a> BucketCreator<'a> {
     }
 
     async fn enable_notifications(&self) -> Result<(), RequestError> {
-        let bucket_name = self.bucket.0.as_str();
+        let bucket_name = self.bucket.name();
 
         self.config
             .client
@@ -404,7 +404,7 @@ impl<'a> BucketCreator<'a> {
     }
 
     async fn enable_public_access(&self) -> Result<(), RequestError> {
-        let bucket_name = self.bucket.0.as_str();
+        let bucket_name = self.bucket.name();
 
         self.config
             .client
@@ -431,8 +431,8 @@ impl<'a> BucketCreator<'a> {
     }
 
     pub async fn enable_replication(&self, replication: &Bucket) -> Result<(), RequestError> {
-        let src_bucket_name = self.bucket.0.as_str();
-        let repl_bucket_name = replication.0.as_str();
+        let src_bucket_name = self.bucket.name();
+        let repl_bucket_name = replication.name();
 
         self.config
             .client
@@ -520,7 +520,7 @@ impl<'a> BucketCreator<'a> {
     }
 
     async fn enable_versioning(&self) -> Result<(), RequestError> {
-        let bucket_name = self.bucket.0.as_str();
+        let bucket_name = self.bucket.name();
 
         self.config
             .client
@@ -544,7 +544,7 @@ impl<'a> BucketCreator<'a> {
     }
 
     async fn remove_deny_upload_policy(&self) -> Result<(), RequestError> {
-        let bucket_name = self.bucket.0.as_str();
+        let bucket_name = self.bucket.name();
 
         self.config
             .client
@@ -566,7 +566,7 @@ impl<'a> BucketCreator<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{BucketName, config::BaseConfig, test_client::TestClientBuilder};
+    use crate::{config::BaseConfig, test_client::TestClientBuilder};
     use apputils::Stack;
 
     fn test_config() -> RequestConfig {
@@ -585,7 +585,7 @@ mod tests {
     #[tokio::test]
     async fn test_setup_unsupported_for_managed_bucket() {
         let config = test_config();
-        let bucket = Bucket(BucketName::new("test-managed").unwrap(), Type::Managed);
+        let bucket = Bucket::new("test-managed", Type::Managed).unwrap();
         let creator = BucketCreator::new(&config, &bucket);
 
         let result = creator.setup().await;
@@ -602,7 +602,7 @@ mod tests {
     #[tokio::test]
     async fn test_setup_unsupported_for_request_bucket() {
         let config = test_config();
-        let bucket = Bucket(BucketName::new("test-request").unwrap(), Type::Request);
+        let bucket = Bucket::new("test-request", Type::Request).unwrap();
         let creator = BucketCreator::new(&config, &bucket);
 
         let result = creator.setup().await;

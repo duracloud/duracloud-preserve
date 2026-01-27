@@ -119,7 +119,7 @@ pub fn replay_event(uri: &str, status: u16, body: impl Into<SdkBody>) -> ReplayE
 mod tests {
     use super::*;
     use crate::{
-        bucket::{Bucket, Name, RequestError, Type},
+        bucket::{Bucket, RequestError, Type},
         bucket_creator::BucketCreator,
         config::{BaseConfig, RequestConfig},
     };
@@ -171,7 +171,7 @@ mod tests {
         let client = TestClientBuilder::new().ok().build();
 
         let config = test_config_with_client(client);
-        let bucket = Bucket(Name::new("example").unwrap(), Type::Standard);
+        let bucket = Bucket::new("example", Type::Standard).unwrap();
         let creator = BucketCreator::new(&config, &bucket);
 
         let result = creator.create().await;
@@ -188,7 +188,7 @@ mod tests {
             .build();
 
         let config = test_config_with_client(client);
-        let bucket = Bucket(Name::new("example").unwrap(), Type::Standard);
+        let bucket = Bucket::new("example", Type::Standard).unwrap();
         let creator = BucketCreator::new(&config, &bucket);
 
         let result = creator.create().await;

@@ -247,8 +247,7 @@ pub async fn get_stack_buckets(
 
         // Check tags to verify it belongs to this stack (prefix alone is not sufficient)
         if let Some(bucket_type) = get_stack_bucket_type(client, name, stack).await {
-            let bucket_name = Name::new(name)?;
-            buckets.push(Bucket(bucket_name, bucket_type));
+            buckets.push(Bucket::new(name, bucket_type)?);
         }
     }
 
@@ -264,7 +263,7 @@ pub async fn get_stack_buckets_by_type(
     let all_buckets = get_stack_buckets(client, stack).await?;
     Ok(all_buckets
         .into_iter()
-        .filter(|b| types.contains(&b.1))
+        .filter(|b| types.contains(b.bucket_type()))
         .collect())
 }
 
@@ -318,9 +317,13 @@ pub fn review_bucket_names(
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Bucket(pub Name, pub Type);
+pub struct Bucket(Name, Type);
 
 impl Bucket {
+    pub fn new(name: &str, bucket_type: Type) -> Result<Self, RequestError> {
+        Ok(Self(Name::new(name)?, bucket_type))
+    }
+
     pub fn bucket_type(&self) -> &Type {
         &self.1
     }
@@ -394,28 +397,28 @@ impl Request {
             )));
         }
 
-        let name = Name::new(&format!(
+        let name = format!(
             "{}{}{}",
             stack.as_str(),
             STACK_BUCKET_DELIMITER,
             partial.as_str()
-        ))?;
-        if name.as_str().ends_with(PUBLIC_SUFFIX) {
-            Ok(Bucket(name, Type::Public))
+        );
+        if name.ends_with(PUBLIC_SUFFIX) {
+            Bucket::new(&name, Type::Public)
         } else {
-            Ok(Bucket(name, Type::Standard))
+            Bucket::new(&name, Type::Standard)
         }
     }
 
     pub fn replication_bucket(stack: &Stack, partial: &Name) -> Result<Bucket, RequestError> {
-        let name = Name::new(&format!(
+        let name = format!(
             "{}{}{}{}",
             stack.as_str(),
             STACK_BUCKET_DELIMITER,
             partial.as_str(),
             REPLICATION_SUFFIX
-        ))?;
-        Ok(Bucket(name, Type::Replication))
+        );
+        Bucket::new(&name, Type::Replication)
     }
 
     // TODO: tidy this up
@@ -541,12 +544,12 @@ mod tests {
     #[test]
     fn test_pair_buckets() {
         let source_buckets = vec![
-            Bucket(Name::new("alpha").unwrap(), Type::Standard),
-            Bucket(Name::new("beta").unwrap(), Type::Public),
+            Bucket::new("alpha", Type::Standard).unwrap(),
+            Bucket::new("beta", Type::Public).unwrap(),
         ];
         let replication_buckets = vec![
-            Bucket(Name::new("beta-repl").unwrap(), Type::Replication),
-            Bucket(Name::new("alpha-repl").unwrap(), Type::Replication),
+            Bucket::new("beta-repl", Type::Replication).unwrap(),
+            Bucket::new("alpha-repl", Type::Replication).unwrap(),
         ];
 
         let pairs = pair_buckets(source_buckets, replication_buckets).unwrap();
@@ -561,11 +564,11 @@ mod tests {
     #[test]
     fn test_pair_buckets_missing_replication() {
         let source_buckets = vec![
-            Bucket(Name::new("alpha").unwrap(), Type::Standard),
-            Bucket(Name::new("beta").unwrap(), Type::Public),
+            Bucket::new("alpha", Type::Standard).unwrap(),
+            Bucket::new("beta", Type::Public).unwrap(),
         ];
         let replication_buckets = vec![
-            Bucket(Name::new("alpha-repl").unwrap(), Type::Replication),
+            Bucket::new("alpha-repl", Type::Replication).unwrap(),
             // missing beta-repl
         ];
 
@@ -598,16 +601,16 @@ mod tests {
         assert_eq!(result.len(), 2);
 
         // First bucket pair (standard)
-        assert_eq!(result[0].0.0.as_str(), "test-stack-example");
-        assert_eq!(result[0].0.1, Type::Standard);
-        assert_eq!(result[0].1.0.as_str(), "test-stack-example-repl");
-        assert_eq!(result[0].1.1, Type::Replication);
+        assert_eq!(result[0].0.name(), "test-stack-example");
+        assert_eq!(result[0].0.bucket_type(), &Type::Standard);
+        assert_eq!(result[0].1.name(), "test-stack-example-repl");
+        assert_eq!(result[0].1.bucket_type(), &Type::Replication);
 
         // Second bucket pair (public)
-        assert_eq!(result[1].0.0.as_str(), "test-stack-data-public");
-        assert_eq!(result[1].0.1, Type::Public);
-        assert_eq!(result[1].1.0.as_str(), "test-stack-data-public-repl");
-        assert_eq!(result[1].1.1, Type::Replication);
+        assert_eq!(result[1].0.name(), "test-stack-data-public");
+        assert_eq!(result[1].0.bucket_type(), &Type::Public);
+        assert_eq!(result[1].1.name(), "test-stack-data-public-repl");
+        assert_eq!(result[1].1.bucket_type(), &Type::Replication);
     }
 
     #[test]
@@ -616,8 +619,8 @@ mod tests {
         let standard = Name::new("example").unwrap();
 
         let result = Request::primary_bucket(&stack, &standard).unwrap();
-        assert_eq!(result.0.as_str(), "test-stack-example");
-        assert_eq!(result.1, Type::Standard);
+        assert_eq!(result.name(), "test-stack-example");
+        assert_eq!(result.bucket_type(), &Type::Standard);
     }
 
     #[test]
@@ -626,8 +629,8 @@ mod tests {
         let public = Name::new("example-public").unwrap();
 
         let result = Request::primary_bucket(&stack, &public).unwrap();
-        assert_eq!(result.0.as_str(), "test-stack-example-public");
-        assert_eq!(result.1, Type::Public);
+        assert_eq!(result.name(), "test-stack-example-public");
+        assert_eq!(result.bucket_type(), &Type::Public);
     }
 
     #[test]
@@ -666,8 +669,8 @@ mod tests {
         let standard = Name::new("example").unwrap();
 
         let result = Request::replication_bucket(&stack, &standard).unwrap();
-        assert_eq!(result.0.as_str(), "test-stack-example-repl");
-        assert_eq!(result.1, Type::Replication);
+        assert_eq!(result.name(), "test-stack-example-repl");
+        assert_eq!(result.bucket_type(), &Type::Replication);
     }
 
     #[test]
@@ -676,7 +679,7 @@ mod tests {
         let public = Name::new("example-public").unwrap();
 
         let result = Request::replication_bucket(&stack, &public).unwrap();
-        assert_eq!(result.0.as_str(), "test-stack-example-public-repl");
-        assert_eq!(result.1, Type::Replication);
+        assert_eq!(result.name(), "test-stack-example-public-repl");
+        assert_eq!(result.bucket_type(), &Type::Replication);
     }
 }

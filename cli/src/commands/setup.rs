@@ -1,6 +1,6 @@
 use apputils::Stack;
 use aws_sdk_iam::Client as IamClient;
-use awsutils::bucket::{Bucket, Name, Type, exists};
+use awsutils::bucket::{Bucket, Type, exists};
 use awsutils::bucket_creator::BucketCreator;
 use awsutils::config::{RequestConfig, default_config, request_config};
 use clap::Args as ClapArgs;
@@ -30,18 +30,18 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let config = request_config(stack.clone()).await;
     println!("Account: {}", config.account_id());
 
-    let managed_bucket = Bucket(Name::new(&stack.managed_bucket())?, Type::Managed);
+    let managed_bucket = Bucket::new(&stack.managed_bucket(), Type::Managed)?;
     if !exists(&config.client, managed_bucket.name()).await {
         let creator = BucketCreator::new(&config, &managed_bucket);
         creator.create().await?;
-        println!("Created bucket: {}", managed_bucket.0.as_str());
+        println!("Created bucket: {}", managed_bucket.name());
     }
 
-    let request_bucket = Bucket(Name::new(&stack.request_bucket())?, Type::Request);
+    let request_bucket = Bucket::new(&stack.request_bucket(), Type::Request)?;
     if !exists(&config.client, request_bucket.name()).await {
         let creator = BucketCreator::new(&config, &request_bucket);
         creator.create().await?;
-        println!("Created bucket: {}", request_bucket.0.as_str());
+        println!("Created bucket: {}", request_bucket.name());
     }
 
     set_managed_bucket_policy(&config).await?;

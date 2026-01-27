@@ -11,7 +11,7 @@ mod common;
 
 use aws_smithy_types::body::SdkBody;
 use awsutils::bucket::{
-    Bucket, Name, Type, delete, empty, exists, get_stack_buckets, get_stack_buckets_by_type,
+    Bucket, Type, delete, empty, exists, get_stack_buckets, get_stack_buckets_by_type,
 };
 use awsutils::bucket_creator::BucketCreator;
 use awsutils::config::test_config;
@@ -24,7 +24,7 @@ async fn test_get_stack_buckets() {
 
     let ts = timestamp();
     let bucket_name = format!("{}-inttest-discovery-{}", config.stack().as_str(), ts);
-    let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Standard);
+    let bucket = Bucket::new(&bucket_name, Type::Standard).unwrap();
     let creator = BucketCreator::new(&config, &bucket);
 
     creator.create().await.expect("bucket creation failed");
@@ -33,7 +33,7 @@ async fn test_get_stack_buckets() {
         .await
         .expect("get_stack_buckets failed");
 
-    let found = buckets.iter().any(|b| b.0.as_str() == bucket_name);
+    let found = buckets.iter().any(|b| b.name() == bucket_name);
     assert!(found, "test bucket not found in discovery");
 
     delete(&config.client, &bucket_name)
@@ -50,8 +50,8 @@ async fn test_get_stack_buckets_by_type() {
     let std_name = format!("{}-inttest-type-std-{}", config.stack().as_str(), ts);
     let repl_name = format!("{}-inttest-type-repl-{}", config.stack().as_str(), ts);
 
-    let std_bucket = Bucket(Name::new(&std_name).unwrap(), Type::Standard);
-    let repl_bucket = Bucket(Name::new(&repl_name).unwrap(), Type::Replication);
+    let std_bucket = Bucket::new(&std_name, Type::Standard).unwrap();
+    let repl_bucket = Bucket::new(&repl_name, Type::Replication).unwrap();
 
     let std_creator = BucketCreator::new(&config, &std_bucket);
     let repl_creator = BucketCreator::new(&config, &repl_bucket);
@@ -69,8 +69,8 @@ async fn test_get_stack_buckets_by_type() {
         .await
         .expect("get_stack_buckets_by_type failed");
 
-    let found_std = std_buckets.iter().any(|b| b.0.as_str() == std_name);
-    let found_repl_in_std = std_buckets.iter().any(|b| b.0.as_str() == repl_name);
+    let found_std = std_buckets.iter().any(|b| b.name() == std_name);
+    let found_repl_in_std = std_buckets.iter().any(|b| b.name() == repl_name);
 
     assert!(found_std, "standard bucket not found");
     assert!(
@@ -93,7 +93,7 @@ async fn test_empty_bucket() {
 
     let ts = timestamp();
     let bucket_name = format!("{}-inttest-empty-{}", config.stack().as_str(), ts);
-    let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Standard);
+    let bucket = Bucket::new(&bucket_name, Type::Standard).unwrap();
     let creator = BucketCreator::new(&config, &bucket);
 
     creator.create().await.expect("bucket creation failed");

@@ -10,7 +10,7 @@
 mod common;
 
 use aws_sdk_s3::types::BucketVersioningStatus;
-use awsutils::bucket::{Bucket, Name, Type, exists};
+use awsutils::bucket::{Bucket, Type, exists};
 use awsutils::bucket_creator::BucketCreator;
 use awsutils::config::{RequestConfig, test_config};
 use common::{cleanup_bucket, timestamp};
@@ -209,7 +209,7 @@ async fn test_create_standard_bucket() {
     let config = test_config().await;
     let bucket_name = format!("{}-inttest-std-{}", config.stack().as_str(), timestamp());
 
-    let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Standard);
+    let bucket = Bucket::new(&bucket_name, Type::Standard).unwrap();
     let creator = BucketCreator::new(&config, &bucket);
 
     creator.create().await.expect("bucket creation failed");
@@ -231,7 +231,7 @@ async fn test_create_public_bucket() {
     let config = test_config().await;
     let bucket_name = format!("{}-inttest-pub-{}", config.stack().as_str(), timestamp());
 
-    let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Public);
+    let bucket = Bucket::new(&bucket_name, Type::Public).unwrap();
     let creator = BucketCreator::new(&config, &bucket);
 
     creator.create().await.expect("bucket creation failed");
@@ -254,7 +254,7 @@ async fn test_create_replication_bucket() {
     let config = test_config().await;
     let bucket_name = format!("{}-inttest-repl-{}", config.stack().as_str(), timestamp());
 
-    let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Replication);
+    let bucket = Bucket::new(&bucket_name, Type::Replication).unwrap();
     let creator = BucketCreator::new(&config, &bucket);
 
     creator.create().await.expect("bucket creation failed");
@@ -274,8 +274,8 @@ async fn test_create_bucket_pair_with_replication() {
     let primary_name = format!("{}-inttest-pair-{}", config.stack().as_str(), ts);
     let repl_name = format!("{}-inttest-pair-{}-repl", config.stack().as_str(), ts);
 
-    let primary = Bucket(Name::new(&primary_name).unwrap(), Type::Standard);
-    let replication = Bucket(Name::new(&repl_name).unwrap(), Type::Replication);
+    let primary = Bucket::new(&primary_name, Type::Standard).unwrap();
+    let replication = Bucket::new(&repl_name, Type::Replication).unwrap();
 
     let primary_creator = BucketCreator::new(&config, &primary);
     primary_creator
@@ -317,7 +317,7 @@ async fn test_rollback_deletes_bucket() {
         config.stack().as_str(),
         timestamp()
     );
-    let bucket = Bucket(Name::new(&bucket_name).unwrap(), Type::Standard);
+    let bucket = Bucket::new(&bucket_name, Type::Standard).unwrap();
 
     let creator = BucketCreator::new(&config, &bucket);
     creator.create().await.expect("bucket creation failed");

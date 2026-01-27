@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use apputils::StackName;
+use apputils::Stack;
 use aws_sdk_iam::Client as IamClient;
 use awsutils::bucket;
 use awsutils::config::default_config;
@@ -19,7 +19,7 @@ pub struct Args {
 }
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
-    let stack = StackName::new(&args.stack)?;
+    let stack = Stack::new(&args.stack)?;
     let sdk_config = default_config().await;
     let s3_client = aws_sdk_s3::Client::new(&sdk_config);
     let iam_client = IamClient::new(&sdk_config);

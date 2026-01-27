@@ -36,50 +36,41 @@ impl std::fmt::Display for DateCtx {
     }
 }
 
-/// A type wrapper to ensure name conforms to minimal expectations.
-#[derive(Debug, Clone)]
-pub struct Name(String);
-impl Name {
-    // TODO: an actual error
+#[derive(Debug, Clone, PartialEq)]
+pub struct Stack(Name);
+
+impl Stack {
     pub fn new(name: &str) -> Result<Self, &'static str> {
-        let name = name.to_lowercase();
-
-        for affix in DISALLOWED_AFFIXES {
-            if name.starts_with(affix) || name.ends_with(affix) {
-                return Err("Name cannot start or end with {affix}");
-            }
-        }
-
-        Ok(Self(name.to_string()))
+        Ok(Self(Name::new(name)?))
     }
 
     pub fn as_str(&self) -> &str {
-        &self.0
+        self.0.as_str()
     }
 
     /// Batch operations policy name for stack
     pub fn batch_policy_name(&self) -> String {
-        format!("{}{}", &self.as_str(), BATCH_POLICY_SUFFIX)
+        format!("{}{}", self.as_str(), BATCH_POLICY_SUFFIX)
     }
 
     /// Batch operations role name for stack
     pub fn batch_role_name(&self) -> String {
-        format!("{}{}", &self.as_str(), BATCH_ROLE_SUFFIX)
+        format!("{}{}", self.as_str(), BATCH_ROLE_SUFFIX)
     }
 
     /// Get managed bucket name for stack
     pub fn managed_bucket(&self) -> String {
-        format!("{}{}", &self.as_str(), MANAGED_SUFFIX)
+        format!("{}{}", self.as_str(), MANAGED_SUFFIX)
     }
 
     /// Replication policy name for stack
     pub fn replication_policy_name(&self) -> String {
-        format!("{}{}", &self.as_str(), REPLICATION_POLICY_SUFFIX)
+        format!("{}{}", self.as_str(), REPLICATION_POLICY_SUFFIX)
     }
 
     /// Replication role name for stack
     pub fn replication_role_name(&self) -> String {
-        format!("{}{}", &self.as_str(), REPLICATION_ROLE_SUFFIX)
+        format!("{}{}", self.as_str(), REPLICATION_ROLE_SUFFIX)
     }
 
     /// Checksums job receipt (json) destination used for checksum verification processing
@@ -104,7 +95,29 @@ impl Name {
 
     /// Request bucket name for stack
     pub fn request_bucket(&self) -> String {
-        format!("{}{}", &self.as_str(), REQUEST_SUFFIX)
+        format!("{}{}", self.as_str(), REQUEST_SUFFIX)
+    }
+}
+
+/// A type wrapper to ensure name conforms to minimal expectations.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Name(String);
+impl Name {
+    // TODO: an actual error
+    pub fn new(name: &str) -> Result<Self, &'static str> {
+        let name = name.to_lowercase();
+
+        for affix in DISALLOWED_AFFIXES {
+            if name.starts_with(affix) || name.ends_with(affix) {
+                return Err("Name cannot start or end with {affix}");
+            }
+        }
+
+        Ok(Self(name.to_string()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
@@ -113,36 +126,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_name_new() {
-        assert_eq!(Name::new("test-stack").unwrap().as_str(), "test-stack");
-        assert_eq!(Name::new("test-STaCK").unwrap().as_str(), "test-stack");
-        assert!(Name::new(".test-stack").is_err());
-        assert!(Name::new("test-stack.").is_err());
-        assert!(Name::new("-test-stack").is_err());
-        assert!(Name::new("test-stack-").is_err());
+    fn test_stack_new() {
+        assert_eq!(Stack::new("test-stack").unwrap().as_str(), "test-stack");
+        assert_eq!(Stack::new("test-STaCK").unwrap().as_str(), "test-stack");
+        assert!(Stack::new(".test-stack").is_err());
+        assert!(Stack::new("test-stack.").is_err());
+        assert!(Stack::new("-test-stack").is_err());
+        assert!(Stack::new("test-stack-").is_err());
     }
 
     #[test]
     fn test_batch_policy_name() {
-        let stack = Name::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
         assert_eq!(stack.batch_policy_name(), "test-stack-s3-batch-policy");
     }
 
     #[test]
     fn test_batch_role_name() {
-        let stack = Name::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
         assert_eq!(stack.batch_role_name(), "test-stack-s3-batch-role");
     }
 
     #[test]
     fn test_managed_bucket_name() {
-        let stack = Name::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
         assert_eq!(stack.managed_bucket(), "test-stack-managed");
     }
 
     #[test]
     fn test_replication_policy_name() {
-        let stack = Name::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
         assert_eq!(
             stack.replication_policy_name(),
             "test-stack-s3-replication-policy"
@@ -151,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_replication_role_name() {
-        let stack = Name::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
         assert_eq!(
             stack.replication_role_name(),
             "test-stack-s3-replication-role"
@@ -160,13 +173,13 @@ mod tests {
 
     #[test]
     fn test_request_bucket_name() {
-        let stack = Name::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
         assert_eq!(stack.request_bucket(), "test-stack-bucket-request");
     }
 
     #[test]
     fn test_reports_manifest_path() {
-        let stack = Name::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
         assert_eq!(
             stack.reports_manifest_path("my-bucket", DateCtx::Latest),
             "reports/latest/manifests/my-bucket.csv"
@@ -175,7 +188,7 @@ mod tests {
 
     #[test]
     fn test_reports_stats_path() {
-        let stack = Name::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
         assert_eq!(
             stack.reports_stats_path("my-bucket", DateCtx::Latest),
             "metadata/latest/stats/my-bucket.json"
@@ -184,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_reports_storage_path() {
-        let stack = Name::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
         assert_eq!(
             stack.reports_storage_path("my-bucket", DateCtx::Latest),
             "reports/latest/storage/my-bucket.html"

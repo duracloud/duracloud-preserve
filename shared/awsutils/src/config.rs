@@ -1,4 +1,4 @@
-use apputils::StackName;
+use apputils::Stack;
 
 use crate::bucket::RequestError;
 use aws_config::{BehaviorVersion, SdkConfig};
@@ -9,7 +9,7 @@ pub struct BaseConfig {
     pub account_id: String,
     pub debug_handler: bool,
     pub role_arn: String,
-    pub stack: StackName,
+    pub stack: Stack,
 }
 
 /// Configuration for S3 Batch/Control operations
@@ -26,7 +26,7 @@ impl BatchConfig {
     pub fn role_arn(&self) -> &str {
         &self.base.role_arn
     }
-    pub fn stack(&self) -> &StackName {
+    pub fn stack(&self) -> &Stack {
         &self.base.stack
     }
 }
@@ -45,12 +45,12 @@ impl RequestConfig {
     pub fn role_arn(&self) -> &str {
         &self.base.role_arn
     }
-    pub fn stack(&self) -> &StackName {
+    pub fn stack(&self) -> &Stack {
         &self.base.stack
     }
 }
 
-async fn base_config(sdk_config: &SdkConfig, stack: StackName, role_name: &str) -> BaseConfig {
+async fn base_config(sdk_config: &SdkConfig, stack: Stack, role_name: &str) -> BaseConfig {
     let account_id = get_account_id(sdk_config)
         .await
         .expect("failed to get account ID");
@@ -66,7 +66,7 @@ async fn base_config(sdk_config: &SdkConfig, stack: StackName, role_name: &str) 
     }
 }
 
-pub async fn batch_config(stack: StackName) -> BatchConfig {
+pub async fn batch_config(stack: Stack) -> BatchConfig {
     let sdk_config = default_config().await;
     let role_name = stack.batch_role_name();
     let base = base_config(&sdk_config, stack, &role_name).await;
@@ -96,10 +96,7 @@ pub async fn get_account_id(config: &SdkConfig) -> Result<String, RequestError> 
 }
 
 /// Get the S3 Batch Operations role ARN for the stack.
-pub async fn get_batch_role_arn(
-    config: &SdkConfig,
-    stack: &StackName,
-) -> Result<String, RequestError> {
+pub async fn get_batch_role_arn(config: &SdkConfig, stack: &Stack) -> Result<String, RequestError> {
     get_role_arn(config, &stack.batch_role_name()).await
 }
 
@@ -115,7 +112,7 @@ pub fn get_region(client: &aws_sdk_s3::Client) -> Result<String, RequestError> {
 /// Get the S3 replication role ARN for the stack.
 pub async fn get_replication_role_arn(
     config: &SdkConfig,
-    stack: &StackName,
+    stack: &Stack,
 ) -> Result<String, RequestError> {
     get_role_arn(config, &stack.replication_role_name()).await
 }
@@ -139,7 +136,7 @@ async fn get_role_arn(config: &SdkConfig, role_name: &str) -> Result<String, Req
 }
 
 /// Load aws sdk config for a bucket request
-pub async fn request_config(stack: StackName) -> RequestConfig {
+pub async fn request_config(stack: Stack) -> RequestConfig {
     let sdk_config = default_config().await;
     let role_name = stack.replication_role_name();
     let base = base_config(&sdk_config, stack, &role_name).await;
@@ -151,6 +148,6 @@ pub async fn request_config(stack: StackName) -> RequestConfig {
 /// Load test config from TEST_STACK env var (defaults to "inttest")
 pub async fn test_config() -> RequestConfig {
     let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "inttest".to_string());
-    let stack = StackName::new(&stack_name).expect("invalid stack name");
+    let stack = Stack::new(&stack_name).expect("invalid stack name");
     request_config(stack).await
 }

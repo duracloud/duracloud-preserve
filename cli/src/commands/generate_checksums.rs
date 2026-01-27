@@ -1,4 +1,4 @@
-use apputils::StackName;
+use apputils::Stack;
 use awsutils::generate_checksums;
 use clap::Args as ClapArgs;
 
@@ -10,7 +10,7 @@ pub struct Args {
 }
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
-    let stack = StackName::new(&args.stack)?;
+    let stack = Stack::new(&args.stack)?;
     let batch_config = awsutils::config::batch_config(stack.clone()).await;
     let request_config = awsutils::config::request_config(stack.clone()).await;
 

@@ -567,7 +567,7 @@ impl<'a> BucketCreator<'a> {
 mod tests {
     use super::*;
     use crate::{BucketName, config::BaseConfig, test_client::TestClientBuilder};
-    use apputils::StackName;
+    use apputils::Stack;
 
     fn test_config() -> RequestConfig {
         let client = TestClientBuilder::new().build();
@@ -576,7 +576,7 @@ mod tests {
                 account_id: "123456789".to_string(),
                 debug_handler: false,
                 role_arn: "arn:aws:iam::123456789:role/test".to_string(),
-                stack: StackName::new("test-stack").unwrap(),
+                stack: Stack::new("test-stack").unwrap(),
             },
             client,
         }

@@ -4,7 +4,7 @@ use crate::{
     file::{File, download},
 };
 use apputils::{
-    StackName, content_type,
+    Stack, content_type,
     stack::{DISALLOWED_AFFIXES, STACK_BUCKET_DELIMITER},
 };
 
@@ -191,7 +191,7 @@ pub async fn get_bucket_names(client: &Client, file: &File) -> Result<Vec<String
 }
 
 /// Check bucket tags and return the type if it belongs to the stack
-async fn get_bucket_stack_type(client: &Client, bucket: &str, stack: &StackName) -> Option<Type> {
+async fn get_stack_bucket_type(client: &Client, bucket: &str, stack: &Stack) -> Option<Type> {
     let response = client
         .get_bucket_tagging()
         .bucket(bucket)
@@ -225,7 +225,7 @@ async fn get_bucket_stack_type(client: &Client, bucket: &str, stack: &StackName)
 /// Get all buckets belonging to a stack (prefix match + stack tag)
 pub async fn get_stack_buckets(
     client: &Client,
-    stack: &StackName,
+    stack: &Stack,
 ) -> Result<Vec<Bucket>, RequestError> {
     let prefix = format!("{}{}", stack.as_str(), STACK_BUCKET_DELIMITER);
     let mut buckets = Vec::new();
@@ -246,7 +246,7 @@ pub async fn get_stack_buckets(
         }
 
         // Check tags to verify it belongs to this stack (prefix alone is not sufficient)
-        if let Some(bucket_type) = get_bucket_stack_type(client, name, stack).await {
+        if let Some(bucket_type) = get_stack_bucket_type(client, name, stack).await {
             let bucket_name = Name::new(name)?;
             buckets.push(Bucket(bucket_name, bucket_type));
         }
@@ -258,7 +258,7 @@ pub async fn get_stack_buckets(
 /// Get stack buckets filtered by type
 pub async fn get_stack_buckets_by_type(
     client: &Client,
-    stack: &StackName,
+    stack: &Stack,
     types: &[Type],
 ) -> Result<Vec<Bucket>, RequestError> {
     let all_buckets = get_stack_buckets(client, stack).await?;
@@ -386,7 +386,7 @@ impl Name {
 pub struct Request {}
 
 impl Request {
-    pub fn primary_bucket(stack: &StackName, partial: &Name) -> Result<Bucket, RequestError> {
+    pub fn primary_bucket(stack: &Stack, partial: &Name) -> Result<Bucket, RequestError> {
         if Self::uses_reserved_prefix_or_suffix(stack.as_str(), partial.as_str()) {
             return Err(RequestError::ValidationError(format!(
                 "cannot use reserved prefix or suffix ({})",
@@ -407,7 +407,7 @@ impl Request {
         }
     }
 
-    pub fn replication_bucket(stack: &StackName, partial: &Name) -> Result<Bucket, RequestError> {
+    pub fn replication_bucket(stack: &Stack, partial: &Name) -> Result<Bucket, RequestError> {
         let name = Name::new(&format!(
             "{}{}{}{}",
             stack.as_str(),
@@ -579,7 +579,7 @@ mod tests {
 
     #[test]
     fn test_review_bucket_names() {
-        let stack = StackName::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
         let client = TestClientBuilder::new().ok().build();
         let config = RequestConfig {
             base: BaseConfig {
@@ -612,7 +612,7 @@ mod tests {
 
     #[test]
     fn test_request_primary_bucket_standard() {
-        let stack = StackName::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
         let standard = Name::new("example").unwrap();
 
         let result = Request::primary_bucket(&stack, &standard).unwrap();
@@ -622,7 +622,7 @@ mod tests {
 
     #[test]
     fn test_request_primary_bucket_public() {
-        let stack = StackName::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
         let public = Name::new("example-public").unwrap();
 
         let result = Request::primary_bucket(&stack, &public).unwrap();
@@ -639,7 +639,7 @@ mod tests {
             "test-repl",
         ];
 
-        let stack = StackName::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
 
         for name in test_cases {
             let bucket_name = Name::new(name).unwrap();
@@ -662,7 +662,7 @@ mod tests {
 
     #[test]
     fn test_request_replication_bucket_standard() {
-        let stack = StackName::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
         let standard = Name::new("example").unwrap();
 
         let result = Request::replication_bucket(&stack, &standard).unwrap();
@@ -672,7 +672,7 @@ mod tests {
 
     #[test]
     fn test_request_replication_bucket_public() {
-        let stack = StackName::new("test-stack").unwrap();
+        let stack = Stack::new("test-stack").unwrap();
         let public = Name::new("example-public").unwrap();
 
         let result = Request::replication_bucket(&stack, &public).unwrap();

@@ -1,4 +1,4 @@
-use apputils::{StackName, stack::DateCtx};
+use apputils::{Stack, stack::DateCtx};
 use awsutils::{config::RequestConfig, file, file::File, process_inventory};
 use clap::Args as ClapArgs;
 
@@ -14,7 +14,7 @@ pub struct Args {
 }
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
-    let stack = StackName::new(&args.stack)?;
+    let stack = Stack::new(&args.stack)?;
     let config = awsutils::config::request_config(stack.clone()).await;
     let date_ctx = resolve_date_ctx(&config, &args.bucket).await;
 

@@ -1,6 +1,6 @@
 use std::path::{self, PathBuf};
 
-use apputils::{StackName, content_type};
+use apputils::{Stack, content_type};
 use awsutils::file::File;
 use clap::Args as ClapArgs;
 
@@ -16,7 +16,7 @@ pub struct Args {
 }
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
-    let stack = StackName::new(&args.stack)?;
+    let stack = Stack::new(&args.stack)?;
 
     let names = path::absolute(&args.names)?;
     let content = std::fs::read_to_string(&names)?;

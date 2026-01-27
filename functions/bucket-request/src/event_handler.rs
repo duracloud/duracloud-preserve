@@ -36,7 +36,7 @@ pub(crate) async fn function_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apputils::StackName;
+    use apputils::Stack;
     use awsutils::{
         config::{BaseConfig, RequestConfig},
         test_client::TestClientBuilder,
@@ -57,7 +57,7 @@ mod tests {
                 account_id: "123456789".to_string(),
                 debug_handler: true,
                 role_arn: "123456789".to_string(),
-                stack: StackName::new("test-stack").unwrap(),
+                stack: Stack::new("test-stack").unwrap(),
             },
             client,
         };
@@ -80,7 +80,7 @@ mod tests {
                 account_id: "123456789".to_string(),
                 debug_handler: true,
                 role_arn: "123456789".to_string(),
-                stack: StackName::new("test-stack").unwrap(),
+                stack: Stack::new("test-stack").unwrap(),
             },
             client,
         };

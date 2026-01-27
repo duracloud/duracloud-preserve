@@ -1,4 +1,4 @@
-use apputils::StackName;
+use apputils::Stack;
 use aws_sdk_iam::Client as IamClient;
 use awsutils::bucket::{Bucket, Name, Type, exists};
 use awsutils::bucket_creator::BucketCreator;
@@ -14,7 +14,7 @@ pub struct Args {
 }
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
-    let stack = StackName::new(&args.stack)?;
+    let stack = Stack::new(&args.stack)?;
 
     println!("Setting up stack: {}", stack.as_str());
 
@@ -54,7 +54,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 /// Retrieves or creates the stack batch operations role
 async fn create_or_get_batch_role(
     client: &IamClient,
-    stack: &StackName,
+    stack: &Stack,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let assume_role_policy = serde_json::json!({
         "Version": "2012-10-17",
@@ -104,7 +104,7 @@ async fn create_or_get_batch_role(
 /// Retrieves or creates the stack replication role
 async fn create_or_get_replication_role(
     client: &IamClient,
-    stack: &StackName,
+    stack: &Stack,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let assume_role_policy = serde_json::json!({
         "Version": "2012-10-17",

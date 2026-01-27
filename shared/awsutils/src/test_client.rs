@@ -123,7 +123,7 @@ mod tests {
         bucket_creator::BucketCreator,
         config::{BaseConfig, RequestConfig},
     };
-    use apputils::StackName;
+    use apputils::Stack;
 
     fn test_config_with_client(client: aws_sdk_s3::Client) -> RequestConfig {
         RequestConfig {
@@ -131,7 +131,7 @@ mod tests {
                 account_id: "123456789".to_string(),
                 debug_handler: false,
                 role_arn: "123456789".to_string(),
-                stack: StackName::new("test-stack").unwrap(),
+                stack: Stack::new("test-stack").unwrap(),
             },
             client,
         }

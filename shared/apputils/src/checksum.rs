@@ -1,3 +1,4 @@
+use std::fmt;
 use std::io::Write;
 
 use duckdb::{Connection, Error as DuckDBError};
@@ -36,16 +37,17 @@ pub enum VerificationStatus {
     FailedReplication,
 }
 
-impl VerificationStatus {
-    pub fn as_str(&self) -> &'static str {
-        match self {
+impl fmt::Display for VerificationStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             Self::Ok => "ok",
             Self::Mismatch => "mismatch",
             Self::MissingReplica => "missing_replica",
             Self::MissingSource => "missing_source",
             Self::FailedSource => "failed_source",
             Self::FailedReplication => "failed_replication",
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -362,7 +364,7 @@ impl ChecksumVerifier {
                 &result.bucket,
                 &result.key,
                 &result.version_id,
-                result.status.as_str(),
+                &result.status.to_string(),
                 &result.checksum_algorithm,
                 &result.checksum_source,
                 &result.checksum_replication,
@@ -374,7 +376,7 @@ impl ChecksumVerifier {
                 &result.bucket,
                 &result.key,
                 &result.version_id,
-                result.status.as_str(),
+                &result.status.to_string(),
                 &result.checksum_algorithm,
                 &result.checksum_source,
                 &result.checksum_replication,
@@ -386,7 +388,7 @@ impl ChecksumVerifier {
                 &obj.bucket,
                 &obj.key,
                 &obj.version_id,
-                VerificationStatus::MissingReplica.as_str(),
+                &VerificationStatus::MissingReplica.to_string(),
                 "",
                 "",
                 "",
@@ -398,7 +400,7 @@ impl ChecksumVerifier {
                 &obj.bucket,
                 &obj.key,
                 &obj.version_id,
-                VerificationStatus::MissingSource.as_str(),
+                &VerificationStatus::MissingSource.to_string(),
                 "",
                 "",
                 "",
@@ -410,7 +412,7 @@ impl ChecksumVerifier {
                 &task.bucket,
                 &task.key,
                 &task.version_id,
-                VerificationStatus::FailedSource.as_str(),
+                &VerificationStatus::FailedSource.to_string(),
                 "",
                 "",
                 "",
@@ -422,7 +424,7 @@ impl ChecksumVerifier {
                 &task.bucket,
                 &task.key,
                 &task.version_id,
-                VerificationStatus::FailedReplication.as_str(),
+                &VerificationStatus::FailedReplication.to_string(),
                 "",
                 "",
                 "",

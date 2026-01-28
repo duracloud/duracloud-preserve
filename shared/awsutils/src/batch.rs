@@ -52,13 +52,24 @@ impl ChecksumJobReceipt {
     }
 }
 
+struct JobParams<'a> {
+    client: &'a s3control::Client,
+    account_id: &'a str,
+    role_arn: &'a str,
+    job_type: &'a str,
+    description: &'a str,
+    operation: JobOperation,
+    manifest_generator: JobManifestGenerator,
+    report: JobReport,
+}
+
 pub async fn create_checksum_job(
     client: &s3control::Client,
     account_id: &str,
     role_arn: &str,
     source_bucket: &str,
     report_bucket: &str,
-) -> Result<String, s3control::Error> {
+) -> Result<String, BatchError> {
     let operation = JobOperation::builder()
         .s3_compute_object_checksum(
             S3ComputeObjectChecksumOperation::builder()
@@ -68,7 +79,31 @@ pub async fn create_checksum_job(
         )
         .build();
 
-    let manifest_generator = JobManifestGenerator::S3JobManifestGenerator(
+    let job_type = "checksum";
+    let manifest_generator = build_manifest(job_type, account_id, source_bucket, report_bucket)
+        .map_err(BatchError::S3Control)?;
+    let report = build_report(job_type, account_id, source_bucket, report_bucket);
+
+    run(JobParams {
+        client,
+        account_id,
+        role_arn,
+        job_type,
+        description: "Compute object checksums",
+        operation,
+        manifest_generator,
+        report,
+    })
+    .await
+}
+
+fn build_manifest(
+    job_type: &str,
+    account_id: &str,
+    source_bucket: &str,
+    report_bucket: &str,
+) -> Result<JobManifestGenerator, Box<dyn std::error::Error + Send + Sync>> {
+    Ok(JobManifestGenerator::S3JobManifestGenerator(
         S3JobManifestGenerator::builder()
             .expected_bucket_owner(account_id)
             .source_bucket(format!("arn:aws:s3:::{}", source_bucket))
@@ -77,41 +112,53 @@ pub async fn create_checksum_job(
                 S3ManifestOutputLocation::builder()
                     .expected_manifest_bucket_owner(account_id)
                     .bucket(format!("arn:aws:s3:::{}", report_bucket))
-                    .manifest_prefix(MANIFEST_PREFIX)
+                    .manifest_prefix(format!("{}/{}", MANIFEST_PREFIX, job_type))
                     .manifest_format(GeneratedManifestFormat::S3InventoryReportCsv20211130)
                     .build()?,
             )
             .build()?,
-    );
+    ))
+}
 
-    let report = JobReport::builder()
+fn build_report(
+    job_type: &str,
+    account_id: &str,
+    source_bucket: &str,
+    report_bucket: &str,
+) -> JobReport {
+    JobReport::builder()
         .enabled(true)
         .bucket(format!("arn:aws:s3:::{}", report_bucket))
         .expected_bucket_owner(account_id)
-        .prefix(format!("{}/{}", REPORT_PREFIX, source_bucket))
+        .prefix(format!("{}/{}/{}", REPORT_PREFIX, job_type, source_bucket))
         .format(JobReportFormat::ReportCsv20180820)
         .report_scope(JobReportScope::AllTasks)
-        .build();
+        .build()
+}
 
-    let response = client
+async fn run(params: JobParams<'_>) -> Result<String, BatchError> {
+    let response = params
+        .client
         .create_job()
-        .account_id(account_id)
-        .operation(operation)
-        .manifest_generator(manifest_generator)
-        .report(report)
+        .account_id(params.account_id)
+        .operation(params.operation)
+        .manifest_generator(params.manifest_generator)
+        .report(params.report)
         .priority(10)
-        .role_arn(role_arn)
+        .role_arn(params.role_arn)
         .client_request_token(format!(
-            "checksum-job-{}",
+            "{}-job-{}",
+            params.job_type,
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_nanos()
         ))
-        .description("Compute object checksums")
+        .description(params.description)
         .confirmation_required(false)
         .send()
-        .await?;
+        .await
+        .map_err(|e| BatchError::S3Control(Box::new(e)))?;
 
     Ok(response.job_id.unwrap_or_default())
 }

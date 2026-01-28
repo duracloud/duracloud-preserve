@@ -45,8 +45,7 @@ pub async fn perform(
             source.name(),
             batch.stack().managed_bucket().as_str(),
         )
-        .await
-        .map_err(|e| BatchError::S3Control(Box::new(e)))?;
+        .await?;
 
         let replication_result = create_checksum_job(
             &batch.client,
@@ -55,8 +54,7 @@ pub async fn perform(
             replication.name(),
             batch.stack().managed_bucket().as_str(),
         )
-        .await
-        .map_err(|e| BatchError::S3Control(Box::new(e)))?;
+        .await?;
 
         let job = ChecksumJobReceipt::new(
             source.name(),

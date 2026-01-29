@@ -1,3 +1,5 @@
+.terraform*
+!.terraform-version
 tmp_*.json
 payloads
 target

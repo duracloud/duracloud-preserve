@@ -1,0 +1,31 @@
+name: Terraform
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/tf.yml"
+      - "**.tf"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/tf.yml"
+      - "**.tf"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set version from .terraform-version
+        id: tf-version
+        run: echo "TF_VERSION=$(cat .terraform-version)" >> $GITHUB_ENV
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - run: terraform fmt -check -recursive -diff
+      - run: terraform init -backend=false
+      - run: terraform validate

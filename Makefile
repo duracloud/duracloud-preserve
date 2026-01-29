@@ -29,6 +29,10 @@ ci: test ## Run the ci checks locally
 	@cargo clippy --workspace --all-features -- -D warnings
 	@cargo audit
 
+.PHONY: docs
+docs: ## Read the docs
+	@cd docs && mdbook serve --open
+
 .PHONY: help
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'

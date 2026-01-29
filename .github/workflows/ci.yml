@@ -3,24 +3,20 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "files/**"
-      - "scripts/**"
-      - "Makefile"
-      - "*.md"
-      - "LICENSE"
-      - ".gitignore"
+    paths:
+      - ".github/workflows/ci.yml"
+      - "cli/**"
+      - "functions/**"
+      - "shared/**"
+      - "Cargo*"
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "files/**"
-      - "scripts/**"
-      - "Makefile"
-      - "*.md"
-      - "LICENSE"
-      - ".gitignore"
+    paths:
+      - ".github/workflows/ci.yml"
+      - "cli/**"
+      - "functions/**"
+      - "shared/**"
+      - "Cargo*"
 
 env:
   CARGO_TERM_COLOR: always

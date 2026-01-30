@@ -8,6 +8,8 @@ const REPLICATION_POLICY_SUFFIX: &str = "-s3-replication-policy";
 const REPLICATION_ROLE_SUFFIX: &str = "-s3-replication-role";
 const REPORTS_PREFIX: &str = "reports";
 
+/// Minimum number of `STACK_BUCKET_DELIMITER` parts in a valid bucket name.
+pub const BUCKET_NAME_MIN_PARTS: usize = 3;
 pub const DISALLOWED_AFFIXES: &[&str] = &[".", "-"];
 pub const STACK_BUCKET_DELIMITER: &str = "-";
 
@@ -46,6 +48,21 @@ impl Stack {
 
     pub fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+
+    /// Extract stack name from a bucket name.
+    /// Stack is the first two delimited parts; bucket names must have at least `BUCKET_NAME_MIN_PARTS` parts.
+    pub fn from_bucket_name(bucket: &str) -> Result<Self, &'static str> {
+        let parts: Vec<&str> = bucket
+            .splitn(BUCKET_NAME_MIN_PARTS, STACK_BUCKET_DELIMITER)
+            .collect();
+
+        if parts.len() < BUCKET_NAME_MIN_PARTS {
+            return Err("Bucket name must have at least three parts");
+        }
+
+        let stack_name = format!("{}{}{}", parts[0], STACK_BUCKET_DELIMITER, parts[1]);
+        Self::new(&stack_name)
     }
 
     /// Batch operations policy name for stack
@@ -133,6 +150,39 @@ mod tests {
         assert!(Stack::new("test-stack.").is_err());
         assert!(Stack::new("-test-stack").is_err());
         assert!(Stack::new("test-stack-").is_err());
+    }
+
+    #[test]
+    fn test_stack_from_bucket_name() {
+        // Valid bucket names: (input, expected_stack)
+        let valid_cases = [
+            ("test-stack-managed", "test-stack"),
+            ("test-stack-bucket-request", "test-stack"),
+            ("test-stack-example", "test-stack"),
+            ("test-stack-something-something", "test-stack"),
+            ("test-stack-something-public", "test-stack"),
+            ("test-stack-something-repl", "test-stack"),
+        ];
+
+        for (input, expected) in valid_cases {
+            assert_eq!(
+                Stack::from_bucket_name(input).unwrap().as_str(),
+                expected,
+                "failed for input: {}",
+                input
+            );
+        }
+
+        // Invalid: not enough parts
+        let invalid_cases = ["test-stack", "test", ""];
+
+        for input in invalid_cases {
+            assert!(
+                Stack::from_bucket_name(input).is_err(),
+                "expected error for input: {}",
+                input
+            );
+        }
     }
 
     #[test]

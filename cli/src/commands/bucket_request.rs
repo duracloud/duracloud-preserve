@@ -24,8 +24,6 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Err("No bucket names found in file".into());
     }
 
-    println!("Stack: {}", stack.as_str());
-
     let config = awsutils::config::request_config(stack.clone()).await;
 
     let filename = args

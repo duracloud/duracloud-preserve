@@ -65,8 +65,8 @@ invoke-process-inventory: ## Invoke process inventory function locally (make inv
 	@cargo lambda invoke -p process-inventory --data-file payloads/process-inventory.json
 
 .PHONY: process-inventory
-process-inventory: ## Run process-inventory cli (make process-inventory b=bucket s=stack p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- process-inventory --stack=$(s) --bucket=$(b)
+process-inventory: ## Run process-inventory cli (make process-inventory b=bucket p=profile)
+	@AWS_PROFILE=$(p) cargo run -p duracloud -- process-inventory --bucket=$(b)
 
 .PHONY: reset
 reset: ## Reset (empty) stack buckets (make reset s=stack p=profile)
@@ -93,8 +93,8 @@ upload: ## Upload a file to a bucket (make upload b=bucket f=file s=stack p=prof
 	@AWS_PROFILE=$(p) aws s3 cp $(f) s3://$(s)-$(b)/$(notdir $(realpath $(f)))
 
 .PHONY: verify-checksums
-verify-checksums: ## Run verify-checksums cli (make verify-checksums b=bucket s=stack p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- verify-checksums --stack=$(s) --bucket=$(b)
+verify-checksums: ## Run verify-checksums cli (make verify-checksums b=bucket p=profile)
+	@AWS_PROFILE=$(p) cargo run -p duracloud -- verify-checksums --bucket=$(b)
 
 .PHONY: watch
 watch: ## Watch function (make watch f=function s=stack p=profile)

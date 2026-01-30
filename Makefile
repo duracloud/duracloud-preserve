@@ -42,6 +42,10 @@ event: ## Generate event file from sample (make event f=function s=stack)
 	@mkdir -p payloads
 	@sed 's/test-stack/$(s)/g' functions/$(f)/events/sample.json > payloads/$(f).json
 
+.PHONY: generate-checksums
+generate-checksums: ## Run generate-checksums cli (make generate-checksums s=stack p=profile)
+	@AWS_PROFILE=$(p) cargo run -p duracloud -- generate-checksums --stack=$(s)
+
 .PHONY: invoke
 invoke: ## Invoke lambda function locally (make invoke f=function e=event)
 	@cargo lambda invoke -p $(f) --data-file $(e)
@@ -87,6 +91,10 @@ test-integration: setup ## Run integration tests, makes AWS calls (make test-int
 .PHONY: upload
 upload: ## Upload a file to a bucket (make upload b=bucket f=file s=stack p=profile)
 	@AWS_PROFILE=$(p) aws s3 cp $(f) s3://$(s)-$(b)/$(notdir $(realpath $(f)))
+
+.PHONY: verify-checksums
+verify-checksums: ## Run verify-checksums cli (make verify-checksums b=bucket s=stack p=profile)
+	@AWS_PROFILE=$(p) cargo run -p duracloud -- verify-checksums --stack=$(s) --bucket=$(b)
 
 .PHONY: watch
 watch: ## Watch function (make watch f=function s=stack p=profile)

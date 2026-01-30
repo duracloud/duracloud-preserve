@@ -16,12 +16,14 @@ enum Commands {
     BucketRequest(commands::bucket_request::Args),
     /// Generate checksum reports
     GenerateChecksums(commands::generate_checksums::Args),
-    /// Process inventory
+    /// Process inventory for a bucket
     ProcessInventory(commands::process_inventory::Args),
     /// Reset stack (empty buckets, optionally destroy resources)
     Reset(commands::reset::Args),
     /// Set up a new stack (IAM roles, managed bucket, request bucket)
     Setup(commands::setup::Args),
+    /// Verify checksums for a bucket
+    VerifyChecksums(commands::verify_checksums::Args),
 }
 
 #[tokio::main]
@@ -36,6 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::ProcessInventory(args) => commands::process_inventory::run(args).await?,
         Commands::Reset(args) => commands::reset::run(args).await?,
         Commands::Setup(args) => commands::setup::run(args).await?,
+        Commands::VerifyChecksums(args) => commands::verify_checksums::run(args).await?,
     }
 
     Ok(())

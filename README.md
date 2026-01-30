@@ -40,7 +40,7 @@ Dependencies: None
 
 Starts S3 batch jobs to generate checksum reports.
 
-### checksum-verification
+### verify-checksums
 
 Triggered by: s3 event
 Dependencies: generate-checksums

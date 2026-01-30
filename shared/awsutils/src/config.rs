@@ -1,6 +1,6 @@
 use apputils::Stack;
 
-use crate::bucket::RequestError;
+use crate::bucket::{self, RequestError};
 use aws_config::{BehaviorVersion, SdkConfig};
 
 /// Base configuration shared across request types
@@ -16,6 +16,7 @@ pub struct BaseConfig {
 #[derive(Debug)]
 pub struct BatchConfig {
     pub base: BaseConfig,
+    pub bucket: Option<bucket::Name>,
     pub client: aws_sdk_s3control::Client,
 }
 
@@ -66,13 +67,17 @@ async fn base_config(sdk_config: &SdkConfig, stack: Stack, role_name: &str) -> B
     }
 }
 
-pub async fn batch_config(stack: Stack) -> BatchConfig {
+pub async fn batch_config(stack: Stack, bucket: Option<bucket::Name>) -> BatchConfig {
     let sdk_config = default_config().await;
     let role_name = stack.batch_role_name();
     let base = base_config(&sdk_config, stack, &role_name).await;
     let client = aws_sdk_s3control::Client::new(&sdk_config);
 
-    BatchConfig { base, client }
+    BatchConfig {
+        base,
+        bucket,
+        client,
+    }
 }
 
 /// Load default aws sdk config

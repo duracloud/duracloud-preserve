@@ -43,8 +43,8 @@ event: ## Generate event file from sample (make event f=function s=stack)
 	@sed 's/test-stack/$(s)/g' functions/$(f)/events/sample.json > payloads/$(f).json
 
 .PHONY: generate-checksums
-generate-checksums: ## Run generate-checksums cli (make generate-checksums s=stack p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- generate-checksums --stack=$(s)
+generate-checksums: ## Run generate-checksums cli (make generate-checksums b=bucket p=profile)
+	@AWS_PROFILE=$(p) cargo run -p duracloud -- generate-checksums --bucket=$(b)
 
 .PHONY: invoke
 invoke: ## Invoke lambda function locally (make invoke f=function e=event)

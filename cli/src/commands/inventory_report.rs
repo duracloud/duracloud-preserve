@@ -3,7 +3,7 @@ use awsutils::{
     bucket::exists,
     config::RequestConfig,
     file::{self, File},
-    process_inventory,
+    inventory_report,
 };
 use clap::Args as ClapArgs;
 
@@ -30,7 +30,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let manifest = File::new(config.stack().managed_bucket(), object);
-    let stats = process_inventory::perform(&config, &manifest, date_ctx).await?;
+    let stats = inventory_report::perform(&config, &manifest, date_ctx).await?;
 
     println!(
         "Processed {} files, {} bytes total",

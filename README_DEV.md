@@ -93,7 +93,7 @@ Error variations to try out:
 - Wonky names (too long, invalid characters)
 - Too many names (max of five names per request, extras are discarded)
 
-### process-inventory
+### inventory-report
 
 This function processes inventory `manifest.json` files. It generates
 and uploads a consolidated (single) CSV file with the https url included
@@ -113,7 +113,7 @@ The cli task can be used to process inventory so long as there is
 inventory available:
 
 ```bash
-make process-inventory b=digipress-dev1-private s=digipress-dev1 p=default
+make inventory-report b=digipress-dev1-private s=digipress-dev1 p=default
 ```
 
 #### Locally running function
@@ -123,10 +123,10 @@ payload:
 
 ```bash
 # Run the function locally, waiting for events
-make watch f=process-inventory s=digipres-dev1 p=default
+make watch f=inventory-report s=digipres-dev1 p=default
 
 # Send an event payload to the locally running function
-make invoke-process-inventory s=digipres-dev1 p=default
+make invoke-inventory-report s=digipres-dev1 p=default
 ```
 
 Note: the sample parquet data refers to a `test-stack` bucket, which will appear

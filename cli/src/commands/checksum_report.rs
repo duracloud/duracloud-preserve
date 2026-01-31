@@ -4,7 +4,7 @@ use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
 pub struct Args {
-    /// Bucket to verify checksums for (e.g., digipress-dev1-private)
+    /// Bucket to generate checksums report for (e.g., digipress-dev1-private)
     #[arg(short, long)]
     bucket: String,
 }

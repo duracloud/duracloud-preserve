@@ -50,6 +50,10 @@ event: ## Generate event file from sample (make event f=function s=stack)
 generate-checksums: ## Run generate-checksums cli (make generate-checksums b=bucket p=profile)
 	@AWS_PROFILE=$(p) cargo run -p duracloud -- generate-checksums --bucket=$(b)
 
+.PHONY: inventory-report
+inventory-report: ## Run inventory-report cli (make inventory-report b=bucket p=profile)
+	@AWS_PROFILE=$(p) cargo run -p duracloud -- inventory-report --bucket=$(b)
+
 .PHONY: invoke
 invoke: ## Invoke lambda function locally (make invoke f=function e=event)
 	@cargo lambda invoke -p $(f) --data-file $(e)
@@ -60,17 +64,13 @@ invoke-bucket-request: ## Invoke bucket request function locally (make invoke-bu
 	@$(MAKE) upload b=bucket-request f=files/buckets.txt s=$(s) p=$(p)
 	@cargo lambda invoke -p bucket-request --data-file payloads/bucket-request.json
 
-.PHONY: invoke-process-inventory
-invoke-process-inventory: ## Invoke process inventory function locally (make invoke-process-inventory s=stack p=profile)
-	@$(MAKE) event f=process-inventory s=$(s)
+.PHONY: invoke-inventory-report
+invoke-inventory-report: ## Invoke inventory report function locally (make invoke-inventory-report s=stack p=profile)
+	@$(MAKE) event f=inventory-report s=$(s)
 	@sed 's/test-stack/$(s)/g' files/inventory-manifest.json > payloads/manifest.json
 	@$(MAKE) upload b=managed f=files/example.parquet s=$(s) p=$(p)
 	@$(MAKE) upload b=managed f=payloads/manifest.json s=$(s) p=$(p)
-	@cargo lambda invoke -p process-inventory --data-file payloads/process-inventory.json
-
-.PHONY: process-inventory
-process-inventory: ## Run process-inventory cli (make process-inventory b=bucket p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- process-inventory --bucket=$(b)
+	@cargo lambda invoke -p inventory-report --data-file payloads/inventory-report.json
 
 .PHONY: reset
 reset: ## Reset (empty) stack buckets (make reset s=stack p=profile)

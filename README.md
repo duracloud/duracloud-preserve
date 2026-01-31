@@ -25,7 +25,7 @@ Dependencies: None
 
 Create new user buckets upon upload of file containing bucket names, and applies prefab configuration.
 
-### process-inventory
+### inventory-report
 
 Triggered by: s3 event
 Dependencies: None
@@ -45,11 +45,11 @@ Starts S3 batch jobs to generate checksum reports.
 Triggered by: s3 event
 Dependencies: generate-checksums
 
-Compares checksum reports for source and replication destination buckets. Creates a consolidated checksum report CSV file and results metadata.
+Compares batch compute checksum reports for source and replication destination buckets. Creates a consolidated checksum report CSV file and results metadata.
 
 ### storage-report
 
 Triggered by: eventbridge event (schedule: daily)
-Dependencies: process-inventory
+Dependencies: inventory-report
 
 Generates a consolidated storage report for all buckets.

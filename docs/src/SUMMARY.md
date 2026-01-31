@@ -12,7 +12,7 @@
 - [Setup](technical/README.md)
 - [Functions](technical/functions.md)
   - [bucket-request](technical/bucket-request.md)
-  - [process-inventory](technical/process-inventory.md)
+  - [inventory-report](technical/inventory-report.md)
 - [Cleanup](technical/cleanup.md)
 - [Development](technical/development.md)
 

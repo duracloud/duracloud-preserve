@@ -1,5 +1,5 @@
 use aws_lambda_events::event::s3::S3Event;
-use awsutils::{config::RequestConfig, file::File, process_inventory};
+use awsutils::{config::RequestConfig, file::File, inventory_report};
 use lambda_runtime::{tracing, Error, LambdaEvent};
 
 pub(crate) async fn function_handler(
@@ -30,7 +30,7 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    let stats = process_inventory::perform(
+    let stats = inventory_report::perform(
         config,
         &File::new(bucket, object),
         apputils::stack::DateCtx::Today,

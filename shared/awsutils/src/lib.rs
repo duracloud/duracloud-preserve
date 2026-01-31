@@ -8,5 +8,5 @@ pub mod config;
 pub mod file;
 pub mod generate_checksums;
 pub mod inventory;
-pub mod process_inventory;
+pub mod inventory_report;
 pub mod test_client;

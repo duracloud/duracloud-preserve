@@ -190,38 +190,6 @@ pub async fn get_bucket_names(client: &Client, file: &File) -> Result<Vec<String
     Ok(names)
 }
 
-/// Check bucket tags and return the type if it belongs to the stack
-async fn get_stack_bucket_type(client: &Client, bucket: &str, stack: &Stack) -> Option<Type> {
-    let response = client
-        .get_bucket_tagging()
-        .bucket(bucket)
-        .send()
-        .await
-        .ok()?;
-
-    let tags = response.tag_set();
-    let mut stack_matches = false;
-    let mut bucket_type = None;
-
-    for tag in tags {
-        if tag.key() == BUCKET_TAG_STACK_KEY && tag.value() == stack.as_str() {
-            stack_matches = true;
-        }
-        if tag.key() == BUCKET_TAG_TYPE_KEY {
-            bucket_type = match tag.value() {
-                "managed" => Some(Type::Managed),
-                "public" => Some(Type::Public),
-                "replication" => Some(Type::Replication),
-                "request" => Some(Type::Request),
-                "standard" => Some(Type::Standard),
-                _ => None,
-            };
-        }
-    }
-
-    if stack_matches { bucket_type } else { None }
-}
-
 /// Get all buckets belonging to a stack (prefix match + stack tag)
 pub async fn get_stack_buckets(
     client: &Client,
@@ -246,8 +214,21 @@ pub async fn get_stack_buckets(
         }
 
         // Check tags to verify it belongs to this stack (prefix alone is not sufficient)
-        if let Some(bucket_type) = get_stack_bucket_type(client, name, stack).await {
-            buckets.push(Bucket::new(name, bucket_type)?);
+        let Ok(tag_response) = client.get_bucket_tagging().bucket(name).send().await else {
+            continue;
+        };
+
+        let tags = tag_response.tag_set();
+        let stack_matches = tags
+            .iter()
+            .any(|tag| tag.key() == BUCKET_TAG_STACK_KEY && tag.value() == stack.as_str());
+
+        if !stack_matches {
+            continue;
+        }
+
+        if let Some(bucket) = Bucket::from_tags(name, tags)? {
+            buckets.push(bucket);
         }
     }
 
@@ -330,6 +311,31 @@ impl Bucket {
 
     pub fn name(&self) -> &str {
         self.0.as_str()
+    }
+
+    /// Fetch bucket from S3 and determine its type from tags.
+    /// Returns `Ok(None)` if bucket doesn't exist or has no valid BucketType tag.
+    pub async fn from_name(client: &Client, name: &str) -> Result<Option<Self>, RequestError> {
+        let Ok(response) = client.get_bucket_tagging().bucket(name).send().await else {
+            return Ok(None);
+        };
+        Self::from_tags(name, response.tag_set())
+    }
+
+    /// Construct from a tag set. Returns `None` if no valid BucketType tag is found.
+    pub fn from_tags(
+        name: &str,
+        tags: &[aws_sdk_s3::types::Tag],
+    ) -> Result<Option<Self>, RequestError> {
+        let bucket_type = tags
+            .iter()
+            .find(|tag| tag.key() == BUCKET_TAG_TYPE_KEY)
+            .and_then(|tag| Type::from_tag_value(tag.value()));
+
+        match bucket_type {
+            Some(t) => Ok(Some(Self::new(name, t)?)),
+            None => Ok(None),
+        }
     }
 }
 
@@ -457,6 +463,19 @@ pub enum Type {
     Standard,
 }
 
+impl Type {
+    pub fn from_tag_value(value: &str) -> Option<Self> {
+        match value {
+            "managed" => Some(Type::Managed),
+            "public" => Some(Type::Public),
+            "replication" => Some(Type::Replication),
+            "request" => Some(Type::Request),
+            "standard" => Some(Type::Standard),
+            _ => None,
+        }
+    }
+}
+
 impl std::fmt::Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -473,6 +492,44 @@ impl std::fmt::Display for Type {
 mod tests {
     use super::*;
     use crate::{config::BaseConfig, test_client::TestClientBuilder};
+
+    #[test]
+    fn test_type_from_tag_value() {
+        assert_eq!(Type::from_tag_value("managed"), Some(Type::Managed));
+        assert_eq!(Type::from_tag_value("public"), Some(Type::Public));
+        assert_eq!(Type::from_tag_value("replication"), Some(Type::Replication));
+        assert_eq!(Type::from_tag_value("request"), Some(Type::Request));
+        assert_eq!(Type::from_tag_value("standard"), Some(Type::Standard));
+        assert_eq!(Type::from_tag_value("unknown"), None);
+        assert_eq!(Type::from_tag_value(""), None);
+    }
+
+    #[test]
+    fn test_bucket_from_tags() {
+        use aws_sdk_s3::types::Tag;
+
+        let tags_with_type = vec![
+            Tag::builder().key("Other").value("value").build().unwrap(),
+            Tag::builder()
+                .key(BUCKET_TAG_TYPE_KEY)
+                .value("standard")
+                .build()
+                .unwrap(),
+        ];
+        let result = Bucket::from_tags("test-bucket", &tags_with_type).unwrap();
+        assert!(result.is_some());
+        let bucket = result.unwrap();
+        assert_eq!(bucket.name(), "test-bucket");
+        assert_eq!(bucket.bucket_type(), &Type::Standard);
+
+        let tags_without_type = vec![Tag::builder().key("Other").value("value").build().unwrap()];
+        let result = Bucket::from_tags("test-bucket", &tags_without_type).unwrap();
+        assert!(result.is_none());
+
+        let empty_tags: Vec<Tag> = vec![];
+        let result = Bucket::from_tags("test-bucket", &empty_tags).unwrap();
+        assert!(result.is_none());
+    }
 
     #[test]
     fn test_name_new() {

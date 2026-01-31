@@ -18,6 +18,8 @@ const REPORT_PREFIX: &str = "batch/reports";
 
 #[derive(Debug, Error)]
 pub enum BatchError {
+    #[error("Invalid bucket: {0} (must be a standard or public bucket in the stack)")]
+    InvalidBucket(String),
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
     #[error("{0}")]

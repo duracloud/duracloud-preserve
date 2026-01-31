@@ -19,6 +19,38 @@ use common::timestamp;
 
 #[tokio::test]
 #[ignore]
+async fn test_bucket_from_name() {
+    let config = test_config().await;
+
+    let ts = timestamp();
+    let bucket_name = format!("{}-inttest-fromname-{}", config.stack().as_str(), ts);
+    let bucket = Bucket::new(&bucket_name, Type::Standard).unwrap();
+    let creator = BucketCreator::new(&config, &bucket);
+
+    creator.create().await.expect("bucket creation failed");
+
+    let result = Bucket::from_name(&config.client, &bucket_name)
+        .await
+        .expect("from_name failed");
+
+    assert!(result.is_some(), "bucket should be found");
+    let found_bucket = result.unwrap();
+    assert_eq!(found_bucket.name(), bucket_name);
+    assert_eq!(found_bucket.bucket_type(), &Type::Standard);
+
+    // Test non-existent bucket returns None
+    let missing = Bucket::from_name(&config.client, "nonexistent-bucket-xyz")
+        .await
+        .expect("from_name should not error for missing bucket");
+    assert!(missing.is_none(), "missing bucket should return None");
+
+    delete(&config.client, &bucket_name)
+        .await
+        .expect("cleanup failed");
+}
+
+#[tokio::test]
+#[ignore]
 async fn test_get_stack_buckets() {
     let config = test_config().await;
 

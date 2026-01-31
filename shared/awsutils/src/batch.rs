@@ -28,6 +28,27 @@ pub enum BatchError {
     S3Control(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
+/// Batch Manifest
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct BatchManifest {
+    pub format: String,
+    pub report_creation_date: String,
+    pub results: Vec<BatchResultEntry>,
+    pub report_schema: String,
+}
+
+/// Batch Result Entry
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct BatchResultEntry {
+    pub task_execution_status: String,
+    pub bucket: String,
+    #[serde(rename = "MD5Checksum")]
+    pub md5_checksum: String,
+    pub key: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChecksumJobReceipt {
     pub source_bucket: String,

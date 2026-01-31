@@ -14,5 +14,10 @@ pub async fn perform(config: &RequestConfig, job_file: &File) -> Result<(), Requ
 
     dbg!(receipt);
 
+    // construct File for source and replication batch manifests
+    // download the manifests
+    // download the files (as inventory does)
+    // pass to ChecksumVerifier::load(source_reports, replication_reports)
+
     Ok(())
 }

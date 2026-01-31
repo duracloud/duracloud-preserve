@@ -6,10 +6,10 @@ use serde::Serialize;
 use thiserror::Error;
 
 pub fn process(
-    source_report: &str,
-    replication_report: &str,
+    source_reports: &[&str],
+    replication_reports: &[&str],
 ) -> Result<(Vec<u8>, VerificationStats), ChecksumError> {
-    let verifier = ChecksumVerifier::load(source_report, replication_report)?;
+    let verifier = ChecksumVerifier::load(source_reports, replication_reports)?;
     let mut csv = Vec::new();
     verifier.write_csv(&mut csv)?;
     let stats = verifier.stats()?;
@@ -100,8 +100,23 @@ pub struct ChecksumVerifier {
 }
 
 impl ChecksumVerifier {
-    pub fn load(source_report: &str, replication_report: &str) -> Result<Self, ChecksumError> {
+    pub fn load(
+        source_reports: &[&str],
+        replication_reports: &[&str],
+    ) -> Result<Self, ChecksumError> {
         let conn = Connection::open_in_memory()?;
+
+        let sources = source_reports
+            .iter()
+            .map(|p| format!("'{p}'"))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let repls = replication_reports
+            .iter()
+            .map(|p| format!("'{p}'"))
+            .collect::<Vec<_>>()
+            .join(", ");
 
         conn.execute_batch(&format!(
             r#"
@@ -116,7 +131,7 @@ impl ChecksumVerifier {
                 column6 AS result_message,
                 json_extract_string(column6, '$.checksum_hex') AS checksum,
                 json_extract_string(column6, '$.checksumAlgorithm') AS checksum_algorithm
-            FROM '{source_report}';
+            FROM read_csv([{sources}]);
 
             CREATE TABLE replication AS
             SELECT
@@ -129,7 +144,7 @@ impl ChecksumVerifier {
                 column6 AS result_message,
                 json_extract_string(column6, '$.checksum_hex') AS checksum,
                 json_extract_string(column6, '$.checksumAlgorithm') AS checksum_algorithm
-            FROM '{replication_report}';
+            FROM read_csv([{repls}]);
             "#
         ))?;
 
@@ -570,8 +585,8 @@ mod tests {
     #[test]
     fn test_load_valid_csv() {
         let verifier = ChecksumVerifier::load(
-            "../../files/checksum-source.csv",
-            "../../files/checksum-replication.csv",
+            &["../../files/checksum-source.csv"],
+            &["../../files/checksum-replication.csv"],
         )
         .unwrap();
 
@@ -591,8 +606,8 @@ mod tests {
     #[test]
     fn test_load_extracts_checksum() {
         let verifier = ChecksumVerifier::load(
-            "../../files/checksum-source.csv",
-            "../../files/checksum-replication.csv",
+            &["../../files/checksum-source.csv"],
+            &["../../files/checksum-replication.csv"],
         )
         .unwrap();
 
@@ -614,8 +629,8 @@ mod tests {
     #[test]
     fn test_load_extracts_algorithm() {
         let verifier = ChecksumVerifier::load(
-            "../../files/checksum-source.csv",
-            "../../files/checksum-replication.csv",
+            &["../../files/checksum-source.csv"],
+            &["../../files/checksum-replication.csv"],
         )
         .unwrap();
 

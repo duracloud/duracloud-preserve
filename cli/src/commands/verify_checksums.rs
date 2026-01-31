@@ -1,5 +1,5 @@
-use apputils::Stack;
-use awsutils::bucket::exists;
+use apputils::{Stack, stack::DateCtx};
+use awsutils::{bucket::exists, file::File, verify_checksums};
 use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
@@ -18,6 +18,13 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Err("Bucket not found".into());
     }
 
-    dbg!(stack);
+    let file = File::new(
+        stack.managed_bucket(),
+        stack.metadata_checksums_path(&bucket, DateCtx::Latest),
+    );
+
+    // TODO: return report location
+    verify_checksums::perform(&config, &file).await?;
+
     Ok(())
 }

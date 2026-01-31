@@ -32,15 +32,7 @@ pub async fn perform(
         let file = File::new(&bucket, &entry.key);
         tracing::info!("Downloading inventory file: {:?}", file);
 
-        let response = file::download(&config.client, &file)
-            .await
-            .map_err(|e| InventoryError::S3(Box::new(e)))?;
-        let bytes = response
-            .body
-            .collect()
-            .await
-            .map_err(|e| InventoryError::S3(Box::new(e)))?
-            .into_bytes();
+        let bytes = file::download_bytes(&config.client, &file).await?;
 
         let filename = entry.key.rsplit('/').next().unwrap_or(&entry.key);
         let local_path = temp_dir.path().join(filename);
@@ -76,7 +68,7 @@ pub async fn perform(
 
         let stats_path = config
             .stack()
-            .reports_stats_path(&manifest.source_bucket, ctx);
+            .metadata_stats_path(&manifest.source_bucket, ctx);
         let stats_file = File::new(&bucket, stats_path);
 
         tracing::info!("Uploading stats: {:?}", stats_file);

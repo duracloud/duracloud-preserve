@@ -43,15 +43,7 @@ pub struct InventoryManifest {
 
 impl InventoryManifest {
     pub async fn fetch(client: &Client, file: &File) -> Result<Self, InventoryError> {
-        let response = file::download(client, file)
-            .await
-            .map_err(|e| InventoryError::S3(Box::new(e)))?;
-        let bytes = response
-            .body
-            .collect()
-            .await
-            .map_err(|e| InventoryError::S3(Box::new(e)))?
-            .into_bytes();
+        let bytes = file::download_bytes(client, file).await?;
         Ok(serde_json::from_slice(&bytes)?)
     }
 }

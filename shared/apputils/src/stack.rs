@@ -80,6 +80,16 @@ impl Stack {
         format!("{}{}", self.as_str(), MANAGED_SUFFIX)
     }
 
+    /// Checksums job receipt (json) destination used for checksum verification processing
+    pub fn metadata_checksums_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
+        format!("{}/{}/checksums/{}.json", METADATA_PREFIX, date_ctx, bucket)
+    }
+
+    /// Usage stats (json) destination used to generate storage reports
+    pub fn metadata_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
+        format!("{}/{}/stats/{}.json", METADATA_PREFIX, date_ctx, bucket)
+    }
+
     /// Replication policy name for stack
     pub fn replication_policy_name(&self) -> String {
         format!("{}{}", self.as_str(), REPLICATION_POLICY_SUFFIX)
@@ -90,19 +100,9 @@ impl Stack {
         format!("{}{}", self.as_str(), REPLICATION_ROLE_SUFFIX)
     }
 
-    /// Checksums job receipt (json) destination used for checksum verification processing
-    pub fn reports_checksums_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{}/{}/checksums/{}.json", METADATA_PREFIX, date_ctx, bucket)
-    }
-
     /// File manifest (csv) upload destination provided for user access
     pub fn reports_manifest_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
         format!("{}/{}/manifests/{}.csv", REPORTS_PREFIX, date_ctx, bucket)
-    }
-
-    /// Usage stats (json) destination used to generate storage reports
-    pub fn reports_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{}/{}/stats/{}.json", METADATA_PREFIX, date_ctx, bucket)
     }
 
     /// Storage report (html) destination provided for user access
@@ -240,7 +240,7 @@ mod tests {
     fn test_reports_stats_path() {
         let stack = Stack::new("test-stack").unwrap();
         assert_eq!(
-            stack.reports_stats_path("my-bucket", DateCtx::Latest),
+            stack.metadata_stats_path("my-bucket", DateCtx::Latest),
             "metadata/latest/stats/my-bucket.json"
         );
     }

@@ -88,7 +88,7 @@ pub async fn perform(
             request.stack().managed_bucket(),
             request
                 .stack()
-                .reports_checksums_path(source.name(), apputils::stack::DateCtx::Latest),
+                .metadata_checksums_path(source.name(), apputils::stack::DateCtx::Latest),
         );
 
         file::upload(

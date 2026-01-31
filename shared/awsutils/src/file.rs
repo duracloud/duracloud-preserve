@@ -43,6 +43,20 @@ pub async fn download(
         .await
 }
 
+/// Download file content as bytes
+pub async fn download_bytes(client: &Client, file: &File) -> Result<bytes::Bytes, RequestError> {
+    let response = download(client, file)
+        .await
+        .map_err(|e| RequestError::S3Error(format!("failed to download file: {}", e)))?;
+
+    response
+        .body
+        .collect()
+        .await
+        .map_err(|e| RequestError::S3Error(format!("failed to read body: {}", e)))
+        .map(|data| data.into_bytes())
+}
+
 /// Upload content to S3
 pub async fn upload(
     client: &Client,

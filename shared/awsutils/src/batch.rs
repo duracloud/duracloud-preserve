@@ -7,7 +7,7 @@ use aws_sdk_s3control::{
     },
 };
 use chrono::Utc;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
@@ -28,7 +28,7 @@ pub enum BatchError {
     S3Control(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ChecksumJobReceipt {
     pub source_bucket: String,
     pub source_job_id: String,

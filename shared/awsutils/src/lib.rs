@@ -9,3 +9,4 @@ pub mod generate_checksums;
 pub mod inventory;
 pub mod process_inventory;
 pub mod test_client;
+pub mod verify_checksums;

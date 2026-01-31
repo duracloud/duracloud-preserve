@@ -1,5 +1,5 @@
 use apputils::{Stack, stack::DateCtx};
-use awsutils::{bucket::exists, file::File, verify_checksums};
+use awsutils::{bucket::exists, checksum_report, file::File};
 use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
@@ -24,7 +24,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // TODO: return report location
-    verify_checksums::perform(&config, &file).await?;
+    checksum_report::perform(&config, &file).await?;
 
     Ok(())
 }

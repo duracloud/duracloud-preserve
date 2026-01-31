@@ -23,6 +23,10 @@ build-lambda-release: ## Build lambda functions with release profile (make build
 	@cargo lambda build --workspace --exclude duracloud --release --arm64 --output-format zip
 	@rm -rf target/lambda/duracloud
 
+.PHONY: checksum-report
+checksum-report: ## Run checksum-report cli (make checksum-report b=bucket p=profile)
+	@AWS_PROFILE=$(p) cargo run -p duracloud -- checksum-report --bucket=$(b)
+
 .PHONY: ci
 ci: test ## Run the ci checks locally
 	@cargo fmt -- --check
@@ -91,10 +95,6 @@ test-integration: setup ## Run integration tests, makes AWS calls (make test-int
 .PHONY: upload
 upload: ## Upload a file to a bucket (make upload b=bucket f=file s=stack p=profile)
 	@AWS_PROFILE=$(p) aws s3 cp $(f) s3://$(s)-$(b)/$(notdir $(realpath $(f)))
-
-.PHONY: verify-checksums
-verify-checksums: ## Run verify-checksums cli (make verify-checksums b=bucket p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- verify-checksums --bucket=$(b)
 
 .PHONY: watch
 watch: ## Watch function (make watch f=function s=stack p=profile)

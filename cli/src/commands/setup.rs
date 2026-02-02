@@ -74,7 +74,8 @@ async fn create_or_get_batch_role(
                 "Effect": "Allow",
                 "Action": [
                     "s3:GetObject",
-                    "s3:GetObjectVersion"
+                    "s3:GetObjectVersion",
+                    "s3:RestoreObject"
                 ],
                 "Resource": format!("arn:aws:s3:::{}*/*", stack.as_str())
             },

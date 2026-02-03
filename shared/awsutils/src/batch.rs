@@ -1,3 +1,4 @@
+use aws_sdk_s3::Client;
 use aws_sdk_s3control::{
     self as s3control,
     types::{
@@ -11,7 +12,11 @@ use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
-use crate::bucket::RequestError;
+use crate::{
+    bucket::RequestError,
+    config::RequestConfig,
+    file::{self, File},
+};
 
 const MANIFEST_PREFIX: &str = "batch/manifests";
 const REPORT_PREFIX: &str = "batch/reports";
@@ -22,6 +27,8 @@ pub enum BatchError {
     InvalidBucket(String),
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
+    #[error("Manifest not available: {0}")]
+    NotReady(String),
     #[error("{0}")]
     Request(#[from] RequestError),
     #[error("S3 Control error: {0:#}")]
@@ -36,6 +43,13 @@ pub struct BatchManifest {
     pub report_creation_date: String,
     pub results: Vec<BatchResultEntry>,
     pub report_schema: String,
+}
+
+impl BatchManifest {
+    pub async fn fetch(client: &Client, file: &File) -> Result<Self, BatchError> {
+        let bytes = file::download_bytes(client, file).await?;
+        Ok(serde_json::from_slice(&bytes)?)
+    }
 }
 
 /// Batch Result Entry
@@ -184,4 +198,25 @@ async fn run(params: JobParams<'_>) -> Result<String, BatchError> {
         .map_err(|e| BatchError::S3Control(Box::new(e)))?;
 
     Ok(response.job_id.unwrap_or_default())
+}
+
+pub async fn get_batch_manifest(
+    config: &RequestConfig,
+    bucket: &str,
+    job_id: &str,
+) -> Result<BatchManifest, BatchError> {
+    let managed_bucket = config.stack().managed_bucket();
+    let manifest = config
+        .stack()
+        .batch_reports_checksum_manifest(bucket, job_id);
+
+    // We need to check for the manifest.json.md5 as the completion indicator
+    let manifest_md5 = File::new(&managed_bucket, format!("{}.md5", &manifest));
+
+    if !file::exists(&config.client, &manifest_md5).await {
+        tracing::info!("Manifest not available");
+        return Err(BatchError::NotReady(manifest));
+    }
+
+    BatchManifest::fetch(&config.client, &File::new(&managed_bucket, manifest)).await
 }

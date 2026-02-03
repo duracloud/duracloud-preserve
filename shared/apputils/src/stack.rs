@@ -1,6 +1,7 @@
 pub const MANAGED_SUFFIX: &str = "-managed";
 pub const REQUEST_SUFFIX: &str = "-bucket-request";
 
+const BATCH_CHECKSUM_PREFIX: &str = "batch/reports/checksum";
 const BATCH_POLICY_SUFFIX: &str = "-s3-batch-policy";
 const BATCH_ROLE_SUFFIX: &str = "-s3-batch-role";
 const METADATA_PREFIX: &str = "metadata";
@@ -68,6 +69,14 @@ impl Stack {
     /// Batch operations policy name for stack
     pub fn batch_policy_name(&self) -> String {
         format!("{}{}", self.as_str(), BATCH_POLICY_SUFFIX)
+    }
+
+    /// Batch compute checksums manifest upload path (when report is ready)
+    pub fn batch_reports_checksum_manifest(&self, bucket: &str, job_id: &str) -> String {
+        format!(
+            "{}/{}/job-{}/manifest.json",
+            BATCH_CHECKSUM_PREFIX, bucket, job_id
+        )
     }
 
     /// Batch operations role name for stack

@@ -7,7 +7,7 @@ use crate::{
 use aws_sdk_s3::primitives::ByteStream;
 use bytes::Bytes;
 
-/// Trigger S3 batch operation jobs for generating checksum reports
+/// Trigger S3 batch jobs for generating compute checksum reports
 pub async fn perform(
     batch: &BatchConfig,
     request: &RequestConfig,

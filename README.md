@@ -20,14 +20,14 @@ AWS resources used:
 
 ### bucket-request
 
-Triggered by: s3 event
+Triggered by: s3 event (user uploaded file)
 Dependencies: None
 
 Create new user buckets upon upload of file containing bucket names, and applies prefab configuration.
 
 ### inventory-report
 
-Triggered by: s3 event
+Triggered by: s3 event (manifest.checksum)
 Dependencies: None
 
 1. Processes parquet formatted inventory into a single human readable csv.
@@ -42,7 +42,7 @@ Starts S3 batch jobs to generate checksum reports.
 
 ### checksum-report
 
-Triggered by: s3 event
+Triggered by: s3 event (manifest.json.md5)
 Dependencies: generate-checksums
 
 Compares batch compute checksum reports for source and replication destination buckets. Creates a consolidated checksum report CSV file and results metadata.

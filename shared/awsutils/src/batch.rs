@@ -209,6 +209,7 @@ async fn run(params: JobParams<'_>) -> Result<String, BatchError> {
     Ok(response.job_id.unwrap_or_default())
 }
 
+/// Download a batch manifest
 pub async fn get_batch_manifest(
     config: &RequestConfig,
     bucket: &str,
@@ -230,6 +231,7 @@ pub async fn get_batch_manifest(
     BatchManifest::fetch(&config.client, manifest).await
 }
 
+/// Get a batch job's current status
 pub async fn get_job_status(config: &BatchConfig, job_id: &str) -> Result<JobStatus, BatchError> {
     let resp = config
         .client
@@ -251,6 +253,7 @@ pub async fn get_job_status(config: &BatchConfig, job_id: &str) -> Result<JobSta
     Ok(status)
 }
 
+/// Get a batch job manifest if it's available (job is complete and file is present)
 pub async fn get_manifest_if_ready(
     batch: &BatchConfig,
     request: &RequestConfig,
@@ -269,7 +272,6 @@ pub async fn get_manifest_if_ready(
         JobStatus::Failed => Err(RequestError::S3Error(format!("job {} failed", job_id))),
         status => {
             tracing::info!("Job {} not in continuable status: {}", job_id, status);
-            dbg!(status);
             Ok(None)
         }
     }

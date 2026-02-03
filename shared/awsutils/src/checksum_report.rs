@@ -28,7 +28,7 @@ pub async fn perform(
         return Ok(());
     };
 
-    dbg!(source);
+    tracing::info!("{:?}", &source);
 
     let Some(repl) =
         get_manifest_if_ready(batch, request, &receipt.repl_bucket, &receipt.repl_job_id).await?
@@ -36,7 +36,7 @@ pub async fn perform(
         return Ok(());
     };
 
-    dbg!(repl);
+    tracing::info!("{:?}", &repl);
 
     // download the files (as inventory does)
     // pass to ChecksumVerifier::load(source_reports, replication_reports)

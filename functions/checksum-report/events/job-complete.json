@@ -1,0 +1,31 @@
+{
+  "version": "0",
+  "id": "c8791abf-2af8-c754-0435-fd869ce25233",
+  "detail-type": "AWS Service Event via CloudTrail",
+  "source": "aws.s3",
+  "account": "123456789012",
+  "time": "2026-01-24T15:26:42Z",
+  "region": "us-east-1",
+  "resources": [],
+  "detail": {
+    "eventVersion": "1.08",
+    "eventSource": "s3.amazonaws.com",
+    "eventName": "JobStatusChanged",
+    "awsRegion": "us-east-1",
+    "sourceIPAddress": "s3.amazonaws.com",
+    "userAgent": "s3.amazonaws.com",
+    "eventID": "a1b2c3d4-5678-90ab-cdef-example11111",
+    "readOnly": false,
+    "eventType": "AwsServiceEvent",
+    "managementEvent": true,
+    "recipientAccountId": "123456789012",
+    "serviceEventDetails": {
+      "jobId": "e849b567-5232-44be-9a0c-40988f14e80c",
+      "jobArn": "arn:aws:s3:us-east-1:123456789012:job/e849b567-5232-44be-9a0c-40988f14e80c",
+      "status": "Complete",
+      "jobEventId": "51f5ac17dba408301d56cd1b2c8d1e9e",
+      "failureCodes": [],
+      "statusChangeReason": []
+    }
+  }
+}

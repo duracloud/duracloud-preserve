@@ -18,6 +18,8 @@ use crate::{
     file::{self, File},
 };
 
+const CHECKSUM_ALGORITHM: ComputeObjectChecksumAlgorithm =
+    ComputeObjectChecksumAlgorithm::Crc64Nvme;
 const MANIFEST_PREFIX: &str = "batch/manifests";
 const REPORT_PREFIX: &str = "batch/reports";
 
@@ -110,7 +112,7 @@ pub async fn create_checksum_job(
     let operation = JobOperation::builder()
         .s3_compute_object_checksum(
             S3ComputeObjectChecksumOperation::builder()
-                .checksum_algorithm(ComputeObjectChecksumAlgorithm::Sha256)
+                .checksum_algorithm(CHECKSUM_ALGORITHM)
                 .checksum_type(ComputeObjectChecksumType::FullObject)
                 .build(),
         )

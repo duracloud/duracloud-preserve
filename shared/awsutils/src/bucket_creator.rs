@@ -17,11 +17,17 @@ use crate::config::get_region;
 
 const BUCKET_TAG_ORIGIN_KEY: &str = "BucketOrigin";
 const BUCKET_TAG_ORIGIN_VAL: &str = "bucket-request";
+
 const EXPIRE_ABORTED_MULTIPART_DAYS: u8 = 3;
 const EXPIRE_NONCURRENT_VERSION_DAYS: u8 = 14;
+
 pub const INVENTORY_FORMAT: InventoryFormat = InventoryFormat::Parquet;
 const INVENTORY_ID: &str = "inventory";
 const INVENTORY_PREFIX: &str = "manifests";
+
+const STORAGE_CLASS_PUBLIC: TransitionStorageClass = TransitionStorageClass::IntelligentTiering;
+const STORAGE_CLASS_REPLICATION: TransitionStorageClass = TransitionStorageClass::DeepArchive;
+const STORAGE_CLASS_STANDARD: TransitionStorageClass = TransitionStorageClass::GlacierIr;
 const STORAGE_TRANSITION_DAYS: u8 = 7;
 
 /// Handles bucket setup by delegating to the appropriate methods per bucket type.
@@ -114,8 +120,7 @@ impl<'a> BucketCreator<'a> {
     async fn setup_public_bucket(&self) -> Result<(), RequestError> {
         self.add_deny_upload_policy().await?;
         self.enable_versioning().await?;
-        self.add_lifecycle(TransitionStorageClass::IntelligentTiering)
-            .await?;
+        self.add_lifecycle(STORAGE_CLASS_PUBLIC).await?;
         self.enable_notifications().await?;
         self.enable_bucket_logging().await?;
         self.enable_inventory().await?;
@@ -126,14 +131,13 @@ impl<'a> BucketCreator<'a> {
 
     async fn setup_replication_bucket(&self) -> Result<(), RequestError> {
         self.enable_versioning().await?;
-        self.add_lifecycle(TransitionStorageClass::GlacierIr).await
+        self.add_lifecycle(STORAGE_CLASS_REPLICATION).await
     }
 
     async fn setup_standard_bucket(&self) -> Result<(), RequestError> {
         self.add_deny_upload_policy().await?;
         self.enable_versioning().await?;
-        self.add_lifecycle(TransitionStorageClass::GlacierIr)
-            .await?;
+        self.add_lifecycle(STORAGE_CLASS_STANDARD).await?;
         self.enable_notifications().await?;
         self.enable_bucket_logging().await?;
         self.enable_inventory().await?;

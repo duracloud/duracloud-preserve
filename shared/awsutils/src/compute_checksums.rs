@@ -6,7 +6,7 @@ use crate::{
     config::{BatchConfig, RequestConfig},
 };
 
-/// Trigger S3 batch jobs for generating compute checksum reports
+/// Trigger S3 batch compute checksum jobs
 pub async fn perform(
     batch: &BatchConfig,
     request: &RequestConfig,

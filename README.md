@@ -33,23 +33,24 @@ Dependencies: None
 1. Processes parquet formatted inventory into a single human readable csv.
 2. Generates storage usage stats including by (top level) prefix.
 
-### generate-checksums
+### compute-checksums
 
-Triggered by: eventbridge event (schedule: TBD)
+Triggered by: scheduled eventbridge event (schedule: TBD)
 Dependencies: None
 
-Starts S3 batch jobs to generate checksum reports.
+Trigger S3 batch compute checksum jobs.
 
 ### checksum-report
 
-Triggered by: s3 event (manifest.json.md5)
-Dependencies: generate-checksums
+Triggered by: cloudtrail eventbridge event (job status complete or failed)
+Dependencies: compute-checksums
 
-Compares batch compute checksum reports for source and replication destination buckets. Creates a consolidated checksum report CSV file and results metadata.
+1. Processes batch compute checksum reports into a single checksum report csv.
+2. Generates checksum verification stats (total mismatches etc.).
 
 ### storage-report
 
-Triggered by: eventbridge event (schedule: daily)
+Triggered by: scheduled eventbridge event (schedule: daily)
 Dependencies: inventory-report
 
 Generates a consolidated storage report for all buckets.

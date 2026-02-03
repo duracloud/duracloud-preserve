@@ -1,10 +1,10 @@
 use apputils::Stack;
-use awsutils::{bucket, generate_checksums};
+use awsutils::{bucket, compute_checksums};
 use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
 pub struct Args {
-    /// Bucket to generate checksums for (e.g., digipress-dev1-private)
+    /// Bucket to compute checksums for (e.g., digipress-dev1-private)
     #[arg(short, long)]
     bucket: String,
 }
@@ -18,9 +18,9 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             .await;
     let request_config = awsutils::config::request_config(stack.clone()).await;
 
-    let receipts = generate_checksums::perform(&batch_config, &request_config).await?;
+    let receipts = compute_checksums::perform(&batch_config, &request_config).await?;
 
-    println!("Checksum report jobs scheduled:\n");
+    println!("Compute checksums jobs scheduled:\n");
     for (i, receipt) in receipts.iter().enumerate() {
         println!("\t[{}] {}", i + 1, receipt);
     }

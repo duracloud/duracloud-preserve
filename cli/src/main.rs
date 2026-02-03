@@ -17,7 +17,7 @@ enum Commands {
     /// Generate checksum report and statistics
     ChecksumReport(commands::checksum_report::Args),
     /// Run S3 batch operations compute checksums
-    GenerateChecksums(commands::generate_checksums::Args),
+    ComputeChecksums(commands::compute_checksums::Args),
     /// Generate inventory report and statistics
     InventoryReport(commands::inventory_report::Args),
     /// Reset stack (empty buckets, optionally destroy resources)
@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         Commands::BucketRequest(args) => commands::bucket_request::run(args).await?,
         Commands::ChecksumReport(args) => commands::checksum_report::run(args).await?,
-        Commands::GenerateChecksums(args) => commands::generate_checksums::run(args).await?,
+        Commands::ComputeChecksums(args) => commands::compute_checksums::run(args).await?,
         Commands::InventoryReport(args) => commands::inventory_report::run(args).await?,
         Commands::Reset(args) => commands::reset::run(args).await?,
         Commands::Setup(args) => commands::setup::run(args).await?,

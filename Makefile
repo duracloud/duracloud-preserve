@@ -46,9 +46,9 @@ event: ## Generate event file from sample (make event f=function s=stack)
 	@mkdir -p payloads
 	@sed 's/test-stack/$(s)/g' functions/$(f)/events/sample.json > payloads/$(f).json
 
-.PHONY: generate-checksums
-generate-checksums: ## Run generate-checksums cli (make generate-checksums b=bucket p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- generate-checksums --bucket=$(b)
+.PHONY: compute-checksums
+compute-checksums: ## Run compute-checksums cli (make compute-checksums b=bucket p=profile)
+	@AWS_PROFILE=$(p) cargo run -p duracloud -- compute-checksums --bucket=$(b)
 
 .PHONY: inventory-report
 inventory-report: ## Run inventory-report cli (make inventory-report b=bucket p=profile)

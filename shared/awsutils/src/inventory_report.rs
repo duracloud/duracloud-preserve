@@ -14,7 +14,7 @@ pub async fn perform(
     manifest_file: &File,
     date_ctx: DateCtx,
 ) -> Result<InventoryStats, InventoryError> {
-    tracing::info!("Retrieving manifest file: {:?}", manifest_file);
+    tracing::info!("Retrieving manifest file: {}", manifest_file.s3_url());
     let manifest = InventoryManifest::fetch(&config.client, manifest_file).await?;
     let bucket = config.stack().managed_bucket();
 
@@ -30,7 +30,7 @@ pub async fn perform(
 
     for entry in &manifest.files {
         let file = File::new(&bucket, &entry.key);
-        tracing::info!("Downloading inventory file: {:?}", file);
+        tracing::info!("Downloading inventory file: {}", file.s3_url());
 
         let bytes = file::download_bytes(&config.client, &file).await?;
 
@@ -57,7 +57,7 @@ pub async fn perform(
             .reports_manifest_path(&manifest.source_bucket, ctx);
         let csv_file = File::new(&bucket, csv_path);
 
-        tracing::info!("Uploading csv: {:?}", csv_file);
+        tracing::info!("Uploading csv: {}", csv_file.s3_url());
         file::upload(
             &config.client,
             &csv_file,
@@ -71,7 +71,7 @@ pub async fn perform(
             .metadata_stats_path(&manifest.source_bucket, ctx);
         let stats_file = File::new(&bucket, stats_path);
 
-        tracing::info!("Uploading stats: {:?}", stats_file);
+        tracing::info!("Uploading stats: {}", stats_file.s3_url());
         file::upload(
             &config.client,
             &stats_file,

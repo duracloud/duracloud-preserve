@@ -3,7 +3,7 @@ use aws_sdk_s3control::{
     self as s3control,
     types::{
         ComputeObjectChecksumAlgorithm, ComputeObjectChecksumType, GeneratedManifestFormat,
-        JobManifestGenerator, JobOperation, JobReport, JobReportFormat, JobReportScope,
+        JobManifestGenerator, JobOperation, JobReport, JobReportFormat, JobReportScope, JobStatus,
         S3ComputeObjectChecksumOperation, S3JobManifestGenerator, S3ManifestOutputLocation,
     },
 };
@@ -14,7 +14,7 @@ use thiserror::Error;
 
 use crate::{
     bucket::RequestError,
-    config::RequestConfig,
+    config::{BatchConfig, RequestConfig},
     file::{self, File},
 };
 
@@ -27,10 +27,14 @@ const REPORT_PREFIX: &str = "batch/reports";
 pub enum BatchError {
     #[error("Invalid bucket: {0} (must be a standard or public bucket in the stack)")]
     InvalidBucket(String),
+    #[error("Job matching id not found: {0}")]
+    JobNotFound(String),
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
-    #[error("Manifest not available: {0}")]
-    NotReady(String),
+    #[error("Manifest not found: {0}")]
+    ManifestNotFound(String),
+    #[error("Job status matching id not found: {0}")]
+    MissingStatus(String),
     #[error("{0}")]
     Request(#[from] RequestError),
     #[error("S3 Control error: {0:#}")]
@@ -208,17 +212,62 @@ pub async fn get_batch_manifest(
     job_id: &str,
 ) -> Result<BatchManifest, BatchError> {
     let managed_bucket = config.stack().managed_bucket();
-    let manifest = config
-        .stack()
-        .batch_reports_checksum_manifest(bucket, job_id);
+    let manifest = &File::new(
+        &managed_bucket,
+        config
+            .stack()
+            .batch_reports_checksum_manifest(bucket, job_id),
+    );
 
-    // We need to check for the manifest.json.md5 as the completion indicator
-    let manifest_md5 = File::new(&managed_bucket, format!("{}.md5", &manifest));
-
-    if !file::exists(&config.client, &manifest_md5).await {
-        tracing::info!("Manifest not available");
-        return Err(BatchError::NotReady(manifest));
+    if !file::exists(&config.client, manifest).await {
+        tracing::info!("Manifest not found: {}", manifest.s3_url());
+        return Err(BatchError::ManifestNotFound(manifest.s3_url()));
     }
 
-    BatchManifest::fetch(&config.client, &File::new(&managed_bucket, manifest)).await
+    BatchManifest::fetch(&config.client, manifest).await
+}
+
+pub async fn get_job_status(config: &BatchConfig, job_id: &str) -> Result<JobStatus, BatchError> {
+    let resp = config
+        .client
+        .describe_job()
+        .account_id(config.account_id())
+        .job_id(job_id)
+        .send()
+        .await
+        .map_err(|e| BatchError::S3Control(Box::new(e)))?;
+
+    let job = resp
+        .job
+        .ok_or(BatchError::JobNotFound(job_id.to_string()))?;
+
+    let status = job
+        .status
+        .ok_or(BatchError::MissingStatus(job_id.to_string()))?;
+
+    Ok(status)
+}
+
+pub async fn get_manifest_if_ready(
+    batch: &BatchConfig,
+    request: &RequestConfig,
+    bucket: &str,
+    job_id: &str,
+) -> Result<Option<BatchManifest>, RequestError> {
+    let status = get_job_status(batch, job_id)
+        .await
+        .map_err(|e| RequestError::S3Error(format!("failed to get job status: {}", e)))?;
+
+    match status {
+        JobStatus::Complete => match get_batch_manifest(request, bucket, job_id).await {
+            Ok(manifest) => Ok(Some(manifest)),
+            Err(e) => Err(RequestError::S3Error(e.to_string())),
+        },
+        JobStatus::Failed => Err(RequestError::S3Error(format!("job {} failed", job_id))),
+        status => {
+            tracing::info!("Job {} not in continuable status: {}", job_id, status);
+            dbg!(status);
+            Ok(None)
+        }
+    }
 }

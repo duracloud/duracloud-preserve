@@ -5,7 +5,7 @@ use tracing;
 
 /// Process a bucket creation request file from S3
 pub async fn perform(config: &RequestConfig, file: &File) -> Result<(), RequestError> {
-    tracing::info!("Retrieving request file from S3");
+    tracing::info!("Retrieving request file from S3: {}", file.s3_url());
 
     let names = match bucket::get_bucket_names(&config.client, file).await {
         Ok(names) => names,

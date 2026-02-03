@@ -1,11 +1,10 @@
+use apputils::stack::DateCtx;
+
 use crate::{
-    batch::{BatchError, ChecksumJobReceipt, create_checksum_job},
+    batch::{BatchError, ChecksumJobReceipt, create_checksum_job, upload_receipt},
     bucket::{self, Bucket, REPLICATION_SUFFIX},
     config::{BatchConfig, RequestConfig},
-    file::{self, File},
 };
-use aws_sdk_s3::primitives::ByteStream;
-use bytes::Bytes;
 
 /// Trigger S3 batch jobs for generating compute checksum reports
 pub async fn perform(
@@ -50,6 +49,7 @@ pub async fn perform(
             bucket::pair_buckets(source_buckets, replication_buckets)?
         }
     };
+
     let mut receipts = vec![];
 
     for (source, replication) in &bucket_pairs {
@@ -77,29 +77,27 @@ pub async fn perform(
         )
         .await?;
 
-        let job = ChecksumJobReceipt::new(
+        let receipt = ChecksumJobReceipt::new(
             source.name(),
             &source_result,
             replication.name(),
             &replication_result,
         );
 
-        let file = &File::new(
-            request.stack().managed_bucket(),
-            request
-                .stack()
-                .metadata_checksums_path(source.name(), apputils::stack::DateCtx::Latest),
-        );
+        let stack = request.stack();
+        let paths = vec![
+            stack.metadata_checksums_path(&source_result, DateCtx::Latest),
+            stack.metadata_checksums_path(&replication_result, DateCtx::Latest),
+            stack.metadata_checksums_path(source.name(), DateCtx::Latest),
+            stack.metadata_checksums_path(source.name(), DateCtx::Today),
+        ];
 
-        file::upload(
-            &request.client,
-            file,
-            ByteStream::from(Bytes::from(serde_json::to_vec(&job)?)),
-            "application/json",
-        )
-        .await?;
+        tracing::info!("Uploading receipt: {:?}", receipt);
 
-        receipts.push(file.http_url());
+        let urls =
+            upload_receipt(&request.client, &stack.managed_bucket(), &receipt, &paths).await?;
+
+        receipts.extend(urls);
     }
 
     Ok(receipts)

@@ -1,4 +1,5 @@
 use aws_sdk_s3::Client;
+use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3control::{
     self as s3control,
     types::{
@@ -7,7 +8,9 @@ use aws_sdk_s3control::{
         S3ComputeObjectChecksumOperation, S3JobManifestGenerator, S3ManifestOutputLocation,
     },
 };
+use bytes::Bytes;
 use chrono::Utc;
+use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
@@ -270,4 +273,25 @@ pub async fn get_manifest_if_ready(
             Ok(None)
         }
     }
+}
+
+/// Uploads a receipt to multiple paths
+pub async fn upload_receipt(
+    client: &Client,
+    bucket: &str,
+    receipt: &ChecksumJobReceipt,
+    paths: &[String],
+) -> Result<Vec<String>, BatchError> {
+    let bytes = Bytes::from(serde_json::to_vec(receipt)?);
+
+    let uploads = paths.iter().map(|path| {
+        let file = File::new(bucket, path);
+        let stream = ByteStream::from(bytes.clone());
+        async move {
+            file::upload(client, &file, stream, "application/json").await?;
+            Ok::<_, BatchError>(file.http_url())
+        }
+    });
+
+    try_join_all(uploads).await
 }

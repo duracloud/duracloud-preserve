@@ -90,8 +90,12 @@ impl Stack {
     }
 
     /// Checksums job receipt (json) destination used for checksum verification processing
-    pub fn metadata_checksums_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{}/{}/checksums/{}.json", METADATA_PREFIX, date_ctx, bucket)
+    /// A valid identifier is either a source (not replication) bucket name or job id
+    pub fn metadata_checksums_path(&self, identifier: &str, date_ctx: DateCtx) -> String {
+        format!(
+            "{}/{}/checksums/{}.json",
+            METADATA_PREFIX, date_ctx, identifier
+        )
     }
 
     /// Usage stats (json) destination used to generate storage reports

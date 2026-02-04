@@ -1,7 +1,5 @@
-use apputils::stack::DateCtx;
-
 use crate::{
-    batch::{BatchError, ChecksumJobReceipt, create_checksum_job, upload_receipt},
+    batch::{BatchError, trigger_checksum_job},
     bucket::{self, Bucket, REPLICATION_SUFFIX},
     config::{BatchConfig, RequestConfig},
 };
@@ -51,53 +49,17 @@ pub async fn perform(
     };
 
     let mut receipts = vec![];
+    let mut issues = vec![];
 
     for (source, replication) in &bucket_pairs {
-        tracing::info!(
-            "Processing bucket pair: {} -> {}",
-            source.name(),
-            replication.name()
-        );
+        match trigger_checksum_job(batch, request, source, replication).await {
+            Ok(urls) => receipts.extend(urls),
+            Err(e) => issues.push(e.to_string()),
+        }
+    }
 
-        let source_result = create_checksum_job(
-            &batch.client,
-            batch.account_id(),
-            batch.role_arn(),
-            source.name(),
-            batch.stack().managed_bucket().as_str(),
-        )
-        .await?;
-
-        let replication_result = create_checksum_job(
-            &batch.client,
-            batch.account_id(),
-            batch.role_arn(),
-            replication.name(),
-            batch.stack().managed_bucket().as_str(),
-        )
-        .await?;
-
-        let receipt = ChecksumJobReceipt::new(
-            source.name(),
-            &source_result,
-            replication.name(),
-            &replication_result,
-        );
-
-        let stack = request.stack();
-        let paths = vec![
-            stack.metadata_checksums_path(&source_result, DateCtx::Latest),
-            stack.metadata_checksums_path(&replication_result, DateCtx::Latest),
-            stack.metadata_checksums_path(source.name(), DateCtx::Latest),
-            stack.metadata_checksums_path(source.name(), DateCtx::Today),
-        ];
-
-        tracing::info!("Uploading receipt: {:?}", receipt);
-
-        let urls =
-            upload_receipt(&request.client, &stack.managed_bucket(), &receipt, &paths).await?;
-
-        receipts.extend(urls);
+    if !issues.is_empty() {
+        return Err(BatchError::PartialFailure(issues));
     }
 
     Ok(receipts)

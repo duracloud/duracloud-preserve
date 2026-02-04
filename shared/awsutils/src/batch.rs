@@ -1,3 +1,4 @@
+use apputils::stack::DateCtx;
 use aws_sdk_s3::Client;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3control::{
@@ -16,7 +17,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
 use crate::{
-    bucket::RequestError,
+    bucket::{Bucket, RequestError},
     config::{BatchConfig, RequestConfig},
     file::{self, File},
 };
@@ -40,6 +41,8 @@ pub enum BatchError {
     MissingStatus(String),
     #[error("{0}")]
     Request(#[from] RequestError),
+    #[error("Partial failure: {}", .0.join("; "))]
+    PartialFailure(Vec<String>),
     #[error("S3 Control error: {0:#}")]
     S3Control(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
@@ -206,7 +209,9 @@ async fn run(params: JobParams<'_>) -> Result<String, BatchError> {
         .await
         .map_err(|e| BatchError::S3Control(Box::new(e)))?;
 
-    Ok(response.job_id.unwrap_or_default())
+    response
+        .job_id
+        .ok_or_else(|| BatchError::S3Control("missing job_id in response".into()))
 }
 
 /// Download a batch manifest
@@ -275,6 +280,81 @@ pub async fn get_manifest_if_ready(
             Ok(None)
         }
     }
+}
+
+/// Trigger compute checksum jobs for source and replication bucket pair
+pub async fn trigger_checksum_job(
+    batch: &BatchConfig,
+    request: &RequestConfig,
+    source: &Bucket,
+    replication: &Bucket,
+) -> Result<Vec<String>, BatchError> {
+    tracing::info!(
+        "Processing bucket pair: {} -> {}",
+        source.name(),
+        replication.name()
+    );
+
+    let source_result = create_checksum_job(
+        &batch.client,
+        batch.account_id(),
+        batch.role_arn(),
+        source.name(),
+        batch.stack().managed_bucket().as_str(),
+    )
+    .await?;
+
+    tracing::info!(
+        "Created source checksum job: bucket={}, job_id={}",
+        source.name(),
+        source_result
+    );
+
+    let replication_result = match create_checksum_job(
+        &batch.client,
+        batch.account_id(),
+        batch.role_arn(),
+        replication.name(),
+        batch.stack().managed_bucket().as_str(),
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(e) => {
+            tracing::error!(
+                "Failed to create replication job for {}: {}. Orphaned source job: {}",
+                replication.name(),
+                e,
+                source_result
+            );
+            return Err(e);
+        }
+    };
+
+    tracing::info!(
+        "Created replication checksum job: bucket={}, job_id={}",
+        replication.name(),
+        replication_result
+    );
+
+    let receipt = ChecksumJobReceipt::new(
+        source.name(),
+        &source_result,
+        replication.name(),
+        &replication_result,
+    );
+
+    let stack = request.stack();
+    let paths = vec![
+        stack.metadata_checksums_path(&source_result, DateCtx::Latest),
+        stack.metadata_checksums_path(&replication_result, DateCtx::Latest),
+        stack.metadata_checksums_path(source.name(), DateCtx::Latest),
+        stack.metadata_checksums_path(source.name(), DateCtx::Today),
+    ];
+
+    tracing::info!("Uploading receipt: {:?}", receipt);
+
+    upload_receipt(&request.client, &stack.managed_bucket(), &receipt, &paths).await
 }
 
 /// Uploads a receipt to multiple paths

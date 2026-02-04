@@ -30,18 +30,22 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 
     if buckets.is_empty() {
         println!("No buckets found for stack {}", stack.as_str());
-        return Ok(());
-    }
-
-    println!("\nFound {} bucket(s):", buckets.len());
-    for bucket in &buckets {
-        println!("\t{} ({})", bucket.name(), bucket.bucket_type());
+        if !args.destroy {
+            return Ok(());
+        }
+    } else {
+        println!("\nFound {} bucket(s):", buckets.len());
+        for bucket in &buckets {
+            println!("\t{} ({})", bucket.name(), bucket.bucket_type());
+        }
     }
 
     if args.destroy {
         println!("\nPlanned actions:");
-        println!("\t- Empty all bucket contents");
-        println!("\t- Delete all buckets");
+        if !buckets.is_empty() {
+            println!("\t- Empty all bucket contents");
+            println!("\t- Delete all buckets");
+        }
         println!("\t- Delete IAM roles (replication, batch)");
     } else {
         println!("\nPlanned actions:");

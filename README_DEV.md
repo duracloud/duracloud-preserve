@@ -4,9 +4,11 @@ Requirements:
 
 - [rust](#)
 - [cargo-lambda](#)
+- [terraform](#)
 
 This documentation focuses solely on testing and running functions
-locally and the requirements needed to support that work. It does
+locally and the requirements needed to support that work. Terraform
+is required to create some base infrastructure but otherwise it does
 not cover "application" or deployment level concerns such as IAM
 user management and access to buckets etc. For the latter refer to
 the [deployment](#) and [Terraform module](#) documentation.
@@ -24,23 +26,19 @@ These args are used frequently:
 But note in some contexts a letter may have a different meaning, for example
 `f=file` (check the docs or output of `make` for details).
 
-To get started run this task to create an S3 batch & replication IAM roles and
-two required buckets:
+To get started run this task to create the base infrastructure:
 
 ```bash
 # choose your own value for s=$stack and p=$profile
 make setup s=digipres-dev1 p=default
 ```
 
-Using the above example this will create:
+Of most significance for testing using the above example will create:
 
 - `digipres-dev1-s3-batch-role` (i.e. `${stack}-s3-batch-role`)
 - `digipres-dev1-s3-replication-role` (i.e. `${stack}-s3-replication-role`)
 - `digipres-dev1-bucket-request` (i.e. `${stack}-bucket-request`)
 - `digipres-dev1-managed` (i.e. `${stack}-managed`)
-
-The role and buckets are expected to exist and created by Terraform for remote
-deployments using the [Terraform module](#) included with this repository.
 
 The `managed` bucket will also be assigned a policy that permits it to be
 a target for S3 inventory from buckets using the same stack name (prefix).

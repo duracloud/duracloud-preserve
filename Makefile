@@ -77,12 +77,12 @@ reset: ## Reset (empty) stack buckets (make reset s=stack p=profile)
 	@AWS_PROFILE=$(p) cargo run -p duracloud -- reset --stack=$(s)
 
 .PHONY: setup
-setup: ## Create required IAM roles and buckets (make setup s=stack p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- setup --stack=$(s)
+setup: ## Create base infrastructure (make setup s=stack p=profile)
+	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) terraform init -upgrade && terraform apply
 
 .PHONY: teardown
-teardown: ## Destroy all stack resources (make teardown s=stack p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- reset --stack=$(s) --destroy
+teardown: ## Destroy base infrastructure (make teardown s=stack p=profile)
+	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) terraform destroy
 
 .PHONY: test
 test: ## Run local tests with no AWS calls (make test)

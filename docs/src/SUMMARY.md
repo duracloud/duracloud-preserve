@@ -13,6 +13,9 @@
 - [Functions](technical/functions.md)
   - [bucket-request](technical/bucket-request.md)
   - [inventory-report](technical/inventory-report.md)
+  - [compute-checksums](technical/compute-checksums.md)
+  - [checksum-report](technical/checksum-report.md)
+  - [storage-report](technical/storage-report.md)
 - [Cleanup](technical/cleanup.md)
 - [Development](technical/development.md)
 

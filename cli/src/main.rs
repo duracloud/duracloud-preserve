@@ -14,6 +14,8 @@ struct Cli {
 enum Commands {
     /// Process bucket creation requests
     BucketRequest(commands::bucket_request::Args),
+    /// Checksum a file
+    Checksum(commands::checksum::Args),
     /// Generate checksum report and statistics
     ChecksumReport(commands::checksum_report::Args),
     /// Run S3 batch operations compute checksums
@@ -34,6 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match cli.command {
         Commands::BucketRequest(args) => commands::bucket_request::run(args).await?,
+        Commands::Checksum(args) => commands::checksum::run(args).await?,
         Commands::ChecksumReport(args) => commands::checksum_report::run(args).await?,
         Commands::ComputeChecksums(args) => commands::compute_checksums::run(args).await?,
         Commands::InventoryReport(args) => commands::inventory_report::run(args).await?,

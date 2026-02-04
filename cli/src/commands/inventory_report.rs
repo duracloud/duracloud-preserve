@@ -18,7 +18,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let bucket = args.bucket;
     let stack = Stack::from_bucket_name(&bucket)?;
     let config = awsutils::config::request_config(stack.clone()).await;
-    let date_ctx = resolve_date_ctx(&config, &bucket).await;
+    let date_ctx = resolve_date_ctx(&config, &bucket).await?;
 
     if !exists(&config.client, &bucket).await {
         return Err("Bucket not found".into());
@@ -41,19 +41,21 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Determine which inventory to use: today's if available, otherwise yesterday's.
-async fn resolve_date_ctx(config: &RequestConfig, target_bucket: &str) -> DateCtx {
-    let today_manifest = File::new(
-        config.stack().managed_bucket(),
-        format!(
-            "manifests/{}/inventory/{}T01-00Z/manifest.json",
-            target_bucket,
-            DateCtx::Today
-        ),
-    );
-
-    if file::exists(&config.client, &today_manifest).await {
-        DateCtx::Today
-    } else {
-        DateCtx::Yesterday
+async fn resolve_date_ctx(
+    config: &RequestConfig,
+    target_bucket: &str,
+) -> Result<DateCtx, &'static str> {
+    for ctx in [DateCtx::Today, DateCtx::Yesterday] {
+        let manifest = File::new(
+            config.stack().managed_bucket(),
+            format!(
+                "manifests/{}/inventory/{}T01-00Z/manifest.json",
+                target_bucket, ctx
+            ),
+        );
+        if file::exists(&config.client, &manifest).await {
+            return Ok(ctx);
+        }
     }
+    Err("No inventory manifest found for today or yesterday")
 }

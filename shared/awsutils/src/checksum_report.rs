@@ -14,8 +14,7 @@ pub async fn perform(
     tracing::info!("Retrieving job file from S3: {}", job_file.s3_url());
 
     let bytes = file::download_bytes(&request.client, job_file).await?;
-    let receipt: ChecksumJobReceipt = serde_json::from_slice(&bytes)
-        .map_err(|e| RequestError::S3Error(format!("failed to parse receipt: {}", e)))?;
+    let receipt: ChecksumJobReceipt = serde_json::from_slice(&bytes)?;
 
     let Some(source) = get_manifest_if_ready(
         batch,
@@ -25,6 +24,7 @@ pub async fn perform(
     )
     .await?
     else {
+        tracing::info!("Source job {} not ready yet", receipt.source_job_id);
         return Ok(());
     };
 
@@ -33,6 +33,7 @@ pub async fn perform(
     let Some(repl) =
         get_manifest_if_ready(batch, request, &receipt.repl_bucket, &receipt.repl_job_id).await?
     else {
+        tracing::info!("Replication job {} not ready yet", receipt.repl_job_id);
         return Ok(());
     };
 

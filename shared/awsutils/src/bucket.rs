@@ -442,6 +442,8 @@ pub enum RequestError {
     InvalidContentType,
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
     #[error("S3 error: {0}")]
     S3Error(String),
     #[error("Unsupported operation: {0}")]

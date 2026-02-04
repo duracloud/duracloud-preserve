@@ -21,9 +21,14 @@ pub struct Args {
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let path = shellexpand::tilde(&args.file.to_string_lossy()).into_owned();
-    let file = File::open(&path)?;
-    let reader = BufReader::new(file);
-    let checksum = generate_checksum(reader, CrcAlgorithm::Crc64Nvme)?;
+
+    let checksum = tokio::task::spawn_blocking(move || {
+        let file = File::open(&path)?;
+        let reader = BufReader::new(file);
+        generate_checksum(reader, CrcAlgorithm::Crc64Nvme)
+    })
+    .await
+    .expect("failed to spawn blocking task")?;
 
     println!("{checksum}");
     Ok(())

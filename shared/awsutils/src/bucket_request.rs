@@ -35,9 +35,10 @@ pub async fn perform(config: &RequestConfig, file: &File) -> Result<(), RequestE
     if !issues.is_empty() {
         // TODO: upload the issues
         tracing::error!("{:?}", issues);
-        return Err(RequestError::S3Error(
-            "Failed to create one or more buckets".to_string(),
-        ));
+        return Err(RequestError::S3Error(format!(
+            "Failed to create one or more buckets: {}",
+            issues.join("; ")
+        )));
     }
 
     tracing::info!("Perform complete");

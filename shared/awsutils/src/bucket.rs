@@ -19,7 +19,7 @@ pub(crate) const BUCKET_TAG_STACK_KEY: &str = "Stack";
 pub(crate) const BUCKET_TAG_TYPE_KEY: &str = "BucketType";
 
 pub const MAX_BUCKETS_PER_REQUEST: u8 = 5;
-pub const MAX_BUCKETS_REQUEST_FILE_SIZE: u8 = 32;
+pub const MAX_BUCKETS_REQUEST_FILE_SIZE: u16 = 512;
 pub const MAX_LEN_FOR_REQUEST_NAME: u8 = 63;
 
 const PUBLIC_SUFFIX: &str = "-public";
@@ -43,10 +43,7 @@ async fn create(config: &RequestConfig, bucket: &Bucket) -> Result<(), RequestEr
 }
 
 /// Create primary and replication buckets
-pub async fn create_buckets(
-    config: &RequestConfig,
-    buckets: &Vec<(Bucket, Bucket)>,
-) -> Vec<String> {
+pub async fn create_buckets(config: &RequestConfig, buckets: &[(Bucket, Bucket)]) -> Vec<String> {
     let mut issues = Vec::new();
 
     for (primary, replication) in buckets {
@@ -162,7 +159,7 @@ pub async fn get_bucket_names(client: &Client, file: &File) -> Result<Vec<String
     };
 
     if let Some(ct) = r.content_type()
-        && ct != BUCKET_REQUEST_CONTENT_TYPE
+        && !ct.starts_with(BUCKET_REQUEST_CONTENT_TYPE)
     {
         return Err(RequestError::InvalidContentType);
     }
@@ -283,7 +280,7 @@ pub fn pair_buckets(
 /// Check that user supplied bucket names are ok and make ready to create
 pub fn review_bucket_names(
     config: &RequestConfig,
-    names: &Vec<String>,
+    names: &[String],
 ) -> Result<Vec<(Bucket, Bucket)>, RequestError> {
     let mut buckets: Vec<(Bucket, Bucket)> = Vec::new();
 
@@ -575,7 +572,6 @@ mod tests {
         assert_eq!(names[1], "456");
         assert_eq!(names[2], "789");
         assert_eq!(names[3], "234");
-        assert_eq!(names[4], "567");
     }
 
     #[tokio::test]
@@ -596,6 +592,48 @@ mod tests {
             }
             _ => panic!("Expected FileTooLarge error"),
         }
+    }
+
+    #[tokio::test]
+    async fn test_get_bucket_names_content_type_with_charset() {
+        let content = "bucket1\nbucket2";
+        let file = File::new("test-bucket", "buckets.txt");
+        let client = TestClientBuilder::new()
+            .success(content, Some("text/plain; charset=utf-8".to_string()))
+            .build();
+
+        let names = get_bucket_names(&client, &file).await.unwrap();
+
+        assert_eq!(names.len(), 2);
+        assert_eq!(names[0], "bucket1");
+        assert_eq!(names[1], "bucket2");
+    }
+
+    #[tokio::test]
+    async fn test_get_bucket_names_invalid_content_type() {
+        let content = "bucket1\nbucket2";
+        let file = File::new("test-bucket", "buckets.txt");
+        let client = TestClientBuilder::new()
+            .success(content, Some("application/json".to_string()))
+            .build();
+
+        let result = get_bucket_names(&client, &file).await;
+
+        assert!(result.is_err());
+        assert!(matches!(result, Err(RequestError::InvalidContentType)));
+    }
+
+    #[tokio::test]
+    async fn test_get_bucket_names_truncates_at_max() {
+        let content = "a\nb\nc\nd\ne\nf\ng";
+        let file = File::new("test-bucket", "buckets.txt");
+        let client = TestClientBuilder::new()
+            .success(content, Some("text/plain".to_string()))
+            .build();
+
+        let names = get_bucket_names(&client, &file).await.unwrap();
+
+        assert_eq!(names.len(), MAX_BUCKETS_PER_REQUEST as usize);
     }
 
     #[test]

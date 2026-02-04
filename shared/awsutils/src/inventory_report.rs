@@ -36,7 +36,7 @@ pub async fn perform(
 
         let filename = entry.key.rsplit('/').next().unwrap_or(&entry.key);
         let local_path = temp_dir.path().join(filename);
-        std::fs::write(&local_path, &bytes)?;
+        tokio::fs::write(&local_path, &bytes).await?;
         local_paths.push(local_path);
     }
 
@@ -46,7 +46,13 @@ pub async fn perform(
         .collect();
 
     tracing::info!("Processing parquet files: {:?}", path_strs);
-    let (csv, stats) = process(&path_strs)?;
+    let path_strs_owned: Vec<String> = path_strs.iter().map(|s| s.to_string()).collect();
+    let (csv, stats) = tokio::task::spawn_blocking(move || {
+        let refs: Vec<&str> = path_strs_owned.iter().map(|s| s.as_str()).collect();
+        process(&refs)
+    })
+    .await
+    .expect("spawn_blocking task panicked")?;
 
     let csv_bytes = Bytes::from(csv);
     let stats_bytes = Bytes::from(serde_json::to_vec(&stats)?);

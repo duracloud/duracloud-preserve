@@ -39,6 +39,6 @@ module "stack" {
 module "artifacts" {
   source = "./terraform/modules/artifacts"
 
-  bucket    = local.functions_bucket
-  functions = local.functions
+  bucket = local.functions_bucket
+  files  = { for k, v in local.functions : k => v.file }
 }

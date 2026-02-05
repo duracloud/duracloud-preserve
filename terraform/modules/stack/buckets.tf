@@ -2,9 +2,9 @@ locals {
   bucket_origin = "terraform"
   bucket_type   = "internal"
 
+  # c.f. stack.rs
   buckets = {
     bucket-request = {}
-    cloudtrail     = {}
     managed        = {}
   }
 
@@ -18,6 +18,7 @@ resource "aws_s3_bucket" "main" {
   bucket        = "${local.stack}-${each.key}"
   force_destroy = true
 
+  # c.f. bucket_creator.rs
   tags = {
     BucketOrigin = local.bucket_origin
     BucketType   = local.bucket_type
@@ -40,34 +41,40 @@ resource "aws_s3_bucket_lifecycle_configuration" "main" {
   }
 }
 
-# CloudTrail bucket policy
-resource "aws_s3_bucket_policy" "cloudtrail" {
-  bucket = aws_s3_bucket.main["cloudtrail"].id
+# Managed bucket policy
+resource "aws_s3_bucket_policy" "managed" {
+  bucket = aws_s3_bucket.main["managed"].id
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "AWSCloudTrailAclCheck"
-        Effect = "Allow"
-        Principal = {
-          Service = "cloudtrail.amazonaws.com"
-        }
-        Action   = "s3:GetBucketAcl"
-        Resource = aws_s3_bucket.main["cloudtrail"].arn
+        Sid       = "AllowS3DeliveryFromStack"
+        Effect    = "Allow"
+        Principal = { Service = ["s3.amazonaws.com", "logging.s3.amazonaws.com"] }
+        Action    = "s3:PutObject"
+        Resource  = "${aws_s3_bucket.main["managed"].arn}/*"
         Condition = {
-          StringEquals = {
-            "AWS:SourceArn" = local.cloudtrail_arn
-          }
+          StringEquals = { "aws:SourceAccount" = local.account_id }
+          ArnLike      = { "aws:SourceArn" = "arn:aws:s3:::${local.stack}*" }
         }
       },
       {
-        Sid    = "AWSCloudTrailWrite"
-        Effect = "Allow"
-        Principal = {
-          Service = "cloudtrail.amazonaws.com"
+        Sid       = "AWSCloudTrailAclCheck"
+        Effect    = "Allow"
+        Principal = { Service = "cloudtrail.amazonaws.com" }
+        Action    = "s3:GetBucketAcl"
+        Resource  = aws_s3_bucket.main["managed"].arn
+        Condition = {
+          StringEquals = { "AWS:SourceArn" = local.cloudtrail_arn }
         }
-        Action   = "s3:PutObject"
-        Resource = "${aws_s3_bucket.main["cloudtrail"].arn}/*"
+      },
+      {
+        Sid       = "AWSCloudTrailWrite"
+        Effect    = "Allow"
+        Principal = { Service = "cloudtrail.amazonaws.com" }
+        Action    = "s3:PutObject"
+        Resource  = "${aws_s3_bucket.main["managed"].arn}/${local.cloudtrail_prefix}/*"
         Condition = {
           StringEquals = {
             "s3:x-amz-acl"  = "bucket-owner-full-control"
@@ -76,25 +83,5 @@ resource "aws_s3_bucket_policy" "cloudtrail" {
         }
       }
     ]
-  })
-}
-
-# Managed bucket policy
-resource "aws_s3_bucket_policy" "managed" {
-  bucket = aws_s3_bucket.main["managed"].id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Sid       = "AllowS3DeliveryFromStack"
-      Effect    = "Allow"
-      Principal = { Service = ["s3.amazonaws.com", "logging.s3.amazonaws.com"] }
-      Action    = "s3:PutObject"
-      Resource  = "${aws_s3_bucket.main["managed"].arn}/*"
-      Condition = {
-        StringEquals = { "aws:SourceAccount" = local.account_id }
-        ArnLike      = { "aws:SourceArn" = "arn:aws:s3:::${local.stack}*" }
-      }
-    }]
   })
 }

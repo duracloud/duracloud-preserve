@@ -43,7 +43,7 @@ resource "aws_cloudwatch_event_rule" "batch_job_complete" {
 #   lambda_function {
 #     lambda_function_arn = aws_lambda_function.main["inventory-report"].arn
 #     events              = ["s3:ObjectCreated:*"]
-#     filter_prefix       = "manifests/"
+#     filter_prefix       = "${local.inventory_prefix}/"
 #     filter_suffix       = "manifest.json"
 #   }
 

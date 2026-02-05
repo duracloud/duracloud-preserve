@@ -12,7 +12,9 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 locals {
-  account_id = data.aws_caller_identity.current.account_id
-  region     = data.aws_region.current.region
-  stack      = var.stack
+  account_id        = data.aws_caller_identity.current.account_id
+  cloudtrail_prefix = "cloudtrail"
+  inventory_prefix  = "manifests" # c.f. bucket_creator.rs
+  region            = data.aws_region.current.region
+  stack             = var.stack
 }

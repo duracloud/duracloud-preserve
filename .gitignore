@@ -1,6 +1,7 @@
 .DS_Store
 .terraform*
 !.terraform-version
+terraform.tfstate*
 tmp_*.json
 payloads
 target

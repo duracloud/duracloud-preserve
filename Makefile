@@ -78,7 +78,8 @@ reset: ## Reset (empty) stack buckets (make reset s=stack p=profile)
 
 .PHONY: setup
 setup: ## Create base infrastructure (make setup s=stack p=profile)
-	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) terraform init -upgrade && terraform apply
+	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) terraform init -upgrade
+	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) terraform apply
 
 .PHONY: teardown
 teardown: ## Destroy base infrastructure (make teardown s=stack p=profile)

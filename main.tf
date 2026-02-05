@@ -12,14 +12,27 @@ terraform {
 }
 
 provider "aws" {}
+variable "deploy" { default = false }
 variable "stack" {}
 
 locals {
-  stack = var.stack
+  deploy = var.deploy
+  stack  = var.stack
+
+  function_bucket = "artifacts.lyrasis.org"
+  function_files = {
+    bucket-request = "bucket_request-latest.zip"
+  }
+  function_prefix = "functions"
 }
 
 module "stack" {
   source = "./terraform/modules/stack"
 
-  stack = local.stack
+  deploy_functions = var.deploy
+  stack            = local.stack
+
+  function_bucket = local.function_bucket
+  function_files  = local.function_files
+  function_prefix = local.function_prefix
 }

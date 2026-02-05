@@ -23,19 +23,6 @@ resource "aws_cloudwatch_event_rule" "batch_job_complete" {
 #   arn       = aws_lambda_function.main["compute-checksums"].arn
 # }
 
-# Bucket request notifications
-# resource "aws_s3_bucket_notification" "bucket_request" {
-#   bucket      = aws_s3_bucket.main["bucket-request"].id
-#   eventbridge = true
-
-#   lambda_function {
-#     lambda_function_arn = aws_lambda_function.main["bucket-request"].arn
-#     events              = ["s3:ObjectCreated:*"]
-#   }
-
-#   depends_on = [aws_lambda_permission.bucket_request]
-# }
-
 # Managed bucket notifications
 # resource "aws_s3_bucket_notification" "managed" {
 #   bucket = aws_s3_bucket.main["managed"].id

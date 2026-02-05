@@ -587,9 +587,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_setup_unsupported_for_managed_bucket() {
+    async fn test_setup_unsupported_for_internal_bucket() {
         let config = test_config();
-        let bucket = Bucket::new("test-managed", Type::Managed).unwrap();
+        let bucket = Bucket::new("test-internal", Type::Internal).unwrap();
         let creator = BucketCreator::new(&config, &bucket);
 
         let result = creator.setup().await;
@@ -597,24 +597,7 @@ mod tests {
         assert!(result.is_err());
         match result.unwrap_err() {
             RequestError::UnsupportedOperation(msg) => {
-                assert!(msg.contains("setup not supported for managed buckets"))
-            }
-            e => panic!("Expected UnsupportedOperation, got {:?}", e),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_setup_unsupported_for_request_bucket() {
-        let config = test_config();
-        let bucket = Bucket::new("test-request", Type::Request).unwrap();
-        let creator = BucketCreator::new(&config, &bucket);
-
-        let result = creator.setup().await;
-
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            RequestError::UnsupportedOperation(msg) => {
-                assert!(msg.contains("setup not supported for request buckets"))
+                assert!(msg.contains("setup not supported for internal buckets"))
             }
             e => panic!("Expected UnsupportedOperation, got {:?}", e),
         }

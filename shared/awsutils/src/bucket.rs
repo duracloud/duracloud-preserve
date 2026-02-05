@@ -455,20 +455,18 @@ pub enum RequestError {
 /// Types for buckets
 #[derive(Debug, PartialEq)]
 pub enum Type {
-    Managed,
+    Internal,
     Public,
     Replication,
-    Request,
     Standard,
 }
 
 impl Type {
     pub fn from_tag_value(value: &str) -> Option<Self> {
         match value {
-            "managed" => Some(Type::Managed),
+            "internal" => Some(Type::Internal),
             "public" => Some(Type::Public),
             "replication" => Some(Type::Replication),
-            "request" => Some(Type::Request),
             "standard" => Some(Type::Standard),
             _ => None,
         }
@@ -478,10 +476,9 @@ impl Type {
 impl std::fmt::Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Type::Managed => write!(f, "managed"),
+            Type::Internal => write!(f, "internal"),
             Type::Public => write!(f, "public"),
             Type::Replication => write!(f, "replication"),
-            Type::Request => write!(f, "request"),
             Type::Standard => write!(f, "standard"),
         }
     }
@@ -494,10 +491,9 @@ mod tests {
 
     #[test]
     fn test_type_from_tag_value() {
-        assert_eq!(Type::from_tag_value("managed"), Some(Type::Managed));
+        assert_eq!(Type::from_tag_value("internal"), Some(Type::Internal));
         assert_eq!(Type::from_tag_value("public"), Some(Type::Public));
         assert_eq!(Type::from_tag_value("replication"), Some(Type::Replication));
-        assert_eq!(Type::from_tag_value("request"), Some(Type::Request));
         assert_eq!(Type::from_tag_value("standard"), Some(Type::Standard));
         assert_eq!(Type::from_tag_value("unknown"), None);
         assert_eq!(Type::from_tag_value(""), None);

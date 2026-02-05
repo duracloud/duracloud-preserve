@@ -24,8 +24,6 @@ enum Commands {
     InventoryReport(commands::inventory_report::Args),
     /// Reset stack (empty buckets, optionally destroy resources)
     Reset(commands::reset::Args),
-    /// Set up a new stack (IAM roles, managed bucket, request bucket)
-    Setup(commands::setup::Args),
 }
 
 #[tokio::main]
@@ -41,7 +39,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::ComputeChecksums(args) => commands::compute_checksums::run(args).await?,
         Commands::InventoryReport(args) => commands::inventory_report::run(args).await?,
         Commands::Reset(args) => commands::reset::run(args).await?,
-        Commands::Setup(args) => commands::setup::run(args).await?,
     }
 
     Ok(())

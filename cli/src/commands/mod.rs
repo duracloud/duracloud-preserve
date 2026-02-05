@@ -4,4 +4,3 @@ pub mod checksum_report;
 pub mod compute_checksums;
 pub mod inventory_report;
 pub mod reset;
-pub mod setup;

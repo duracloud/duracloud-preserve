@@ -11,28 +11,9 @@ resource "aws_iam_role_policy" "bucket_request" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = [
-          "s3:CreateBucket",
-          "s3:DeleteBucket",
-          "s3:DeleteBucketPolicy",
-          "s3:GetObject",
-          "s3:PutBucketAcl",
-          "s3:PutBucketLifecycleConfiguration",
-          "s3:PutBucketLogging",
-          "s3:PutBucketNotificationConfiguration",
-          "s3:PutBucketInventoryConfiguration",
-          "s3:PutBucketOwnershipControls",
-          "s3:PutBucketPolicy",
-          "s3:PutBucketPublicAccessBlock",
-          "s3:PutBucketReplication",
-          "s3:PutBucketTagging",
-          "s3:PutBucketVersioning",
-          "s3:PutLifecycleConfiguration",
-          "s3:PutObject",
-          "s3:TagResource"
-        ]
-        Resource = "arn:aws:s3:::*"
+        Effect   = "Allow"
+        Action   = "s3:*"
+        Resource = "arn:aws:s3:::${local.stack}-*"
       },
       {
         Effect   = "Allow"

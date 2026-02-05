@@ -38,22 +38,26 @@ ci: test ## Run the ci checks locally
 	@cargo clippy --workspace --all-features -- -D warnings
 	@cargo audit
 
+.PHONY: compute-checksums
+compute-checksums: ## Run compute-checksums cli (make compute-checksums b=bucket p=profile)
+	@AWS_PROFILE=$(p) cargo run -p duracloud -- compute-checksums --bucket=$(b)
+
+.PHONY: deploy
+deploy: build-lambda-release ## Deploy all resources including functions (make deploy s=stack p=profile)
+	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) TF_VAR_deploy=true terraform apply
+
 .PHONY: docs
 docs: ## Read the docs
 	@cd docs && mdbook serve --open
-
-.PHONY: help
-help:
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: event
 event: ## Generate event file from sample (make event f=function s=stack)
 	@mkdir -p payloads
 	@sed 's/test-stack/$(s)/g' functions/$(f)/events/sample.json > payloads/$(f).json
 
-.PHONY: compute-checksums
-compute-checksums: ## Run compute-checksums cli (make compute-checksums b=bucket p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- compute-checksums --bucket=$(b)
+.PHONY: help
+help:
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: inventory-report
 inventory-report: ## Run inventory-report cli (make inventory-report b=bucket p=profile)

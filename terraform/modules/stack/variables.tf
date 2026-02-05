@@ -15,12 +15,6 @@ variable "function_files" {
   default     = {}
 }
 
-variable "function_prefix" {
-  description = "S3 prefix within bucket that contains function zip files"
-  default     = "/"
-  type        = string
-}
-
 variable "stack" {
   description = "Stack name (prefix for resources)"
   type        = string

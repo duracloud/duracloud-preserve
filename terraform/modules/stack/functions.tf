@@ -11,7 +11,6 @@ locals {
 
   function_bucket = var.function_bucket
   function_files  = var.function_files
-  function_prefix = var.function_prefix
 
   architectures = ["arm64"]
   handler       = "bootstrap" # irrelevant for binaries
@@ -30,11 +29,17 @@ resource "aws_lambda_function" "main" {
   role          = aws_iam_role.lambda[each.key].arn
   runtime       = local.runtime
   s3_bucket     = local.function_bucket
-  s3_key        = "${local.function_prefix}/${local.function_files[each.key]}"
+  s3_key        = local.function_files[each.key]
+
+  environment {
+    variables = {
+      STACK = local.stack
+    }
+  }
 
   logging_config {
     log_format = "JSON"
-    log_group  = aws_cloudwatch_log_group.main[each.key]
+    log_group  = aws_cloudwatch_log_group.main[each.key].name
   }
 }
 

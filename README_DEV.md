@@ -8,10 +8,11 @@ Requirements:
 
 This documentation focuses solely on testing and running functions
 locally and the requirements needed to support that work. Terraform
-is required to create some base infrastructure but otherwise it does
-not cover "application" or deployment level concerns such as IAM
-user management and access to buckets etc. For the latter refer to
-the [deployment](#) and [Terraform module](#) documentation.
+is required to create some base infrastructure but the lambda functions
+are not deployed remotely and this documentation does not otherwise
+cover "application" or deployment level concerns such as IAM user
+management and access to buckets etc. For the latter refer to the
+[deployment](#) and [Terraform module](#) documentation.
 
 ## Testing functions
 

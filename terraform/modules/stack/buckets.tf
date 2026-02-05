@@ -85,3 +85,21 @@ resource "aws_s3_bucket_policy" "managed" {
     ]
   })
 }
+
+# Managed bucket notifications
+resource "aws_s3_bucket_notification" "managed" {
+  count = local.deploy_functions ? 1 : 0
+
+  bucket = aws_s3_bucket.main["managed"].id
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.main["inventory-report"].arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "${local.inventory_prefix}/"
+    filter_suffix       = "manifest.json"
+  }
+
+  depends_on = [
+    aws_lambda_permission.inventory_report
+  ]
+}

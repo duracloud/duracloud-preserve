@@ -19,11 +19,14 @@ locals {
   deploy = var.deploy
   stack  = var.stack
 
-  function_bucket = "artifacts.lyrasis.org"
+  # functions = {
+  #   bucket-request = {}
+  # }
+
+  function_bucket = "artifacts.${local.stack}"
   function_files = {
-    bucket-request = "bucket_request_0.1.0.zip"
+    bucket-request = "target/lambda/bucket-request/bootstrap.zip"
   }
-  function_prefix = "functions"
 }
 
 module "stack" {
@@ -34,5 +37,11 @@ module "stack" {
 
   function_bucket = local.function_bucket
   function_files  = local.function_files
-  function_prefix = local.function_prefix
+}
+
+module "artifacts" {
+  source = "./terraform/modules/artifacts"
+
+  bucket = local.function_bucket
+  files  = local.function_files
 }

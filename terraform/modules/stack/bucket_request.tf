@@ -70,6 +70,7 @@ resource "aws_s3_bucket_notification" "bucket_request" {
   lambda_function {
     lambda_function_arn = aws_lambda_function.main["bucket-request"].arn
     events              = ["s3:ObjectCreated:*"]
+    filter_suffix       = ".txt"
   }
 
   depends_on = [aws_lambda_permission.bucket_request]

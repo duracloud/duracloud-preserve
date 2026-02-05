@@ -22,19 +22,3 @@ resource "aws_cloudwatch_event_rule" "batch_job_complete" {
 #   target_id = "compute_checksums"
 #   arn       = aws_lambda_function.main["compute-checksums"].arn
 # }
-
-# Managed bucket notifications
-# resource "aws_s3_bucket_notification" "managed" {
-#   bucket = aws_s3_bucket.main["managed"].id
-
-#   lambda_function {
-#     lambda_function_arn = aws_lambda_function.main["inventory-report"].arn
-#     events              = ["s3:ObjectCreated:*"]
-#     filter_prefix       = "${local.inventory_prefix}/"
-#     filter_suffix       = "manifest.json"
-#   }
-
-#   depends_on = [
-#     aws_lambda_permission.inventory_report
-#   ]
-# }

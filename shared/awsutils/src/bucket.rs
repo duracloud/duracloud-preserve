@@ -26,20 +26,23 @@ const PUBLIC_SUFFIX: &str = "-public";
 pub const REPLICATION_SUFFIX: &str = "-repl";
 
 /// Create and setup an S3 bucket. If setup fails attempt to rollback.
-async fn create(config: &RequestConfig, bucket: &Bucket) -> Result<(), RequestError> {
+/// Returns the BucketCreator for further operations (e.g., enable_replication).
+async fn create<'a>(
+    config: &'a RequestConfig,
+    bucket: &'a Bucket,
+) -> Result<BucketCreator<'a>, RequestError> {
     let creator = BucketCreator::new(config, bucket);
 
     creator.create().await?; // escape immediately if create fails
 
-    let result = creator.setup().await;
-    if let Err(e) = result {
+    if let Err(e) = creator.setup().await {
         if let Err(rollback_err) = creator.rollback().await {
             tracing::error!("Rollback failed: {}", rollback_err);
         }
         return Err(e);
     }
 
-    Ok(())
+    Ok(creator)
 }
 
 /// Create primary and replication buckets
@@ -62,11 +65,31 @@ async fn create_bucket_pair(
     primary: &Bucket,
     replication: &Bucket,
 ) -> Result<(), RequestError> {
-    create(config, primary).await?;
-    create(config, replication).await?;
+    let primary_creator = create(config, primary).await?;
 
-    let creator = BucketCreator::new(config, primary);
-    creator.enable_replication(replication).await?;
+    let repl_creator = match create(config, replication).await {
+        Ok(creator) => creator,
+        Err(e) => {
+            if let Err(rollback_err) = primary_creator.rollback().await {
+                tracing::error!("Rollback of {} failed: {}", primary.name(), rollback_err);
+            }
+            return Err(e);
+        }
+    };
+
+    if let Err(e) = primary_creator.enable_replication(replication).await {
+        if let Err(rollback_err) = primary_creator.rollback().await {
+            tracing::error!("Rollback of {} failed: {}", primary.name(), rollback_err);
+        }
+        if let Err(rollback_err) = repl_creator.rollback().await {
+            tracing::error!(
+                "Rollback of {} failed: {}",
+                replication.name(),
+                rollback_err
+            );
+        }
+        return Err(e);
+    }
 
     Ok(())
 }

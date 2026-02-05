@@ -14,6 +14,7 @@ resource "aws_lambda_function" "main" {
   function_name = "${local.stack}-${each.key}"
   handler       = local.handler
   memory_size   = each.value.memory
+  timeout       = each.value.timeout
   package_type  = local.package_type
   role          = aws_iam_role.lambda[each.key].arn
   runtime       = local.runtime

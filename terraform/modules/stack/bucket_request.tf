@@ -28,9 +28,16 @@ resource "aws_iam_role_policy" "bucket_request" {
           "s3:PutBucketReplication",
           "s3:PutBucketTagging",
           "s3:PutBucketVersioning",
-          "s3:PutObject"
+          "s3:PutLifecycleConfiguration",
+          "s3:PutObject",
+          "s3:TagResource"
         ]
         Resource = "arn:aws:s3:::*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "iam:GetRole"
+        Resource = aws_iam_role.replication.arn
       },
       {
         Effect   = "Allow"

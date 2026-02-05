@@ -22,6 +22,11 @@ build-lambda: ## Build lambda functions with debug profile (make build-lambda)
 build-lambda-release: ## Build lambda functions with release profile (make build-lambda-release)
 	@cargo lambda build --workspace --exclude duracloud --release --arm64 --output-format zip
 	@rm -rf target/lambda/duracloud
+	@for f in functions/*/Cargo.toml; do \
+		name=$$(basename $$(dirname $$f)); \
+		version=$$(grep '^version' $$f | head -1 | sed 's/.*"\(.*\)"/\1/'); \
+		cp target/lambda/$$name/bootstrap.zip target/lambda/$$name/$$name-$$version.zip; \
+	done
 
 .PHONY: checksum-report
 checksum-report: ## Run checksum-report cli (make checksum-report b=bucket p=profile)

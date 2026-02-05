@@ -21,7 +21,7 @@ locals {
 
   function_bucket = "artifacts.lyrasis.org"
   function_files = {
-    bucket-request = "bucket_request-latest.zip"
+    bucket-request = "bucket_request_0.1.0.zip"
   }
   function_prefix = "functions"
 }

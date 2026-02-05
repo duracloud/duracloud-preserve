@@ -1,6 +1,10 @@
 # Bucket request policy, permissions and notifications
+locals {
+  deploy_bucket_request = contains(keys(local.functions), "bucket-request")
+}
+
 resource "aws_iam_role_policy" "bucket_request" {
-  count = local.deploy_functions ? 1 : 0
+  count = local.deploy_bucket_request ? 1 : 0
 
   role = aws_iam_role.lambda["bucket-request"].name
   policy = jsonencode({
@@ -42,15 +46,8 @@ resource "aws_iam_role_policy" "bucket_request" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "bucket_request" {
-  count = local.deploy_functions ? 1 : 0
-
-  policy_arn = local.basic_role
-  role       = aws_iam_role.lambda["bucket-request"].name
-}
-
 resource "aws_lambda_permission" "bucket_request" {
-  count = local.deploy_functions ? 1 : 0
+  count = local.deploy_bucket_request ? 1 : 0
 
   statement_id  = "AllowExecutionFromS3"
   action        = "lambda:InvokeFunction"
@@ -62,7 +59,7 @@ resource "aws_lambda_permission" "bucket_request" {
 }
 
 resource "aws_s3_bucket_notification" "bucket_request" {
-  count = local.deploy_functions ? 1 : 0
+  count = local.deploy_bucket_request ? 1 : 0
 
   bucket      = aws_s3_bucket.main["bucket-request"].id
   eventbridge = true

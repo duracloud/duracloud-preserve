@@ -1,16 +1,5 @@
 locals {
-  deploy_functions = var.deploy_functions
-
-  functions = var.deploy_functions ? {
-    bucket-request = { memory_size = 128 }
-    # checksum-report   = {}
-    # compute-checksums = {}
-    # inventory-report  = {}
-    # storage-report    = {}
-  } : {}
-
-  function_bucket = var.function_bucket
-  function_files  = var.function_files
+  functions = var.deploy_functions ? var.functions : {}
 
   architectures = ["arm64"]
   handler       = "bootstrap" # irrelevant for binaries
@@ -24,12 +13,12 @@ resource "aws_lambda_function" "main" {
   architectures = local.architectures
   function_name = "${local.stack}-${each.key}"
   handler       = local.handler
-  memory_size   = each.value.memory_size
+  memory_size   = each.value.memory
   package_type  = local.package_type
   role          = aws_iam_role.lambda[each.key].arn
   runtime       = local.runtime
-  s3_bucket     = local.function_bucket
-  s3_key        = local.function_files[each.key]
+  s3_bucket     = each.value.bucket
+  s3_key        = each.value.file
 
   environment {
     variables = {
@@ -62,4 +51,11 @@ resource "aws_iam_role" "lambda" {
       Principal = { Service = "lambda.amazonaws.com" }
     }]
   })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda" {
+  for_each = local.functions
+
+  policy_arn = local.basic_role
+  role       = aws_iam_role.lambda[each.key].name
 }

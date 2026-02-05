@@ -10,7 +10,7 @@ terraform {
 
 locals {
   bucket = var.bucket
-  files  = var.files
+  files  = { for k, v in var.functions : k => v.file }
 }
 
 resource "aws_s3_bucket" "artifacts" {

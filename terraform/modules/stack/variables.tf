@@ -4,15 +4,15 @@ variable "deploy_functions" {
   default     = false
 }
 
-variable "function_bucket" {
-  description = "S3 bucket that contains function zip files"
-  type        = string
-}
-
-variable "function_files" {
-  description = "Function file names"
-  type        = map(string)
-  default     = {}
+variable "functions" {
+  description = "Function configurations"
+  type = map(object({
+    bucket   = string
+    file     = string
+    memory   = optional(number, 128)
+    schedule = optional(string)
+  }))
+  default = {}
 }
 
 variable "stack" {

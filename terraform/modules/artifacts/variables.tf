@@ -3,8 +3,13 @@ variable "bucket" {
   type        = string
 }
 
-variable "files" {
-  description = "Files to upload"
-  type        = map(string)
-  default     = {}
+variable "functions" {
+  description = "Function configurations (used to extract files to upload)"
+  type = map(object({
+    bucket   = string
+    file     = string
+    memory   = optional(number)
+    schedule = optional(string)
+  }))
+  default = {}
 }

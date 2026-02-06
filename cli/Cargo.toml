@@ -8,8 +8,8 @@ name = "duracloud"
 path = "src/main.rs"
 
 [dependencies]
-apputils = { path = "../shared/apputils" }
-awsutils = { path = "../shared/awsutils" }
+apputils = { path = "../shared/apputils", features = ["duckdb"] }
+awsutils = { path = "../shared/awsutils", features = ["duckdb"] }
 aws-config = { version = "1.8", features = ["behavior-version-latest"] }
 aws-sdk-iam = "1"
 aws-sdk-s3 = "1.120.0"

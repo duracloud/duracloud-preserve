@@ -3,6 +3,9 @@ name = "awsutils"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+duckdb = ["apputils/duckdb"]
+
 [dependencies]
 apputils = { path = "../apputils" }
 aws-config = "1.8.12"

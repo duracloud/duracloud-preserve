@@ -3,10 +3,13 @@ name = "apputils"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+duckdb = ["dep:csv", "dep:duckdb"]
+
 [dependencies]
 chrono = "0.4.43"
-csv = "1.4.0"
-duckdb = { version = "1.4", features = ["bundled", "json", "parquet"] }
+csv = { version = "1.4.0", optional = true }
+duckdb = { version = "1.4", features = ["bundled", "json", "parquet"], optional = true }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 thiserror = "2.0.18"

@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-apputils = { path = "../../shared/apputils/" }
+apputils = { path = "../../shared/apputils/", features = ["duckdb"] }
 aws_lambda_events = { version = "1.0.3", default-features = false, features = ["s3"] }
-awsutils = { path = "../../shared/awsutils" }
+awsutils = { path = "../../shared/awsutils", features = ["duckdb"] }
 lambda_runtime = "1.0.2"
 serde_json = "1.0.149"
 tokio = { version = "1", features = ["macros"] }

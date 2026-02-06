@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 
 use apputils::Stack;
-use awsutils::bucket;
+use awsutils::bucket::{self, Type};
 use awsutils::config::default_config;
 use clap::Args as ClapArgs;
 use rand::Rng;
@@ -27,13 +27,18 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    let (internal, non_internal): (Vec<_>, Vec<_>) = buckets
+        .iter()
+        .partition(|b| *b.bucket_type() == Type::Internal);
+
     println!("\nFound {} bucket(s):", buckets.len());
     for b in &buckets {
         println!("\t{} ({})", b.name(), b.bucket_type());
     }
 
     println!("\nPlanned actions:");
-    println!("\t- Empty all stack buckets");
+    println!("\t- Empty {} internal bucket(s)", internal.len());
+    println!("\t- Delete {} non-internal bucket(s)", non_internal.len());
 
     let code = generate_confirmation_code();
     println!("\nTo proceed, enter this code: {}", code);
@@ -48,7 +53,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    for b in &buckets {
+    // Empty internal buckets
+    for b in &internal {
         let name = b.name();
         print!("\nEmptying {}... ", name);
         io::stdout().flush()?;
@@ -56,7 +62,17 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         println!("done");
     }
 
-    println!("\nAll stack buckets emptied");
+    // Delete non-internal buckets (empty then delete)
+    for b in &non_internal {
+        let name = b.name();
+        print!("\nDeleting {}... ", name);
+        io::stdout().flush()?;
+        bucket::empty(&s3_client, name).await?;
+        bucket::delete(&s3_client, name).await?;
+        println!("done");
+    }
+
+    println!("\nReset complete");
 
     Ok(())
 }

@@ -99,7 +99,7 @@ test: ## Run local tests with no AWS calls (make test)
 	@cargo test
 
 .PHONY: test-integration
-test-integration: setup ## Run integration tests, makes AWS calls (make test-integration s=stack p=profile)
+test-integration: ## Run integration tests, makes AWS calls (make test-integration s=stack p=profile)
 	@AWS_PROFILE=$(p) TEST_STACK=$(s) cargo test --test "*" -- --ignored --test-threads=1
 
 .PHONY: upload

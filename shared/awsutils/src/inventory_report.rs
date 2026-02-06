@@ -4,18 +4,18 @@ use bytes::Bytes;
 
 use crate::{
     bucket_creator::INVENTORY_FORMAT,
-    config::RequestConfig,
+    config::Config,
     file::{self, File},
     inventory::{InventoryError, InventoryManifest, InventoryStats, process},
 };
 
 pub async fn perform(
-    config: &RequestConfig,
+    config: &Config,
     manifest_file: &File,
     date_ctx: DateCtx,
 ) -> Result<InventoryStats, InventoryError> {
     tracing::info!("Retrieving manifest file: {}", manifest_file.s3_url());
-    let manifest = InventoryManifest::fetch(&config.client, manifest_file).await?;
+    let manifest = InventoryManifest::fetch(config.s3(), manifest_file).await?;
     let bucket = config.stack().managed_bucket();
 
     if manifest.file_format != INVENTORY_FORMAT.as_str() {
@@ -32,7 +32,7 @@ pub async fn perform(
         let file = File::new(&bucket, &entry.key);
         tracing::info!("Downloading inventory file: {}", file.s3_url());
 
-        let bytes = file::download_bytes(&config.client, &file).await?;
+        let bytes = file::download_bytes(config.s3(), &file).await?;
 
         let filename = entry.key.rsplit('/').next().unwrap_or(&entry.key);
         let local_path = temp_dir.path().join(filename);
@@ -65,7 +65,7 @@ pub async fn perform(
 
         tracing::info!("Uploading csv: {}", csv_file.s3_url());
         file::upload(
-            &config.client,
+            config.s3(),
             &csv_file,
             ByteStream::from(csv_bytes.clone()),
             "text/csv",
@@ -79,7 +79,7 @@ pub async fn perform(
 
         tracing::info!("Uploading stats: {}", stats_file.s3_url());
         file::upload(
-            &config.client,
+            config.s3(),
             &stats_file,
             ByteStream::from(stats_bytes.clone()),
             "application/json",

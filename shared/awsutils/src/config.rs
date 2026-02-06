@@ -1,83 +1,149 @@
 use apputils::Stack;
 
-use crate::bucket::{self, RequestError};
+use crate::bucket::RequestError;
 use aws_config::{BehaviorVersion, SdkConfig};
 
-/// Base configuration shared across request types
-#[derive(Debug)]
-pub struct BaseConfig {
-    pub account_id: String,
+/// AWS SDK clients
+pub struct Clients {
+    pub s3: aws_sdk_s3::Client,
+    pub s3control: aws_sdk_s3control::Client,
+}
+
+impl Clients {
+    pub fn new(sdk_config: &SdkConfig) -> Self {
+        Self {
+            s3: aws_sdk_s3::Client::new(sdk_config),
+            s3control: aws_sdk_s3control::Client::new(sdk_config),
+        }
+    }
+
+    /// Create Clients with a custom S3 client (for testing with mock clients)
+    pub fn with_s3(sdk_config: &SdkConfig, s3: aws_sdk_s3::Client) -> Self {
+        Self {
+            s3,
+            s3control: aws_sdk_s3control::Client::new(sdk_config),
+        }
+    }
+}
+
+/// Common configuration for all functions
+pub struct Config {
+    account_id: String,
+    clients: Clients,
     pub debug_handler: bool,
-    pub role_arn: String,
-    pub stack: Stack,
+    roles: Roles,
+    sdk_config: SdkConfig,
+    stack: Stack,
 }
 
-/// Configuration for S3 Batch/Control operations
-#[derive(Debug)]
-pub struct BatchConfig {
-    pub base: BaseConfig,
-    pub bucket: Option<bucket::Name>,
-    pub client: aws_sdk_s3control::Client,
+impl std::fmt::Debug for Config {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Config")
+            .field("account_id", &self.account_id)
+            .field("debug_handler", &self.debug_handler)
+            .field("roles", &self.roles)
+            .field("stack", &self.stack)
+            .finish_non_exhaustive()
+    }
 }
 
-impl BatchConfig {
+impl Config {
+    pub fn new(
+        sdk_config: SdkConfig,
+        account_id: String,
+        roles: Roles,
+        stack: Stack,
+        debug_handler: bool,
+    ) -> Self {
+        let clients = Clients::new(&sdk_config);
+        Self {
+            account_id,
+            debug_handler,
+            roles,
+            stack,
+            clients,
+            sdk_config,
+        }
+    }
+
+    /// Create a Config with pre-built clients (for testing with mock clients)
+    pub fn new_with_clients(
+        sdk_config: SdkConfig,
+        account_id: String,
+        roles: Roles,
+        stack: Stack,
+        debug_handler: bool,
+        clients: Clients,
+    ) -> Self {
+        Self {
+            account_id,
+            debug_handler,
+            roles,
+            stack,
+            clients,
+            sdk_config,
+        }
+    }
+
     pub fn account_id(&self) -> &str {
-        &self.base.account_id
+        &self.account_id
     }
-    pub fn role_arn(&self) -> &str {
-        &self.base.role_arn
+
+    pub fn batch_role_arn(&self) -> &str {
+        &self.roles.batch
     }
+
+    pub fn replication_role_arn(&self) -> &str {
+        &self.roles.replication
+    }
+
+    pub fn s3(&self) -> &aws_sdk_s3::Client {
+        &self.clients.s3
+    }
+
+    pub fn s3control(&self) -> &aws_sdk_s3control::Client {
+        &self.clients.s3control
+    }
+
+    pub fn sdk_config(&self) -> &SdkConfig {
+        &self.sdk_config
+    }
+
     pub fn stack(&self) -> &Stack {
-        &self.base.stack
+        &self.stack
     }
 }
 
-/// Configuration for S3 bucket operations
-#[derive(Debug)]
-pub struct RequestConfig {
-    pub base: BaseConfig,
-    pub client: aws_sdk_s3::Client,
+/// Role ARNs for the stack
+#[derive(Debug, Clone)]
+pub struct Roles {
+    pub batch: String,
+    pub replication: String,
 }
 
-impl RequestConfig {
-    pub fn account_id(&self) -> &str {
-        &self.base.account_id
-    }
-    pub fn role_arn(&self) -> &str {
-        &self.base.role_arn
-    }
-    pub fn stack(&self) -> &Stack {
-        &self.base.stack
-    }
-}
+/// Create a Config for the stack
+pub async fn config(stack: Stack) -> Config {
+    let sdk_config = default_config().await;
 
-async fn base_config(sdk_config: &SdkConfig, stack: Stack, role_name: &str) -> BaseConfig {
-    let account_id = get_account_id(sdk_config)
+    let account_id = get_account_id(&sdk_config)
         .await
         .expect("failed to get account ID");
-    let role_arn = get_role_arn(sdk_config, role_name)
-        .await
-        .expect("role not found");
 
-    BaseConfig {
-        account_id,
-        debug_handler: false,
-        role_arn,
-        stack,
-    }
-}
+    let batch_role_name = stack.batch_role_name();
+    let replication_role_name = stack.replication_role_name();
 
-pub async fn batch_config(stack: Stack, bucket: Option<bucket::Name>) -> BatchConfig {
-    let sdk_config = default_config().await;
-    let role_name = stack.batch_role_name();
-    let base = base_config(&sdk_config, stack, &role_name).await;
-    let client = aws_sdk_s3control::Client::new(&sdk_config);
+    let (batch_role, replication_role) = tokio::try_join!(
+        get_role_arn(&sdk_config, &batch_role_name),
+        get_role_arn(&sdk_config, &replication_role_name),
+    )
+    .expect("failed to get role ARNs");
 
-    BatchConfig {
-        base,
-        bucket,
-        client,
-    }
+    let roles = Roles {
+        batch: batch_role,
+        replication: replication_role,
+    };
+
+    Config::new(sdk_config, account_id, roles, stack, false)
 }
 
 /// Load default aws sdk config
@@ -105,7 +171,7 @@ pub async fn get_batch_role_arn(config: &SdkConfig, stack: &Stack) -> Result<Str
     get_role_arn(config, &stack.batch_role_name()).await
 }
 
-/// Extract the region string from an AWS S3 client configuration
+/// Extract the region from AWS S3 client configuration
 pub fn get_region(client: &aws_sdk_s3::Client) -> Result<String, RequestError> {
     client
         .config()
@@ -140,19 +206,9 @@ async fn get_role_arn(config: &SdkConfig, role_name: &str) -> Result<String, Req
         .ok_or_else(|| RequestError::S3Error("role missing ARN".to_string()))
 }
 
-/// Load aws sdk config for a bucket request
-pub async fn request_config(stack: Stack) -> RequestConfig {
-    let sdk_config = default_config().await;
-    let role_name = stack.replication_role_name();
-    let base = base_config(&sdk_config, stack, &role_name).await;
-    let client = aws_sdk_s3::Client::new(&sdk_config);
-
-    RequestConfig { base, client }
-}
-
 /// Load test config from TEST_STACK env var (defaults to "inttest")
-pub async fn test_config() -> RequestConfig {
+pub async fn test_config() -> Config {
     let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "inttest".to_string());
     let stack = Stack::new(&stack_name).expect("invalid stack name");
-    request_config(stack).await
+    config(stack).await
 }

@@ -26,9 +26,12 @@ async fn test_perform() {
     let primary = format!("{}-{}", config.stack().as_str(), bucket_name);
     let repl = format!("{}-{}-repl", config.stack().as_str(), bucket_name);
 
-    let file = File::new(config.stack().request_bucket(), format!("test-{}.txt", ts));
+    let file = File::new(
+        config.stack().managed_bucket(),
+        format!("bucket-request/test-{}.txt", ts),
+    );
     awsutils::file::upload(
-        &config.client,
+        config.s3(),
         &file,
         SdkBody::from(bucket_name.as_bytes()),
         content_type::TEXT_PLAIN,
@@ -40,20 +43,20 @@ async fn test_perform() {
         .await
         .unwrap();
 
-    assert!(exists(&config.client, &primary).await);
-    assert!(exists(&config.client, &repl).await);
+    assert!(exists(config.s3(), &primary).await);
+    assert!(exists(config.s3(), &repl).await);
 
     // TODO: verify result file uploaded
 
     assert!(
-        !awsutils::file::exists(&config.client, &file).await,
+        !awsutils::file::exists(config.s3(), &file).await,
         "request file should be deleted after processing"
     );
 
-    empty(&config.client, &primary).await.unwrap();
-    empty(&config.client, &repl).await.unwrap();
-    delete(&config.client, &primary).await.unwrap();
-    delete(&config.client, &repl).await.unwrap();
+    empty(config.s3(), &primary).await.unwrap();
+    empty(config.s3(), &repl).await.unwrap();
+    delete(config.s3(), &primary).await.unwrap();
+    delete(config.s3(), &repl).await.unwrap();
 }
 
 // TODO: with failure

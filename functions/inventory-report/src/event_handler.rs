@@ -1,9 +1,9 @@
 use aws_lambda_events::event::s3::S3Event;
-use awsutils::{config::RequestConfig, file::File, inventory_report};
+use awsutils::{config::Config, file::File, inventory_report};
 use lambda_runtime::{tracing, Error, LambdaEvent};
 
 pub(crate) async fn function_handler(
-    config: &RequestConfig,
+    config: &Config,
     event: LambdaEvent<S3Event>,
 ) -> Result<(), Error> {
     let payload = event.payload;
@@ -25,7 +25,7 @@ pub(crate) async fn function_handler(
         panic!("Not an inventory manifest file: {:?}", object);
     }
 
-    if config.base.debug_handler {
+    if config.debug_handler {
         tracing::info!("Debug handler mode enabled, skipping perform function.");
         return Ok(());
     }
@@ -50,8 +50,16 @@ pub(crate) async fn function_handler(
 mod tests {
     use super::*;
     use apputils::Stack;
-    use awsutils::{config::BaseConfig, test_client::TestClientBuilder};
+    use awsutils::test_client::{test_config_with_client_and_stack, TestClientBuilder};
     use lambda_runtime::{Context, LambdaEvent};
+
+    fn test_config(debug_handler: bool) -> Config {
+        let client = TestClientBuilder::new().ok().build();
+        let stack = Stack::new("test-stack").unwrap();
+        let mut config = test_config_with_client_and_stack(client, stack);
+        config.debug_handler = debug_handler;
+        config
+    }
 
     #[tokio::test]
     async fn test_valid_event_handler() {
@@ -59,18 +67,8 @@ mod tests {
         let json = include_str!("../events/sample.json");
         let s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
 
-        let client = TestClientBuilder::new().ok().build();
-
         let event = LambdaEvent::new(s3_event, Context::default());
-        let config = RequestConfig {
-            base: BaseConfig {
-                account_id: "123456789".to_string(),
-                debug_handler: true,
-                role_arn: "123456789".to_string(),
-                stack: Stack::new("test-stack").unwrap(),
-            },
-            client,
-        };
+        let config = test_config(true);
         function_handler(&config, event).await.unwrap();
     }
 
@@ -82,18 +80,9 @@ mod tests {
 
         // make it so object key != the expected manifest.json
         s3_event.records[0].s3.object.key = Some("something-else.json".to_string());
-        let client = TestClientBuilder::new().ok().build();
 
         let event = LambdaEvent::new(s3_event, Context::default());
-        let config = RequestConfig {
-            base: BaseConfig {
-                account_id: "123456789".to_string(),
-                debug_handler: true,
-                role_arn: "123456789".to_string(),
-                stack: Stack::new("test-stack").unwrap(),
-            },
-            client,
-        };
+        let config = test_config(true);
         function_handler(&config, event).await.unwrap();
     }
 }

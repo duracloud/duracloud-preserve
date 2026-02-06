@@ -2,12 +2,12 @@
 
 use awsutils::{
     bucket::{delete, empty},
-    config::RequestConfig,
+    config::Config,
 };
 
-pub async fn cleanup_bucket(config: &RequestConfig, bucket: &str) {
-    let _ = empty(&config.client, bucket).await;
-    let _ = delete(&config.client, bucket).await;
+pub async fn cleanup_bucket(config: &Config, bucket: &str) {
+    let _ = empty(config.s3(), bucket).await;
+    let _ = delete(config.s3(), bucket).await;
 }
 
 pub fn timestamp() -> u64 {

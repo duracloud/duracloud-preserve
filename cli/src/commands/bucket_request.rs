@@ -24,17 +24,21 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Err("No bucket names found in file".into());
     }
 
-    let config = awsutils::config::request_config(stack.clone()).await;
+    let config = awsutils::config::config(stack.clone()).await;
 
     let filename = args
         .names
         .file_name()
         .ok_or("invalid filename")?
         .to_string_lossy();
-    let file = File::new(stack.request_bucket(), filename.into_owned());
+
+    let file = File::new(
+        stack.managed_bucket(),
+        format!("bucket-request/{}", filename.into_owned()),
+    );
 
     awsutils::file::upload(
-        &config.client,
+        config.s3(),
         &file,
         content.into_bytes(),
         content_type::TEXT_PLAIN,
@@ -46,6 +50,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         file.key()
     );
 
+    // TODO: check if the function has been deployed, skip if has
     awsutils::bucket_request::perform(&config, &file).await?;
     println!("All buckets created successfully");
     Ok(())

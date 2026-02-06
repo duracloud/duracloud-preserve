@@ -1,5 +1,7 @@
 use aws_sdk_s3::{Client, config::Region, primitives::SdkBody};
 use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
+
+use crate::config::{Clients, Config, Roles};
 // https://github.com/awsdocs/aws-doc-sdk-examples/blob/main/rustv1/examples/s3/src/lib.rs#L192
 
 const DEFAULT_TEST_URI: &str = "https://test.s3.amazonaws.com/";
@@ -18,38 +20,17 @@ impl TestClientBuilder {
         Self::default()
     }
 
-    /// Add a raw ReplayEvent
-    pub fn event(mut self, event: ReplayEvent) -> Self {
-        self.events.push(event);
-        self
-    }
+    /// Build the test client
+    pub fn build(self) -> Client {
+        let http_client = StaticReplayClient::new(self.events);
 
-    /// Add a successful response with body
-    pub fn success(mut self, body: impl Into<SdkBody>, content_type: Option<String>) -> Self {
-        let body = body.into();
-        let mut response_builder = http::Response::builder().status(200);
+        let config = aws_sdk_s3::Config::builder()
+            .behavior_version_latest()
+            .http_client(http_client)
+            .region(Region::new("us-east-1"))
+            .build();
 
-        if let Some(ct) = content_type {
-            response_builder = response_builder.header("Content-Type", ct);
-        }
-
-        if let Some(length) = body.content_length() {
-            response_builder = response_builder.header("Content-Length", length.to_string());
-        }
-
-        self.events.push(ReplayEvent::new(
-            http::Request::builder()
-                .uri(DEFAULT_TEST_URI)
-                .body(SdkBody::empty())
-                .unwrap(),
-            response_builder.body(body).unwrap(),
-        ));
-        self
-    }
-
-    /// Add an empty successful response
-    pub fn ok(self) -> Self {
-        self.success(SdkBody::empty(), None)
+        Client::from_conf(config)
     }
 
     /// Add an error response with XML error body
@@ -76,6 +57,40 @@ impl TestClientBuilder {
         self
     }
 
+    /// Add a raw ReplayEvent
+    pub fn event(mut self, event: ReplayEvent) -> Self {
+        self.events.push(event);
+        self
+    }
+
+    /// Add an empty successful response
+    pub fn ok(self) -> Self {
+        self.success(SdkBody::empty(), None)
+    }
+
+    /// Add a successful response with body
+    pub fn success(mut self, body: impl Into<SdkBody>, content_type: Option<String>) -> Self {
+        let body = body.into();
+        let mut response_builder = http::Response::builder().status(200);
+
+        if let Some(ct) = content_type {
+            response_builder = response_builder.header("Content-Type", ct);
+        }
+
+        if let Some(length) = body.content_length() {
+            response_builder = response_builder.header("Content-Length", length.to_string());
+        }
+
+        self.events.push(ReplayEvent::new(
+            http::Request::builder()
+                .uri(DEFAULT_TEST_URI)
+                .body(SdkBody::empty())
+                .unwrap(),
+            response_builder.body(body).unwrap(),
+        ));
+        self
+    }
+
     /// Add an S3-specific error (BucketAlreadyExists, NoSuchBucket, etc.)
     pub fn s3_error(self, code: &str, message: &str) -> Self {
         let status = match code {
@@ -85,19 +100,6 @@ impl TestClientBuilder {
             _ => 400,
         };
         self.error(status, code, message)
-    }
-
-    /// Build the test client
-    pub fn build(self) -> Client {
-        let http_client = StaticReplayClient::new(self.events);
-
-        let config = aws_sdk_s3::Config::builder()
-            .behavior_version_latest()
-            .http_client(http_client)
-            .region(Region::new("us-east-1"))
-            .build();
-
-        Client::from_conf(config)
     }
 }
 
@@ -115,87 +117,39 @@ pub fn replay_event(uri: &str, status: u16, body: impl Into<SdkBody>) -> ReplayE
     )
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{
-        bucket::{Bucket, RequestError, Type},
-        bucket_creator::BucketCreator,
-        config::{BaseConfig, RequestConfig},
-    };
+/// Create a test Config with a mock S3 client.
+///
+/// WARNING: Only the S3 client is mocked. The s3control and lambda clients are
+/// real clients that will attempt network calls and use the credentials chain.
+/// Tests should only exercise code paths that use the S3 client.
+pub fn test_config_with_client(client: aws_sdk_s3::Client) -> Config {
     use apputils::Stack;
+    test_config_with_client_and_stack(client, Stack::new("test-stack").unwrap())
+}
 
-    fn test_config_with_client(client: aws_sdk_s3::Client) -> RequestConfig {
-        RequestConfig {
-            base: BaseConfig {
-                account_id: "123456789".to_string(),
-                debug_handler: false,
-                role_arn: "123456789".to_string(),
-                stack: Stack::new("test-stack").unwrap(),
-            },
-            client,
-        }
-    }
+/// Create a test Config with a mock S3 client and custom stack.
+pub fn test_config_with_client_and_stack(
+    client: aws_sdk_s3::Client,
+    stack: apputils::Stack,
+) -> Config {
+    let sdk_config = aws_config::SdkConfig::builder()
+        .behavior_version(aws_config::BehaviorVersion::latest())
+        .region(aws_config::Region::new("us-east-1"))
+        .build();
 
-    #[test]
-    fn test_builder_success() {
-        let _client = TestClientBuilder::new()
-            .success("content", Some("text/plain".to_string()))
-            .build();
-    }
+    let roles = Roles {
+        batch: "arn:aws:iam::123456789:role/test-batch-role".to_string(),
+        replication: "arn:aws:iam::123456789:role/test-replication-role".to_string(),
+    };
 
-    #[test]
-    fn test_builder_ok() {
-        let _client = TestClientBuilder::new().ok().build();
-    }
+    let clients = Clients::with_s3(&sdk_config, client);
 
-    #[test]
-    fn test_builder_chain() {
-        let _client = TestClientBuilder::new()
-            .ok()
-            .success("content", Some("text/plain".to_string()))
-            .error(500, "InternalError", "Internal server error")
-            .build();
-    }
-
-    #[test]
-    fn test_builder_error() {
-        let _client = TestClientBuilder::new()
-            .error(404, "NoSuchKey", "The specified key does not exist.")
-            .build();
-    }
-
-    #[tokio::test]
-    async fn test_create_standard_bucket_success() {
-        // For create: needs 1 response for CreateBucket
-        let client = TestClientBuilder::new().ok().build();
-
-        let config = test_config_with_client(client);
-        let bucket = Bucket::new("example", Type::Standard).unwrap();
-        let creator = BucketCreator::new(&config, &bucket);
-
-        let result = creator.create().await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_bucket_already_exists() {
-        let client = TestClientBuilder::new()
-            .s3_error(
-                "BucketAlreadyExists",
-                "The requested bucket name is not available",
-            )
-            .build();
-
-        let config = test_config_with_client(client);
-        let bucket = Bucket::new("example", Type::Standard).unwrap();
-        let creator = BucketCreator::new(&config, &bucket);
-
-        let result = creator.create().await;
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            RequestError::S3Error(msg) => assert!(msg.contains("failed to create bucket")),
-            _ => panic!("Expected S3Error"),
-        }
-    }
+    Config::new_with_clients(
+        sdk_config,
+        "123456789".to_string(),
+        roles,
+        stack,
+        false,
+        clients,
+    )
 }

@@ -18,7 +18,7 @@ use thiserror::Error;
 
 use crate::{
     bucket::{Bucket, RequestError},
-    config::{BatchConfig, RequestConfig},
+    config::Config,
     file::{self, File},
 };
 
@@ -216,7 +216,7 @@ async fn run(params: JobParams<'_>) -> Result<String, BatchError> {
 
 /// Download a batch manifest
 pub async fn get_batch_manifest(
-    config: &RequestConfig,
+    config: &Config,
     bucket: &str,
     job_id: &str,
 ) -> Result<BatchManifest, BatchError> {
@@ -228,18 +228,18 @@ pub async fn get_batch_manifest(
             .batch_reports_checksum_manifest(bucket, job_id),
     );
 
-    if !file::exists(&config.client, manifest).await {
+    if !file::exists(config.s3(), manifest).await {
         tracing::info!("Manifest not found: {}", manifest.s3_url());
         return Err(BatchError::ManifestNotFound(manifest.s3_url()));
     }
 
-    BatchManifest::fetch(&config.client, manifest).await
+    BatchManifest::fetch(config.s3(), manifest).await
 }
 
 /// Get a batch job's current status
-pub async fn get_job_status(config: &BatchConfig, job_id: &str) -> Result<JobStatus, BatchError> {
+pub async fn get_job_status(config: &Config, job_id: &str) -> Result<JobStatus, BatchError> {
     let resp = config
-        .client
+        .s3control()
         .describe_job()
         .account_id(config.account_id())
         .job_id(job_id)
@@ -260,17 +260,16 @@ pub async fn get_job_status(config: &BatchConfig, job_id: &str) -> Result<JobSta
 
 /// Get a batch job manifest if it's available (job is complete and file is present)
 pub async fn get_manifest_if_ready(
-    batch: &BatchConfig,
-    request: &RequestConfig,
+    config: &Config,
     bucket: &str,
     job_id: &str,
 ) -> Result<Option<BatchManifest>, RequestError> {
-    let status = get_job_status(batch, job_id)
+    let status = get_job_status(config, job_id)
         .await
         .map_err(|e| RequestError::S3Error(format!("failed to get job status: {}", e)))?;
 
     match status {
-        JobStatus::Complete => match get_batch_manifest(request, bucket, job_id).await {
+        JobStatus::Complete => match get_batch_manifest(config, bucket, job_id).await {
             Ok(manifest) => Ok(Some(manifest)),
             Err(e) => Err(RequestError::S3Error(e.to_string())),
         },
@@ -284,8 +283,7 @@ pub async fn get_manifest_if_ready(
 
 /// Trigger compute checksum jobs for source and replication bucket pair
 pub async fn trigger_checksum_job(
-    batch: &BatchConfig,
-    request: &RequestConfig,
+    config: &Config,
     source: &Bucket,
     replication: &Bucket,
 ) -> Result<Vec<String>, BatchError> {
@@ -296,11 +294,11 @@ pub async fn trigger_checksum_job(
     );
 
     let source_result = create_checksum_job(
-        &batch.client,
-        batch.account_id(),
-        batch.role_arn(),
+        config.s3control(),
+        config.account_id(),
+        config.batch_role_arn(),
         source.name(),
-        batch.stack().managed_bucket().as_str(),
+        config.stack().managed_bucket().as_str(),
     )
     .await?;
 
@@ -311,11 +309,11 @@ pub async fn trigger_checksum_job(
     );
 
     let replication_result = match create_checksum_job(
-        &batch.client,
-        batch.account_id(),
-        batch.role_arn(),
+        config.s3control(),
+        config.account_id(),
+        config.batch_role_arn(),
         replication.name(),
-        batch.stack().managed_bucket().as_str(),
+        config.stack().managed_bucket().as_str(),
     )
     .await
     {
@@ -344,7 +342,7 @@ pub async fn trigger_checksum_job(
         &replication_result,
     );
 
-    let stack = request.stack();
+    let stack = config.stack();
     let paths = vec![
         stack.metadata_checksums_path(&source_result, DateCtx::Latest),
         stack.metadata_checksums_path(&replication_result, DateCtx::Latest),
@@ -354,7 +352,7 @@ pub async fn trigger_checksum_job(
 
     tracing::info!("Uploading receipt: {:?}", receipt);
 
-    upload_receipt(&request.client, &stack.managed_bucket(), &receipt, &paths).await
+    upload_receipt(config.s3(), &stack.managed_bucket(), &receipt, &paths).await
 }
 
 /// Uploads a receipt to multiple paths

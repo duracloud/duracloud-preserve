@@ -1,6 +1,6 @@
 use crate::{
     bucket_creator::BucketCreator,
-    config::RequestConfig,
+    config::Config,
     file::{File, download},
 };
 use apputils::{
@@ -28,7 +28,7 @@ pub const REPLICATION_SUFFIX: &str = "-repl";
 /// Create and setup an S3 bucket. If setup fails attempt to rollback.
 /// Returns the BucketCreator for further operations (e.g., enable_replication).
 async fn create<'a>(
-    config: &'a RequestConfig,
+    config: &'a Config,
     bucket: &'a Bucket,
 ) -> Result<BucketCreator<'a>, RequestError> {
     let creator = BucketCreator::new(config, bucket);
@@ -46,7 +46,7 @@ async fn create<'a>(
 }
 
 /// Create primary and replication buckets
-pub async fn create_buckets(config: &RequestConfig, buckets: &[(Bucket, Bucket)]) -> Vec<String> {
+pub async fn create_buckets(config: &Config, buckets: &[(Bucket, Bucket)]) -> Vec<String> {
     let mut issues = Vec::new();
 
     for (primary, replication) in buckets {
@@ -61,7 +61,7 @@ pub async fn create_buckets(config: &RequestConfig, buckets: &[(Bucket, Bucket)]
 
 /// Create a primary bucket and its replication bucket, then enable replication.
 async fn create_bucket_pair(
-    config: &RequestConfig,
+    config: &Config,
     primary: &Bucket,
     replication: &Bucket,
 ) -> Result<(), RequestError> {
@@ -302,7 +302,7 @@ pub fn pair_buckets(
 
 /// Check that user supplied bucket names are ok and make ready to create
 pub fn review_bucket_names(
-    config: &RequestConfig,
+    config: &Config,
     names: &[String],
 ) -> Result<Vec<(Bucket, Bucket)>, RequestError> {
     let mut buckets: Vec<(Bucket, Bucket)> = Vec::new();
@@ -510,7 +510,7 @@ impl std::fmt::Display for Type {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{config::BaseConfig, test_client::TestClientBuilder};
+    use crate::test_client::{TestClientBuilder, test_config_with_client_and_stack};
 
     #[test]
     fn test_type_from_tag_value() {
@@ -700,15 +700,7 @@ mod tests {
     fn test_review_bucket_names() {
         let stack = Stack::new("test-stack").unwrap();
         let client = TestClientBuilder::new().ok().build();
-        let config = RequestConfig {
-            base: BaseConfig {
-                account_id: "123456789".to_string(),
-                debug_handler: false,
-                role_arn: "123456789".to_string(),
-                stack,
-            },
-            client,
-        };
+        let config = test_config_with_client_and_stack(client, stack);
 
         let names = vec!["example".to_string(), "data-public".to_string()];
 

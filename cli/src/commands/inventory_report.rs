@@ -1,7 +1,7 @@
 use apputils::{Stack, stack::DateCtx};
 use awsutils::{
     bucket::exists,
-    config::RequestConfig,
+    config::Config,
     file::{self, File},
     inventory_report,
 };
@@ -17,10 +17,10 @@ pub struct Args {
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let bucket = args.bucket;
     let stack = Stack::from_bucket_name(&bucket)?;
-    let config = awsutils::config::request_config(stack.clone()).await;
+    let config = awsutils::config::config(stack.clone()).await;
     let date_ctx = resolve_date_ctx(&config, &bucket).await?;
 
-    if !exists(&config.client, &bucket).await {
+    if !exists(config.s3(), &bucket).await {
         return Err("Bucket not found".into());
     }
 
@@ -41,10 +41,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Determine which inventory to use: today's if available, otherwise yesterday's.
-async fn resolve_date_ctx(
-    config: &RequestConfig,
-    target_bucket: &str,
-) -> Result<DateCtx, &'static str> {
+async fn resolve_date_ctx(config: &Config, target_bucket: &str) -> Result<DateCtx, &'static str> {
     for ctx in [DateCtx::Today, DateCtx::Yesterday] {
         let manifest = File::new(
             config.stack().managed_bucket(),
@@ -53,7 +50,7 @@ async fn resolve_date_ctx(
                 target_bucket, ctx
             ),
         );
-        if file::exists(&config.client, &manifest).await {
+        if file::exists(config.s3(), &manifest).await {
             return Ok(ctx);
         }
     }

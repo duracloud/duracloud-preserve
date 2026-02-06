@@ -1,13 +1,13 @@
 use crate::bucket::{self, RequestError};
-use crate::config::RequestConfig;
+use crate::config::Config;
 use crate::file::{self, File};
 use tracing;
 
 /// Process a bucket creation request file from S3
-pub async fn perform(config: &RequestConfig, file: &File) -> Result<(), RequestError> {
+pub async fn perform(config: &Config, file: &File) -> Result<(), RequestError> {
     tracing::info!("Retrieving request file from S3: {}", file.s3_url());
 
-    let names = match bucket::get_bucket_names(&config.client, file).await {
+    let names = match bucket::get_bucket_names(config.s3(), file).await {
         Ok(names) => names,
         Err(e) => {
             tracing::error!("Error getting bucket names: {}", e);
@@ -42,6 +42,6 @@ pub async fn perform(config: &RequestConfig, file: &File) -> Result<(), RequestE
     }
 
     tracing::info!("Perform complete");
-    file::delete(&config.client, file).await?;
+    file::delete(config.s3(), file).await?;
     Ok(())
 }

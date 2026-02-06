@@ -12,14 +12,14 @@ mod common;
 use aws_sdk_s3::types::BucketVersioningStatus;
 use awsutils::bucket::{Bucket, Type, exists};
 use awsutils::bucket_creator::BucketCreator;
-use awsutils::config::{RequestConfig, test_config};
+use awsutils::config::{Config, test_config};
 use common::{cleanup_bucket, timestamp};
 
 // --- Verification Helpers ---
 
-async fn verify_versioning_enabled(config: &RequestConfig, bucket: &str) {
+async fn verify_versioning_enabled(config: &Config, bucket: &str) {
     let result = config
-        .client
+        .s3()
         .get_bucket_versioning()
         .bucket(bucket)
         .send()
@@ -34,9 +34,9 @@ async fn verify_versioning_enabled(config: &RequestConfig, bucket: &str) {
     );
 }
 
-async fn verify_lifecycle_policy(config: &RequestConfig, bucket: &str, expected_class: &str) {
+async fn verify_lifecycle_policy(config: &Config, bucket: &str, expected_class: &str) {
     let result = config
-        .client
+        .s3()
         .get_bucket_lifecycle_configuration()
         .bucket(bucket)
         .send()
@@ -58,9 +58,9 @@ async fn verify_lifecycle_policy(config: &RequestConfig, bucket: &str, expected_
     );
 }
 
-async fn verify_notifications_enabled(config: &RequestConfig, bucket: &str) {
+async fn verify_notifications_enabled(config: &Config, bucket: &str) {
     let result = config
-        .client
+        .s3()
         .get_bucket_notification_configuration()
         .bucket(bucket)
         .send()
@@ -74,9 +74,9 @@ async fn verify_notifications_enabled(config: &RequestConfig, bucket: &str) {
     );
 }
 
-async fn verify_inventory_configured(config: &RequestConfig, bucket: &str) {
+async fn verify_inventory_configured(config: &Config, bucket: &str) {
     let result = config
-        .client
+        .s3()
         .get_bucket_inventory_configuration()
         .bucket(bucket)
         .id("inventory")
@@ -91,9 +91,9 @@ async fn verify_inventory_configured(config: &RequestConfig, bucket: &str) {
     assert!(inv.is_enabled(), "inventory not enabled on {}", bucket);
 }
 
-async fn verify_logging_enabled(config: &RequestConfig, bucket: &str) {
+async fn verify_logging_enabled(config: &Config, bucket: &str) {
     let result = config
-        .client
+        .s3()
         .get_bucket_logging()
         .bucket(bucket)
         .send()
@@ -110,9 +110,9 @@ async fn verify_logging_enabled(config: &RequestConfig, bucket: &str) {
     );
 }
 
-async fn verify_replication_configured(config: &RequestConfig, src: &str, dest: &str) {
+async fn verify_replication_configured(config: &Config, src: &str, dest: &str) {
     let result = config
-        .client
+        .s3()
         .get_bucket_replication()
         .bucket(src)
         .send()
@@ -138,9 +138,9 @@ async fn verify_replication_configured(config: &RequestConfig, src: &str, dest: 
     );
 }
 
-async fn verify_public_access_block_disabled(config: &RequestConfig, bucket: &str) {
+async fn verify_public_access_block_disabled(config: &Config, bucket: &str) {
     let result = config
-        .client
+        .s3()
         .get_public_access_block()
         .bucket(bucket)
         .send()
@@ -164,9 +164,9 @@ async fn verify_public_access_block_disabled(config: &RequestConfig, bucket: &st
     );
 }
 
-async fn verify_public_read_policy(config: &RequestConfig, bucket: &str) {
+async fn verify_public_read_policy(config: &Config, bucket: &str) {
     let result = config
-        .client
+        .s3()
         .get_bucket_policy()
         .bucket(bucket)
         .send()
@@ -186,13 +186,8 @@ async fn verify_public_read_policy(config: &RequestConfig, bucket: &str) {
     );
 }
 
-async fn verify_no_bucket_policy(config: &RequestConfig, bucket: &str) {
-    let result = config
-        .client
-        .get_bucket_policy()
-        .bucket(bucket)
-        .send()
-        .await;
+async fn verify_no_bucket_policy(config: &Config, bucket: &str) {
+    let result = config.s3().get_bucket_policy().bucket(bucket).send().await;
 
     assert!(
         result.is_err(),
@@ -261,7 +256,7 @@ async fn test_create_replication_bucket() {
     creator.setup().await.expect("bucket setup failed");
 
     verify_versioning_enabled(&config, &bucket_name).await;
-    verify_lifecycle_policy(&config, &bucket_name, "GLACIER").await;
+    verify_lifecycle_policy(&config, &bucket_name, "DEEP_ARCHIVE").await;
 
     cleanup_bucket(&config, &bucket_name).await;
 }
@@ -323,14 +318,14 @@ async fn test_rollback_deletes_bucket() {
     creator.create().await.expect("bucket creation failed");
 
     assert!(
-        exists(&config.client, &bucket_name).await,
+        exists(config.s3(), &bucket_name).await,
         "bucket should exist after creation"
     );
 
     creator.rollback().await.expect("rollback failed");
 
     assert!(
-        !exists(&config.client, &bucket_name).await,
+        !exists(config.s3(), &bucket_name).await,
         "bucket should not exist after rollback"
     );
 }

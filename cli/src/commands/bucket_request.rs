@@ -44,14 +44,15 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         content_type::TEXT_PLAIN,
     )
     .await?;
+
     println!(
         "Uploaded request file to s3://{}/{}",
         file.bucket(),
         file.key()
     );
 
-    // TODO: check if the function has been deployed, skip if has
     awsutils::bucket_request::perform(&config, &file).await?;
+
     println!("All buckets created successfully");
     Ok(())
 }

@@ -2,8 +2,9 @@ use std::fmt;
 use std::io::Write;
 
 use duckdb::{Connection, Error as DuckDBError};
-use serde::Serialize;
 use thiserror::Error;
+
+use crate::stats::VerificationStats;
 
 pub fn process(
     source_reports: &[&str],
@@ -79,18 +80,6 @@ pub struct FailedTask {
     pub version_id: String,
     pub error_code: String,
     pub http_status_code: String,
-}
-
-/// Summary statistics for verification
-#[derive(Debug, Serialize)]
-pub struct VerificationStats {
-    pub total_objects: usize,
-    pub matches: usize,
-    pub mismatches: usize,
-    pub missing_replica: usize,
-    pub missing_source: usize,
-    pub failed_source: usize,
-    pub failed_replication: usize,
 }
 
 /// Handles csv format checksum report files from S3

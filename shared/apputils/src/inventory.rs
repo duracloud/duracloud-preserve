@@ -1,8 +1,9 @@
 use std::io::Write;
 
 use duckdb::{Connection, Error as DuckDBError};
-use serde::Serialize;
 use thiserror::Error;
+
+use crate::stats::{InventoryStats, PrefixStats};
 
 pub fn process(parquet_files: &[&str]) -> Result<(Vec<u8>, InventoryStats), InventoryError> {
     let processor = InventoryProcessor::load(parquet_files)?;
@@ -20,22 +21,6 @@ pub enum InventoryError {
     DuckDB(#[from] DuckDBError),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-}
-
-/// Inventory Stats
-#[derive(Debug, Serialize)]
-pub struct InventoryStats {
-    pub total_files: usize,
-    pub total_size: i64,
-    pub by_prefix: Vec<PrefixStats>,
-}
-
-/// Inventory Stats by (top level) prefix
-#[derive(Debug, Serialize)]
-pub struct PrefixStats {
-    pub prefix: String,
-    pub total_files: u32,
-    pub total_size: i64,
 }
 
 /// Handles parquet format inventory files from S3
@@ -133,8 +118,8 @@ impl InventoryProcessor {
                 CASE WHEN key LIKE '%/%'
                      THEN split_part(key, '/', 1)
                      ELSE '' END as prefix,
-                COUNT(*)::INTEGER as total_files,
-                COALESCE(SUM(size), 0) as total_size
+                COUNT(*)::UBIGINT as total_files,
+                CAST(COALESCE(SUM(size), 0) AS UBIGINT) as total_size
             FROM inventory
             GROUP BY prefix
             "#,
@@ -146,7 +131,7 @@ impl InventoryProcessor {
         while let Some(row) = rows.next()? {
             by_prefix.push(PrefixStats {
                 prefix: row.get(0)?,
-                total_files: row.get::<_, i32>(1)? as u32,
+                total_files: row.get(1)?,
                 total_size: row.get(2)?,
             });
         }
@@ -154,15 +139,15 @@ impl InventoryProcessor {
         Ok(by_prefix)
     }
 
-    fn totals(&self) -> Result<(usize, i64), InventoryError> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT COUNT(*), COALESCE(SUM(size), 0) FROM inventory")?;
+    fn totals(&self) -> Result<(u64, u64), InventoryError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT COUNT(*)::UBIGINT, CAST(COALESCE(SUM(size), 0) AS UBIGINT) FROM inventory",
+        )?;
         let mut rows = stmt.query([])?;
         let row = rows.next()?.expect("COUNT always returns a row");
-        let total_files: i64 = row.get(0)?;
-        let total_size: i64 = row.get(1)?;
-        Ok((total_files as usize, total_size))
+        let total_files: u64 = row.get(0)?;
+        let total_size: u64 = row.get(1)?;
+        Ok((total_files, total_size))
     }
 }
 

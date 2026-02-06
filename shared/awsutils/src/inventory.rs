@@ -7,10 +7,9 @@ use crate::{
     file::{self, File},
 };
 
-// Re-export DuckDB processing types from apputils
-pub use apputils::inventory::{
-    InventoryError as ProcessingError, InventoryProcessor, InventoryStats, PrefixStats, process,
-};
+// Re-export processing types from apputils
+pub use apputils::inventory::{InventoryError as ProcessingError, InventoryProcessor, process};
+pub use apputils::stats::{InventoryStats, PrefixStats};
 
 #[derive(Debug, Error)]
 pub enum InventoryError {

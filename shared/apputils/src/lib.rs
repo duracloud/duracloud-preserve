@@ -4,4 +4,5 @@ pub mod content_type;
 #[cfg(feature = "duckdb")]
 pub mod inventory;
 pub mod stack;
+pub mod stats;
 pub use stack::Stack;

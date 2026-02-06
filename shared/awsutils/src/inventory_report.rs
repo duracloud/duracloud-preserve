@@ -1,4 +1,5 @@
 use apputils::stack::{self, DateCtx};
+use apputils::stats::InventoryStats;
 use aws_sdk_s3::primitives::ByteStream;
 use bytes::Bytes;
 
@@ -6,7 +7,7 @@ use crate::{
     bucket_creator::INVENTORY_FORMAT,
     config::Config,
     file::{self, File},
-    inventory::{InventoryError, InventoryManifest, InventoryStats, process},
+    inventory::{InventoryError, InventoryManifest, process},
 };
 
 pub async fn perform(

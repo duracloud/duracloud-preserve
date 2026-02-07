@@ -7,9 +7,15 @@
 
 - [Getting started](user/README.md)
 
+# Deployment guide
+
+- [Overview](deploy/README.md)
+- [Test environment](deploy/test.md)
+- [Production environnment](deploy/production.md)
+
 # Technical documentation
 
-- [Setup](technical/README.md)
+- [Getting started](technical/README.md)
 - [Functions](technical/functions.md)
   - [bucket-request](technical/bucket-request.md)
   - [inventory-report](technical/inventory-report.md)
@@ -18,12 +24,6 @@
   - [storage-report](technical/storage-report.md)
 - [Cleanup](technical/cleanup.md)
 - [Development](technical/development.md)
-
-# Deployment instructions
-
-- [Overview](deploy/README.md)
-- [Test environment](deploy/test.md)
-- [Production environnment](deploy/production.md)
 
 ---
 

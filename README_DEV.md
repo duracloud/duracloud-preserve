@@ -1,49 +1,5 @@
 # Developer docs
 
-Requirements:
-
-- [rust](#)
-- [cargo-lambda](#)
-- [terraform](#)
-
-This documentation focuses solely on testing and running functions
-locally and the requirements needed to support that work. Terraform
-is required to create some base infrastructure but the lambda functions
-are not deployed remotely and this documentation does not otherwise
-cover "application" or deployment level concerns such as IAM user
-management and access to buckets etc. For the latter refer to the
-[deployment](#) and [Terraform module](#) documentation.
-
-## Testing functions
-
-There are `Makefile` tasks to wrap `cargo` (et al.) commands for convenience:
-
-These args are used frequently:
-
-- `f=function` function name i.e. bucket-request
-- `p=profile` aws profile name i.e. default
-- `s=stack` resource prefix used for identification/partitioning within an aws account
-
-But note in some contexts a letter may have a different meaning, for example
-`f=file` (check the docs or output of `make` for details).
-
-To get started run this task to create the base infrastructure:
-
-```bash
-# choose your own value for s=$stack and p=$profile
-make setup s=digipres-dev1 p=default
-```
-
-Of most significance for testing using the above example will create:
-
-- `digipres-dev1-s3-batch-role` (i.e. `${stack}-s3-batch-role`)
-- `digipres-dev1-s3-replication-role` (i.e. `${stack}-s3-replication-role`)
-- `digipres-dev1-bucket-request` (i.e. `${stack}-bucket-request`)
-- `digipres-dev1-managed` (i.e. `${stack}-managed`)
-
-The `managed` bucket will also be assigned a policy that permits it to be
-a target for S3 inventory from buckets using the same stack name (prefix).
-
 ### bucket-request
 
 This function is used to create s3 buckets with [prefab configuration](#).

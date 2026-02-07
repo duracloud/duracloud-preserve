@@ -91,7 +91,7 @@ setup: ## Create base infrastructure (make setup s=stack p=profile)
 	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) terraform apply
 
 .PHONY: teardown
-teardown: ## Destroy all infrastructure (make teardown s=stack p=profile)
+teardown: reset ## Destroy all infrastructure (make teardown s=stack p=profile)
 	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) TF_VAR_deploy=true terraform destroy
 
 .PHONY: test

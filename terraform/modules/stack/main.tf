@@ -15,7 +15,9 @@ locals {
   account_id        = data.aws_caller_identity.current.account_id
   basic_role        = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
   cloudtrail_prefix = "cloudtrail"
+  feedback_prefix   = "feedback"  # c.f. stack.rs
   inventory_prefix  = "manifests" # c.f. bucket_creator.rs
+  logging_prefix    = "audit"     # c.f. bucket_creator.rs
   region            = data.aws_region.current.region
   stack             = var.stack
 }

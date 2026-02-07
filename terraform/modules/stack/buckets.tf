@@ -48,17 +48,31 @@ resource "aws_s3_bucket_policy" "managed" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      # S3 Inventory -> inventory prefix
       {
-        Sid       = "AllowS3DeliveryFromStack"
+        Sid       = "AllowS3InventoryFromStack"
         Effect    = "Allow"
-        Principal = { Service = ["s3.amazonaws.com", "logging.s3.amazonaws.com"] }
+        Principal = { Service = "s3.amazonaws.com" }
         Action    = "s3:PutObject"
-        Resource  = "${aws_s3_bucket.main["managed"].arn}/*"
+        Resource  = "${aws_s3_bucket.main["managed"].arn}/${local.inventory_prefix}/*"
         Condition = {
-          StringEquals = { "aws:SourceAccount" = local.account_id }
           ArnLike      = { "aws:SourceArn" = "arn:aws:s3:::${local.stack}*" }
+          StringEquals = { "aws:SourceAccount" = local.account_id }
         }
       },
+      # S3 Server Access Logs -> logging prefix
+      {
+        Sid       = "AllowS3ServerAccessLogsFromStack"
+        Effect    = "Allow"
+        Principal = { Service = "logging.s3.amazonaws.com" }
+        Action    = "s3:PutObject"
+        Resource  = "${aws_s3_bucket.main["managed"].arn}/${local.logging_prefix}/*"
+        Condition = {
+          ArnLike      = { "aws:SourceArn" = "arn:aws:s3:::${local.stack}*" }
+          StringEquals = { "aws:SourceAccount" = local.account_id }
+        }
+      },
+      # CloudTrail checks bucket ACL
       {
         Sid       = "AWSCloudTrailAclCheck"
         Effect    = "Allow"
@@ -66,9 +80,13 @@ resource "aws_s3_bucket_policy" "managed" {
         Action    = "s3:GetBucketAcl"
         Resource  = aws_s3_bucket.main["managed"].arn
         Condition = {
-          StringEquals = { "AWS:SourceArn" = local.cloudtrail_arn }
+          StringEquals = {
+            "aws:SourceAccount" = local.account_id
+            "aws:SourceArn"     = local.cloudtrail_arn
+          }
         }
       },
+      # CloudTrail writes logs -> cloudtrail prefix
       {
         Sid       = "AWSCloudTrailWrite"
         Effect    = "Allow"
@@ -77,8 +95,9 @@ resource "aws_s3_bucket_policy" "managed" {
         Resource  = "${aws_s3_bucket.main["managed"].arn}/${local.cloudtrail_prefix}/*"
         Condition = {
           StringEquals = {
-            "s3:x-amz-acl"  = "bucket-owner-full-control"
-            "AWS:SourceArn" = local.cloudtrail_arn
+            "aws:SourceAccount" = local.account_id
+            "aws:SourceArn"     = local.cloudtrail_arn
+            "s3:x-amz-acl"      = "bucket-owner-full-control"
           }
         }
       }

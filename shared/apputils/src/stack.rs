@@ -4,6 +4,7 @@ pub const REQUEST_SUFFIX: &str = "-bucket-request";
 const BATCH_CHECKSUM_PREFIX: &str = "batch/reports/checksum";
 const BATCH_POLICY_SUFFIX: &str = "-s3-batch-policy";
 const BATCH_ROLE_SUFFIX: &str = "-s3-batch-role";
+const FEEDBACK_PREFIX: &str = "feedback";
 const METADATA_PREFIX: &str = "metadata";
 const REPLICATION_POLICY_SUFFIX: &str = "-s3-replication-policy";
 const REPLICATION_ROLE_SUFFIX: &str = "-s3-replication-role";
@@ -68,64 +69,63 @@ impl Stack {
 
     /// Batch operations policy name for stack
     pub fn batch_policy_name(&self) -> String {
-        format!("{}{}", self.as_str(), BATCH_POLICY_SUFFIX)
+        format!("{}{BATCH_POLICY_SUFFIX}", self.as_str())
     }
 
     /// Batch compute checksums manifest upload path (when report is ready)
     pub fn batch_reports_checksum_manifest(&self, bucket: &str, job_id: &str) -> String {
-        format!(
-            "{}/{}/job-{}/manifest.json",
-            BATCH_CHECKSUM_PREFIX, bucket, job_id
-        )
+        format!("{BATCH_CHECKSUM_PREFIX}/{bucket}/job-{job_id}/manifest.json",)
     }
 
     /// Batch operations role name for stack
     pub fn batch_role_name(&self) -> String {
-        format!("{}{}", self.as_str(), BATCH_ROLE_SUFFIX)
+        format!("{}{BATCH_ROLE_SUFFIX}", self.as_str())
+    }
+
+    /// File upload path for feedback
+    pub fn feedback_path(&self, file: &str) -> String {
+        format!("{FEEDBACK_PREFIX}/{file}")
     }
 
     /// Get managed bucket name for stack
     pub fn managed_bucket(&self) -> String {
-        format!("{}{}", self.as_str(), MANAGED_SUFFIX)
+        format!("{}{MANAGED_SUFFIX}", self.as_str())
     }
 
     /// Checksums job receipt (json) destination used for checksum verification processing
     /// A valid identifier is either a source (not replication) bucket name or job id
     pub fn metadata_checksums_path(&self, identifier: &str, date_ctx: DateCtx) -> String {
-        format!(
-            "{}/{}/checksums/{}.json",
-            METADATA_PREFIX, date_ctx, identifier
-        )
+        format!("{METADATA_PREFIX}/{date_ctx}/checksums/{identifier}.json",)
     }
 
     /// Usage stats (json) destination used to generate storage reports
     pub fn metadata_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{}/{}/stats/{}.json", METADATA_PREFIX, date_ctx, bucket)
+        format!("{METADATA_PREFIX}/{date_ctx}/stats/{bucket}.json")
     }
 
     /// Replication policy name for stack
     pub fn replication_policy_name(&self) -> String {
-        format!("{}{}", self.as_str(), REPLICATION_POLICY_SUFFIX)
+        format!("{}{REPLICATION_POLICY_SUFFIX}", self.as_str())
     }
 
     /// Replication role name for stack
     pub fn replication_role_name(&self) -> String {
-        format!("{}{}", self.as_str(), REPLICATION_ROLE_SUFFIX)
+        format!("{}{REPLICATION_ROLE_SUFFIX}", self.as_str())
     }
 
     /// File manifest (csv) upload destination provided for user access
     pub fn reports_manifest_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{}/{}/manifests/{}.csv", REPORTS_PREFIX, date_ctx, bucket)
+        format!("{REPORTS_PREFIX}/{date_ctx}/manifests/{bucket}.csv")
     }
 
     /// Storage report (html) destination provided for user access
     pub fn reports_storage_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{}/{}/storage/{}.html", REPORTS_PREFIX, date_ctx, bucket)
+        format!("{REPORTS_PREFIX}/{date_ctx}/storage/{bucket}.html")
     }
 
     /// Request bucket name for stack
     pub fn request_bucket(&self) -> String {
-        format!("{}{}", self.as_str(), REQUEST_SUFFIX)
+        format!("{}{REQUEST_SUFFIX}", self.as_str())
     }
 }
 
@@ -264,6 +264,15 @@ mod tests {
         assert_eq!(
             stack.reports_storage_path("my-bucket", DateCtx::Latest),
             "reports/latest/storage/my-bucket.html"
+        );
+    }
+
+    #[test]
+    fn test_feedback_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.feedback_path("bucket-request/test.txt"),
+            "feedback/bucket-request/test.txt"
         );
     }
 }

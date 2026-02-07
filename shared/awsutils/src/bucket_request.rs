@@ -1,7 +1,11 @@
+use aws_smithy_types::body::SdkBody;
+use tracing;
+
+use apputils::content_type::TEXT_PLAIN;
+
 use crate::bucket::{self, RequestError};
 use crate::config::Config;
 use crate::file::{self, File};
-use tracing;
 
 /// Process a bucket creation request file from S3
 pub async fn perform(config: &Config, file: &File) -> Result<(), RequestError> {
@@ -11,7 +15,7 @@ pub async fn perform(config: &Config, file: &File) -> Result<(), RequestError> {
         Ok(names) => names,
         Err(e) => {
             tracing::error!("Error getting bucket names: {}", e);
-            // TODO: upload error report
+            file::feedback(config, file.key(), SdkBody::from(e.to_string()), TEXT_PLAIN).await?;
             return Err(e);
         }
     };
@@ -23,7 +27,7 @@ pub async fn perform(config: &Config, file: &File) -> Result<(), RequestError> {
         Ok(buckets) => buckets,
         Err(e) => {
             tracing::error!("Error parsing bucket names: {}", e);
-            // TODO: upload error report
+            file::feedback(config, file.key(), SdkBody::from(e.to_string()), TEXT_PLAIN).await?;
             return Err(e);
         }
     };
@@ -33,8 +37,14 @@ pub async fn perform(config: &Config, file: &File) -> Result<(), RequestError> {
 
     let issues = bucket::create_buckets(config, &buckets).await;
     if !issues.is_empty() {
-        // TODO: upload the issues
         tracing::error!("{:?}", issues);
+        file::feedback(
+            config,
+            file.key(),
+            SdkBody::from(issues.join("\n")),
+            TEXT_PLAIN,
+        )
+        .await?;
         return Err(RequestError::S3Error(format!(
             "Failed to create one or more buckets: {}",
             issues.join("; ")

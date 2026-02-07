@@ -46,8 +46,6 @@ async fn test_perform() {
     assert!(exists(config.s3(), &primary).await);
     assert!(exists(config.s3(), &repl).await);
 
-    // TODO: verify result file uploaded
-
     assert!(
         !awsutils::file::exists(config.s3(), &file).await,
         "request file should be deleted after processing"
@@ -58,5 +56,3 @@ async fn test_perform() {
     delete(config.s3(), &primary).await.unwrap();
     delete(config.s3(), &repl).await.unwrap();
 }
-
-// TODO: with failure

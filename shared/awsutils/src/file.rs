@@ -1,11 +1,10 @@
-use crate::bucket::RequestError;
+use crate::{bucket::RequestError, config::Config};
 use aws_sdk_s3::{
     Client,
     error::SdkError,
     operation::get_object::{GetObjectError, GetObjectOutput},
     primitives::ByteStream,
 };
-
 /// Delete a file from S3
 pub async fn delete(client: &Client, file: &File) -> Result<(), RequestError> {
     client
@@ -17,17 +16,6 @@ pub async fn delete(client: &Client, file: &File) -> Result<(), RequestError> {
         .map_err(|e| RequestError::S3Error(format!("failed to delete file: {}", e)))?;
 
     Ok(())
-}
-
-/// Check if a file exists in S3
-pub async fn exists(client: &Client, file: &File) -> bool {
-    client
-        .head_object()
-        .bucket(&file.bucket)
-        .key(&file.object)
-        .send()
-        .await
-        .is_ok()
 }
 
 /// Make get object request for file
@@ -55,6 +43,36 @@ pub async fn download_bytes(client: &Client, file: &File) -> Result<bytes::Bytes
         .await
         .map_err(|e| RequestError::S3Error(format!("failed to read body: {}", e)))
         .map(|data| data.into_bytes())
+}
+
+/// Check if a file exists in S3
+pub async fn exists(client: &Client, file: &File) -> bool {
+    client
+        .head_object()
+        .bucket(&file.bucket)
+        .key(&file.object)
+        .send()
+        .await
+        .is_ok()
+}
+
+/// Upload a file to the managed bucket feedback path
+pub async fn feedback(
+    config: &Config,
+    key: &str,
+    body: impl Into<ByteStream>,
+    content_type: &str,
+) -> Result<(), RequestError> {
+    upload(
+        config.s3(),
+        &File::new(
+            config.stack().managed_bucket(),
+            config.stack().feedback_path(key),
+        ),
+        body,
+        content_type,
+    )
+    .await
 }
 
 /// Upload content to S3

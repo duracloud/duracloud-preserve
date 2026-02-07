@@ -45,7 +45,25 @@ pub struct Stack(Name);
 
 impl Stack {
     pub fn new(name: &str) -> Result<Self, &'static str> {
-        Ok(Self(Name::new(name)?))
+        let name = Name::new(name)?;
+        let parts: Vec<&str> = name.as_str().split(STACK_BUCKET_DELIMITER).collect();
+
+        if parts.len() != 2 {
+            return Err("Stack name must have exactly two parts separated by a hyphen");
+        }
+
+        for part in &parts {
+            if part.len() < 2
+                || !part.starts_with(|c: char| c.is_ascii_alphabetic())
+                || !part.chars().all(|c| c.is_ascii_alphanumeric())
+            {
+                return Err(
+                    "Each part must start with a letter and contain only lowercase alphanumeric characters",
+                );
+            }
+        }
+
+        Ok(Self(name))
     }
 
     pub fn as_str(&self) -> &str {
@@ -133,7 +151,6 @@ impl Stack {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Name(String);
 impl Name {
-    // TODO: an actual error
     pub fn new(name: &str) -> Result<Self, &'static str> {
         let name = name.to_lowercase();
 
@@ -157,12 +174,37 @@ mod tests {
 
     #[test]
     fn test_stack_new() {
+        // Valid: two lowercase alphanumeric parts, each starting with a letter
         assert_eq!(Stack::new("test-stack").unwrap().as_str(), "test-stack");
         assert_eq!(Stack::new("test-STaCK").unwrap().as_str(), "test-stack");
+        assert_eq!(
+            Stack::new("digipress-dev1").unwrap().as_str(),
+            "digipress-dev1"
+        );
+        assert_eq!(Stack::new("my-stack2").unwrap().as_str(), "my-stack2");
+
+        // Invalid: affix violations
         assert!(Stack::new(".test-stack").is_err());
         assert!(Stack::new("test-stack.").is_err());
         assert!(Stack::new("-test-stack").is_err());
         assert!(Stack::new("test-stack-").is_err());
+
+        // Invalid: not exactly two parts
+        assert!(Stack::new("test").is_err());
+        assert!(Stack::new("test-stack-extra").is_err());
+        assert!(Stack::new("a-b-c").is_err());
+
+        // Invalid: parts too short (min 2 chars each)
+        assert!(Stack::new("a-bb").is_err());
+        assert!(Stack::new("aa-b").is_err());
+
+        // Invalid: part starts with digit
+        assert!(Stack::new("1test-stack").is_err());
+        assert!(Stack::new("test-1stack").is_err());
+
+        // Invalid: non-alphanumeric characters
+        assert!(Stack::new("test_-stack").is_err());
+        assert!(Stack::new("test-sta.ck").is_err());
     }
 
     #[test]

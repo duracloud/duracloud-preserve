@@ -206,9 +206,9 @@ async fn get_role_arn(config: &SdkConfig, role_name: &str) -> Result<String, Req
         .ok_or_else(|| RequestError::S3Error("role missing ARN".to_string()))
 }
 
-/// Load test config from TEST_STACK env var (defaults to "inttest")
+/// Load test config from TEST_STACK env var (defaults to "int-test")
 pub async fn test_config() -> Config {
-    let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "inttest".to_string());
+    let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "int-test".to_string());
     let stack = Stack::new(&stack_name).expect("invalid stack name");
     config(stack).await
 }

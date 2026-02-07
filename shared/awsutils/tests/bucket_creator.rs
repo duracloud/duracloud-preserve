@@ -1,21 +1,60 @@
 //! Integration tests for bucket creation and configuration.
 //!
 //! These tests make real AWS calls and should be run with:
-//!   cargo test --test integration_test -- --ignored --test-threads=1
+//!   cargo test -p awsutils --test bucket_creator -- --ignored --test-threads=1
 //!
 //! Prerequisites:
-//!   - Set TEST_STACK env var (defaults to "inttest")
+//!   - Set TEST_STACK env var (defaults to "int-test")
 //!   - Run: make setup s=<stack> p=<profile>
 
 mod common;
 
-use aws_sdk_s3::types::BucketVersioningStatus;
+use aws_sdk_s3::error::SdkError;
+use aws_sdk_s3::types::{
+    BucketVersioningStatus, ExpirationStatus, InventoryFrequency, InventoryIncludedObjectVersions,
+    InventoryOptionalField,
+};
+use aws_smithy_types::error::metadata::ProvideErrorMetadata;
 use awsutils::bucket::{Bucket, Type, exists};
 use awsutils::bucket_creator::BucketCreator;
 use awsutils::config::{Config, test_config};
 use common::{cleanup_bucket, timestamp};
 
 // --- Verification Helpers ---
+
+async fn verify_bucket_tags(config: &Config, bucket: &str, expected_type: Type) {
+    let result = config
+        .s3()
+        .get_bucket_tagging()
+        .bucket(bucket)
+        .send()
+        .await
+        .expect("failed to get bucket tags");
+
+    let tags = result.tag_set();
+
+    let get_tag = |key: &str| tags.iter().find(|t| t.key() == key).map(|t| t.value());
+    let expected_type = expected_type.to_string();
+
+    assert_eq!(
+        get_tag("BucketOrigin"),
+        Some("bucket-request"),
+        "BucketOrigin tag missing/incorrect on {}",
+        bucket
+    );
+    assert_eq!(
+        get_tag("Stack"),
+        Some(config.stack().as_str()),
+        "Stack tag missing/incorrect on {}",
+        bucket
+    );
+    assert_eq!(
+        get_tag("BucketType"),
+        Some(expected_type.as_str()),
+        "BucketType tag missing/incorrect on {}",
+        bucket
+    );
+}
 
 async fn verify_versioning_enabled(config: &Config, bucket: &str) {
     let result = config
@@ -44,17 +83,88 @@ async fn verify_lifecycle_policy(config: &Config, bucket: &str, expected_class: 
         .expect("failed to get lifecycle");
 
     let rules = result.rules();
-    assert!(!rules.is_empty(), "no lifecycle rules on {}", bucket);
+    assert_eq!(
+        rules.len(),
+        2,
+        "expected exactly 2 lifecycle rules on {}",
+        bucket
+    );
 
-    let has_expected_transition = rules.iter().any(|rule| {
-        rule.id()
-            .map(|id| id.contains(expected_class))
-            .unwrap_or(false)
-    });
-    assert!(
-        has_expected_transition,
-        "expected {} transition rule on {}",
-        expected_class, bucket
+    let expire_rule = rules
+        .iter()
+        .find(|r| r.id() == Some("ExpireOldVersions"))
+        .unwrap_or_else(|| panic!("missing ExpireOldVersions lifecycle rule on {}", bucket));
+
+    assert_eq!(
+        expire_rule.status(),
+        &ExpirationStatus::Enabled,
+        "ExpireOldVersions lifecycle rule not enabled on {}",
+        bucket
+    );
+    assert_eq!(
+        expire_rule
+            .abort_incomplete_multipart_upload()
+            .and_then(|r| r.days_after_initiation()),
+        Some(3),
+        "abort incomplete multipart days mismatch on {}",
+        bucket
+    );
+    assert_eq!(
+        expire_rule
+            .noncurrent_version_expiration()
+            .and_then(|r| r.noncurrent_days()),
+        Some(14),
+        "noncurrent version expiration days mismatch on {}",
+        bucket
+    );
+    assert_eq!(
+        expire_rule
+            .expiration()
+            .and_then(|r| r.expired_object_delete_marker()),
+        Some(true),
+        "expired object delete marker mismatch on {}",
+        bucket
+    );
+
+    let transition_rule = rules
+        .iter()
+        .find(|r| r.id() == Some(expected_class))
+        .unwrap_or_else(|| {
+            panic!(
+                "missing {} transition lifecycle rule on {}",
+                expected_class, bucket
+            )
+        });
+
+    assert_eq!(
+        transition_rule.status(),
+        &ExpirationStatus::Enabled,
+        "transition lifecycle rule not enabled on {}",
+        bucket
+    );
+
+    let transitions = transition_rule.transitions();
+    assert_eq!(
+        transitions.len(),
+        1,
+        "expected exactly 1 transition on {}",
+        bucket
+    );
+    let transition = &transitions[0];
+    assert_eq!(
+        transition.days(),
+        Some(7),
+        "transition days mismatch on {}",
+        bucket
+    );
+    assert_eq!(
+        transition
+            .storage_class()
+            .map(|c| c.as_str())
+            .unwrap_or_default(),
+        expected_class,
+        "transition storage class mismatch on {}",
+        bucket
     );
 }
 
@@ -74,6 +184,37 @@ async fn verify_notifications_enabled(config: &Config, bucket: &str) {
     );
 }
 
+async fn verify_notifications_disabled(config: &Config, bucket: &str) {
+    let result = config
+        .s3()
+        .get_bucket_notification_configuration()
+        .bucket(bucket)
+        .send()
+        .await
+        .expect("failed to get notifications");
+
+    assert!(
+        result.event_bridge_configuration().is_none(),
+        "EventBridge should not be configured on {}",
+        bucket
+    );
+    assert!(
+        result.lambda_function_configurations().is_empty(),
+        "unexpected lambda notification configs on {}",
+        bucket
+    );
+    assert!(
+        result.queue_configurations().is_empty(),
+        "unexpected queue notification configs on {}",
+        bucket
+    );
+    assert!(
+        result.topic_configurations().is_empty(),
+        "unexpected topic notification configs on {}",
+        bucket
+    );
+}
+
 async fn verify_inventory_configured(config: &Config, bucket: &str) {
     let result = config
         .s3()
@@ -89,6 +230,84 @@ async fn verify_inventory_configured(config: &Config, bucket: &str) {
         .expect("no inventory config");
 
     assert!(inv.is_enabled(), "inventory not enabled on {}", bucket);
+    assert_eq!(inv.id(), "inventory", "inventory id mismatch on {}", bucket);
+    assert_eq!(
+        inv.included_object_versions(),
+        &InventoryIncludedObjectVersions::Current,
+        "inventory included versions mismatch on {}",
+        bucket
+    );
+
+    let schedule = inv
+        .schedule()
+        .unwrap_or_else(|| panic!("inventory schedule missing on {}", bucket));
+    assert_eq!(
+        schedule.frequency(),
+        &InventoryFrequency::Daily,
+        "inventory frequency mismatch on {}",
+        bucket
+    );
+
+    let dest = inv
+        .destination()
+        .and_then(|d| d.s3_bucket_destination())
+        .unwrap_or_else(|| panic!("inventory destination missing on {}", bucket));
+
+    let managed_bucket_arn = format!("arn:aws:s3:::{}", config.stack().managed_bucket());
+    assert_eq!(
+        dest.bucket(),
+        managed_bucket_arn.as_str(),
+        "inventory destination bucket mismatch on {}",
+        bucket
+    );
+    assert_eq!(
+        dest.format(),
+        &awsutils::bucket_creator::INVENTORY_FORMAT,
+        "inventory format mismatch on {}",
+        bucket
+    );
+    assert_eq!(
+        dest.prefix(),
+        Some("manifests"),
+        "inventory prefix mismatch on {}",
+        bucket
+    );
+    assert_eq!(
+        dest.account_id(),
+        Some(config.account_id()),
+        "inventory destination account id mismatch on {}",
+        bucket
+    );
+
+    let optional_fields = inv.optional_fields();
+    for field in [
+        InventoryOptionalField::Size,
+        InventoryOptionalField::LastModifiedDate,
+        InventoryOptionalField::StorageClass,
+        InventoryOptionalField::ReplicationStatus,
+    ] {
+        assert!(
+            optional_fields.contains(&field),
+            "inventory optional field {field:?} missing on {}",
+            bucket
+        );
+    }
+}
+
+async fn verify_inventory_not_configured(config: &Config, bucket: &str) {
+    let result = config
+        .s3()
+        .get_bucket_inventory_configuration()
+        .bucket(bucket)
+        .id("inventory")
+        .send()
+        .await;
+
+    assert!(
+        result.is_err(),
+        "unexpected inventory configuration on {}",
+        bucket
+    );
 }
 
 async fn verify_logging_enabled(config: &Config, bucket: &str) {
@@ -103,9 +322,34 @@ async fn verify_logging_enabled(config: &Config, bucket: &str) {
     let logging = result
         .logging_enabled()
         .unwrap_or_else(|| panic!("logging not enabled on {}", bucket));
-    assert!(
-        logging.target_prefix().contains("audit/"),
+    let managed_bucket = config.stack().managed_bucket();
+    assert_eq!(
+        logging.target_bucket(),
+        managed_bucket.as_str(),
+        "unexpected logging target bucket on {}",
+        bucket
+    );
+    let expected_prefix = format!("audit/{}/", bucket);
+    assert_eq!(
+        logging.target_prefix(),
+        expected_prefix.as_str(),
         "unexpected logging prefix on {}",
+        bucket
+    );
+}
+
+async fn verify_logging_disabled(config: &Config, bucket: &str) {
+    let result = config
+        .s3()
+        .get_bucket_logging()
+        .bucket(bucket)
+        .send()
+        .await
+        .expect("failed to get logging");
+
+    assert!(
+        result.logging_enabled().is_none(),
+        "unexpected logging enabled on {}",
         bucket
     );
 }
@@ -122,19 +366,96 @@ async fn verify_replication_configured(config: &Config, src: &str, dest: &str) {
     let repl_config = result
         .replication_configuration()
         .expect("no replication config");
+    assert_eq!(
+        repl_config.role(),
+        config.replication_role_arn(),
+        "unexpected replication role on {}",
+        src
+    );
     let rules = repl_config.rules();
-    assert!(!rules.is_empty(), "no replication rules on {}", src);
+    assert_eq!(
+        rules.len(),
+        1,
+        "expected exactly 1 replication rule on {}",
+        src
+    );
 
     let dest_arn = format!("arn:aws:s3:::{}", dest);
-    let has_dest = rules.iter().any(|rule| {
-        rule.destination()
-            .map(|d| d.bucket() == dest_arn)
-            .unwrap_or(false)
-    });
-    assert!(
-        has_dest,
-        "replication destination {} not found on {}",
-        dest, src
+    let rule = &rules[0];
+
+    assert_eq!(
+        rule.id(),
+        Some("ReplicateAll"),
+        "unexpected replication rule id on {}",
+        src
+    );
+    assert_eq!(
+        rule.status(),
+        &aws_sdk_s3::types::ReplicationRuleStatus::Enabled,
+        "replication rule not enabled on {}",
+        src
+    );
+    assert_eq!(
+        rule.priority(),
+        Some(1),
+        "unexpected replication rule priority on {}",
+        src
+    );
+    assert_eq!(
+        rule.filter().and_then(|f| f.prefix()),
+        Some(""),
+        "unexpected replication filter prefix on {}",
+        src
+    );
+
+    let destination = rule
+        .destination()
+        .unwrap_or_else(|| panic!("missing replication destination on {}", src));
+    assert_eq!(
+        destination.bucket(),
+        dest_arn.as_str(),
+        "replication destination mismatch on {}",
+        src
+    );
+    let replication_time = destination
+        .replication_time()
+        .unwrap_or_else(|| panic!("missing replication time on {}", src));
+    assert_eq!(
+        replication_time.status(),
+        &aws_sdk_s3::types::ReplicationTimeStatus::Enabled,
+        "replication time not enabled on {}",
+        src
+    );
+    assert_eq!(
+        replication_time.time().and_then(|t| t.minutes()),
+        Some(15),
+        "unexpected replication time minutes on {}",
+        src
+    );
+    let metrics = destination
+        .metrics()
+        .unwrap_or_else(|| panic!("missing replication metrics on {}", src));
+    assert_eq!(
+        metrics.status(),
+        &aws_sdk_s3::types::MetricsStatus::Enabled,
+        "replication metrics not enabled on {}",
+        src
+    );
+    assert_eq!(
+        metrics.event_threshold().and_then(|t| t.minutes()),
+        Some(15),
+        "unexpected replication metrics threshold minutes on {}",
+        src
+    );
+
+    let delete_marker_replication = rule
+        .delete_marker_replication()
+        .unwrap_or_else(|| panic!("missing delete marker replication on {}", src));
+    assert_eq!(
+        delete_marker_replication.status(),
+        Some(&aws_sdk_s3::types::DeleteMarkerReplicationStatus::Enabled),
+        "delete marker replication not enabled on {}",
+        src
     );
 }
 
@@ -157,9 +478,21 @@ async fn verify_public_access_block_disabled(config: &Config, bucket: &str) {
         bucket
     );
     assert_eq!(
+        pab.ignore_public_acls(),
+        Some(false),
+        "ignore_public_acls should be false on {}",
+        bucket
+    );
+    assert_eq!(
         pab.block_public_policy(),
         Some(false),
         "block_public_policy should be false on {}",
+        bucket
+    );
+    assert_eq!(
+        pab.restrict_public_buckets(),
+        Some(false),
+        "restrict_public_buckets should be false on {}",
         bucket
     );
 }
@@ -174,14 +507,47 @@ async fn verify_public_read_policy(config: &Config, bucket: &str) {
         .expect("failed to get bucket policy");
 
     let policy = result.policy().expect("no policy");
-    assert!(
-        policy.contains("AllowPublicRead"),
-        "AllowPublicRead not in policy on {}",
+    let v: serde_json::Value = serde_json::from_str(policy).expect("bucket policy invalid json");
+    let statements = v
+        .get("Statement")
+        .and_then(|s| s.as_array())
+        .unwrap_or_else(|| panic!("bucket policy missing Statement array on {}", bucket));
+
+    let allow = statements
+        .iter()
+        .find(|s| s.get("Sid").and_then(|sid| sid.as_str()) == Some("AllowPublicRead"))
+        .unwrap_or_else(|| panic!("AllowPublicRead statement missing on {}", bucket));
+
+    assert_eq!(
+        allow.get("Effect").and_then(|e| e.as_str()),
+        Some("Allow"),
+        "AllowPublicRead effect mismatch on {}",
         bucket
     );
+    assert_eq!(
+        allow.get("Principal").and_then(|p| p.as_str()),
+        Some("*"),
+        "AllowPublicRead principal mismatch on {}",
+        bucket
+    );
+    assert_eq!(
+        allow.get("Action").and_then(|a| a.as_str()),
+        Some("s3:GetObject"),
+        "AllowPublicRead action mismatch on {}",
+        bucket
+    );
+
+    let expected_resource = format!("arn:aws:s3:::{}/*", bucket);
+    assert_eq!(
+        allow.get("Resource").and_then(|r| r.as_str()),
+        Some(expected_resource.as_str()),
+        "AllowPublicRead resource mismatch on {}",
+        bucket
+    );
+
     assert!(
-        policy.contains("s3:GetObject"),
-        "s3:GetObject not in policy on {}",
+        !policy.contains("DenyAllUploads"),
+        "DenyAllUploads should not be present in final policy on {}",
         bucket
     );
 }
@@ -189,11 +555,19 @@ async fn verify_public_read_policy(config: &Config, bucket: &str) {
 async fn verify_no_bucket_policy(config: &Config, bucket: &str) {
     let result = config.s3().get_bucket_policy().bucket(bucket).send().await;
 
-    assert!(
-        result.is_err(),
-        "expected no bucket policy on {}, but found one",
-        bucket
-    );
+    let err = result.unwrap_err();
+    match err {
+        SdkError::ServiceError(service_err) => {
+            assert_eq!(
+                service_err.err().code(),
+                Some("NoSuchBucketPolicy"),
+                "expected NoSuchBucketPolicy for {}, got {:?}",
+                bucket,
+                service_err.err().code()
+            );
+        }
+        other => panic!("expected service error for {}, got {:?}", bucket, other),
+    }
 }
 
 // --- Test Cases ---
@@ -210,6 +584,7 @@ async fn test_create_standard_bucket() {
     creator.create().await.expect("bucket creation failed");
     creator.setup().await.expect("bucket setup failed");
 
+    verify_bucket_tags(&config, &bucket_name, Type::Standard).await;
     verify_versioning_enabled(&config, &bucket_name).await;
     verify_lifecycle_policy(&config, &bucket_name, "GLACIER_IR").await;
     verify_notifications_enabled(&config, &bucket_name).await;
@@ -232,6 +607,7 @@ async fn test_create_public_bucket() {
     creator.create().await.expect("bucket creation failed");
     creator.setup().await.expect("bucket setup failed");
 
+    verify_bucket_tags(&config, &bucket_name, Type::Public).await;
     verify_versioning_enabled(&config, &bucket_name).await;
     verify_lifecycle_policy(&config, &bucket_name, "INTELLIGENT_TIERING").await;
     verify_notifications_enabled(&config, &bucket_name).await;
@@ -255,15 +631,20 @@ async fn test_create_replication_bucket() {
     creator.create().await.expect("bucket creation failed");
     creator.setup().await.expect("bucket setup failed");
 
+    verify_bucket_tags(&config, &bucket_name, Type::Replication).await;
     verify_versioning_enabled(&config, &bucket_name).await;
     verify_lifecycle_policy(&config, &bucket_name, "DEEP_ARCHIVE").await;
+    verify_notifications_disabled(&config, &bucket_name).await;
+    verify_logging_disabled(&config, &bucket_name).await;
+    verify_inventory_not_configured(&config, &bucket_name).await;
+    verify_no_bucket_policy(&config, &bucket_name).await;
 
     cleanup_bucket(&config, &bucket_name).await;
 }
 
 #[tokio::test]
 #[ignore]
-async fn test_create_bucket_pair_with_replication() {
+async fn test_create_standard_bucket_pair_with_replication() {
     let config = test_config().await;
     let ts = timestamp();
     let primary_name = format!("{}-inttest-pair-{}", config.stack().as_str(), ts);
@@ -297,6 +678,55 @@ async fn test_create_bucket_pair_with_replication() {
         .await
         .expect("enable replication failed");
 
+    verify_replication_configured(&config, &primary_name, &repl_name).await;
+
+    cleanup_bucket(&config, &primary_name).await;
+    cleanup_bucket(&config, &repl_name).await;
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_create_public_bucket_pair_with_replication() {
+    let config = test_config().await;
+    let ts = timestamp();
+    let primary_name = format!("{}-inttest-pairpub-{}-public", config.stack().as_str(), ts);
+    let repl_name = format!(
+        "{}-inttest-pairpub-{}-public-repl",
+        config.stack().as_str(),
+        ts
+    );
+
+    let primary = Bucket::new(&primary_name, Type::Public).unwrap();
+    let replication = Bucket::new(&repl_name, Type::Replication).unwrap();
+
+    let primary_creator = BucketCreator::new(&config, &primary);
+    primary_creator
+        .create()
+        .await
+        .expect("primary bucket creation failed");
+    primary_creator
+        .setup()
+        .await
+        .expect("primary bucket setup failed");
+
+    let repl_creator = BucketCreator::new(&config, &replication);
+    repl_creator
+        .create()
+        .await
+        .expect("replication bucket creation failed");
+    repl_creator
+        .setup()
+        .await
+        .expect("replication bucket setup failed");
+
+    primary_creator
+        .enable_replication(&replication)
+        .await
+        .expect("enable replication failed");
+
+    // Ensure public bucket config and replication config remain correct after enabling replication.
+    verify_public_access_block_disabled(&config, &primary_name).await;
+    verify_public_read_policy(&config, &primary_name).await;
     verify_replication_configured(&config, &primary_name, &repl_name).await;
 
     cleanup_bucket(&config, &primary_name).await;

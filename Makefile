@@ -93,5 +93,5 @@ test-integration: ## Run integration tests, makes AWS calls (make test-integrati
 	@AWS_PROFILE=$(p) TEST_STACK=$(s) cargo test --test "*" -- --ignored --test-threads=1
 
 .PHONY: upload
-upload: ## Upload a file to a bucket (make upload b=bucket f=file s=stack p=profile)
-	@AWS_PROFILE=$(p) aws s3 cp $(f) s3://$(s)-$(b)/$(notdir $(realpath $(f)))
+upload: ## Upload a file to a bucket (make upload b=bucket f=file p=profile)
+	@AWS_PROFILE=$(p) aws s3 cp $(f) s3://$(b)/$(notdir $(realpath $(f)))

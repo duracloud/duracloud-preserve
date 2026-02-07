@@ -24,6 +24,7 @@ const EXPIRE_NONCURRENT_VERSION_DAYS: u8 = 14;
 pub const INVENTORY_FORMAT: InventoryFormat = InventoryFormat::Parquet;
 const INVENTORY_ID: &str = "inventory";
 const INVENTORY_PREFIX: &str = "manifests";
+const LOGGING_PREFIX: &str = "audit";
 
 const STORAGE_CLASS_PUBLIC: TransitionStorageClass = TransitionStorageClass::IntelligentTiering;
 const STORAGE_CLASS_REPLICATION: TransitionStorageClass = TransitionStorageClass::DeepArchive;
@@ -259,7 +260,7 @@ impl<'a> BucketCreator<'a> {
                 "Effect": "Allow",
                 "Principal": "*",
                 "Action": "s3:GetObject",
-                "Resource": format!("arn:aws:s3:::{}/*", bucket_name)
+                "Resource": format!("arn:aws:s3:::{bucket_name}/*")
             }]
         });
 
@@ -272,8 +273,8 @@ impl<'a> BucketCreator<'a> {
             .await
             .map_err(|e| {
                 RequestError::S3Error(format!(
-                    "failed to apply public access policy to {} ({:?})",
-                    bucket_name, e
+                    "failed to apply public access policy to {bucket_name} ({:?})",
+                    e
                 ))
             })?;
 
@@ -293,7 +294,7 @@ impl<'a> BucketCreator<'a> {
                     .logging_enabled(
                         aws_sdk_s3::types::LoggingEnabled::builder()
                             .target_bucket(dest_bucket)
-                            .target_prefix(format!("audit/{}/", bucket_name))
+                            .target_prefix(format!("{LOGGING_PREFIX}/{bucket_name}/"))
                             .build()
                             .map_err(|e| {
                                 RequestError::S3Error(format!(
@@ -308,8 +309,8 @@ impl<'a> BucketCreator<'a> {
             .await
             .map_err(|e| {
                 RequestError::S3Error(format!(
-                    "failed to enable logging on {} ({:?})",
-                    bucket_name, e
+                    "failed to enable logging on {bucket_name} ({:?})",
+                    e
                 ))
             })?;
 
@@ -375,8 +376,8 @@ impl<'a> BucketCreator<'a> {
             .await
             .map_err(|e| {
                 RequestError::S3Error(format!(
-                    "failed to enable inventory on {} ({:?})",
-                    bucket_name, e
+                    "failed to enable inventory on {bucket_name} ({:?})",
+                    e
                 ))
             })?;
 
@@ -399,8 +400,8 @@ impl<'a> BucketCreator<'a> {
             .await
             .map_err(|e| {
                 RequestError::S3Error(format!(
-                    "failed to enable notifications on {} ({:?})",
-                    bucket_name, e
+                    "failed to enable notifications on {bucket_name} ({:?})",
+                    e
                 ))
             })?;
 
@@ -426,8 +427,8 @@ impl<'a> BucketCreator<'a> {
             .await
             .map_err(|e| {
                 RequestError::S3Error(format!(
-                    "failed to enable public access on {} ({:?})",
-                    bucket_name, e
+                    "failed to enable public access on {bucket_name} ({:?})",
+                    e
                 ))
             })?;
 
@@ -453,7 +454,7 @@ impl<'a> BucketCreator<'a> {
                             .filter(ReplicationRuleFilter::builder().prefix("").build())
                             .destination(
                                 Destination::builder()
-                                    .bucket(format!("arn:aws:s3:::{}", repl_bucket_name))
+                                    .bucket(format!("arn:aws:s3:::{repl_bucket_name}"))
                                     .replication_time(
                                         ReplicationTime::builder()
                                             .status(ReplicationTimeStatus::Enabled)
@@ -515,8 +516,7 @@ impl<'a> BucketCreator<'a> {
             .await
             .map_err(|e| {
                 RequestError::S3Error(format!(
-                    "failed to enable replication from {} to {} ({:?})",
-                    src_bucket_name, repl_bucket_name, e
+                    "failed to enable replication from {src_bucket_name} to {repl_bucket_name} ({:?})", e
                 ))
             })?;
 
@@ -539,8 +539,8 @@ impl<'a> BucketCreator<'a> {
             .await
             .map_err(|e| {
                 RequestError::S3Error(format!(
-                    "failed to enable versioning on {} ({:?})",
-                    bucket_name, e
+                    "failed to enable versioning on {bucket_name} ({:?})",
+                    e
                 ))
             })?;
 
@@ -558,8 +558,8 @@ impl<'a> BucketCreator<'a> {
             .await
             .map_err(|e| {
                 RequestError::S3Error(format!(
-                    "failed to remove deny upload policy from {} ({:?})",
-                    bucket_name, e
+                    "failed to remove deny upload policy from {bucket_name} ({:?})",
+                    e
                 ))
             })?;
 

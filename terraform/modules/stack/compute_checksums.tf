@@ -12,12 +12,22 @@ resource "aws_iam_role_policy" "compute_checksums" {
     Statement = [
       {
         Effect   = "Allow"
-        Action   = ["s3:GetObject"]
-        Resource = "${aws_s3_bucket.main["managed"].arn}/${local.batch_prefix}/*"
+        Action   = "s3:CreateJob"
+        Resource = "*"
       },
       {
         Effect   = "Allow"
-        Action   = ["s3:PutObject"]
+        Action   = "s3:ListAllMyBuckets"
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "s3:GetBucketTagging"
+        Resource = "arn:aws:s3:::${local.stack}-*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "s3:PutObject"
         Resource = "${aws_s3_bucket.main["managed"].arn}/${local.metadata_prefix}/*"
       },
       {

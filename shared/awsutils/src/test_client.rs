@@ -1,5 +1,6 @@
 use aws_sdk_s3::{Client, config::Region, primitives::SdkBody};
 use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
+use http::header::CONTENT_TYPE;
 
 use crate::config::{Clients, Config, Roles};
 // https://github.com/awsdocs/aws-doc-sdk-examples/blob/main/rustv1/examples/s3/src/lib.rs#L192
@@ -22,15 +23,20 @@ impl TestClientBuilder {
 
     /// Build the test client
     pub fn build(self) -> Client {
+        self.build_with_replay().0
+    }
+
+    /// Build the test client and return the replay handle for request assertions.
+    pub fn build_with_replay(self) -> (Client, StaticReplayClient) {
         let http_client = StaticReplayClient::new(self.events);
 
         let config = aws_sdk_s3::Config::builder()
             .behavior_version_latest()
-            .http_client(http_client)
+            .http_client(http_client.clone())
             .region(Region::new("us-east-1"))
             .build();
 
-        Client::from_conf(config)
+        (Client::from_conf(config), http_client)
     }
 
     /// Add an error response with XML error body
@@ -101,6 +107,30 @@ impl TestClientBuilder {
         };
         self.error(status, code, message)
     }
+}
+
+/// Minimal request record for test assertions.
+#[derive(Debug, Clone)]
+pub struct RecordedRequest {
+    pub method: String,
+    pub uri: String,
+    pub content_type: Option<String>,
+    pub body: Vec<u8>,
+}
+
+/// Convert replayed requests into plain data suitable for assertions.
+///
+/// `body` is request payload bytes only and does not include HTTP framing.
+pub fn recorded_requests(replay: &StaticReplayClient) -> Vec<RecordedRequest> {
+    replay
+        .actual_requests()
+        .map(|request| RecordedRequest {
+            method: request.method().to_string(),
+            uri: request.uri().to_string(),
+            content_type: request.headers().get(CONTENT_TYPE).map(|v| v.to_string()),
+            body: request.body().bytes().unwrap_or_default().to_vec(),
+        })
+        .collect()
 }
 
 /// Helper to create a ReplayEvent

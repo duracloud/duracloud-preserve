@@ -29,7 +29,7 @@ resource "aws_iam_role_policy" "batch" {
       {
         Effect   = "Allow"
         Action   = "s3:PutObject"
-        Resource = "arn:aws:s3:::${local.stack}-managed/*"
+        Resource = "${aws_s3_bucket.main["managed"].arn}/*"
       },
       {
         Effect   = "Allow"

@@ -16,12 +16,12 @@ resource "aws_iam_role_policy" "bucket_request" {
           "s3:GetObject",
           "s3:DeleteObject",
         ]
-        Resource = "arn:aws:s3:::${local.stack}-bucket-request/*"
+        Resource = "${aws_s3_bucket.main["bucket-request"].arn}/*"
       },
       {
         Effect   = "Allow"
         Action   = "s3:PutObject"
-        Resource = "arn:aws:s3:::${local.stack}-managed/${local.feedback_prefix}/*"
+        Resource = "${aws_s3_bucket.main["managed"].arn}/${local.feedback_prefix}/*"
       },
       {
         Effect = "Allow"

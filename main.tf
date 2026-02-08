@@ -25,6 +25,10 @@ locals {
       bucket = local.functions_bucket
       file   = "target/lambda/bucket-request/bootstrap.zip"
     }
+    inventory-report = {
+      bucket = local.functions_bucket
+      file   = "target/lambda/inventory-report/bootstrap.zip"
+    }
   }
 }
 

@@ -56,8 +56,11 @@ resource "aws_s3_bucket_policy" "managed" {
         Action    = "s3:PutObject"
         Resource  = "${aws_s3_bucket.main["managed"].arn}/${local.inventory_prefix}/*"
         Condition = {
-          ArnLike      = { "aws:SourceArn" = "arn:aws:s3:::${local.stack}*" }
-          StringEquals = { "aws:SourceAccount" = local.account_id }
+          ArnLike = { "aws:SourceArn" = "arn:aws:s3:::${local.stack}*" }
+          StringEquals = {
+            "aws:SourceAccount" = local.account_id
+            "s3:x-amz-acl"      = "bucket-owner-full-control"
+          }
         }
       },
       # S3 Server Access Logs -> logging prefix

@@ -10,8 +10,9 @@ variable "functions" {
     bucket   = string
     file     = string
     memory   = optional(number, 128)
-    timeout  = optional(number, 30)
     schedule = optional(string)
+    storage  = optional(number, 512)
+    timeout  = optional(number, 30)
   }))
   default = {}
 }

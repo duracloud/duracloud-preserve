@@ -32,6 +32,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         .ok_or("invalid filename")?
         .to_string_lossy();
 
+    // Note: we upload to the managed bucket (not the request bucket) intentionally
+    // because if the function is deployed we don't want to process twice
     let file = File::new(
         stack.managed_bucket(),
         format!("bucket-request/{}", filename.into_owned()),

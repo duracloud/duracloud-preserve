@@ -26,6 +26,8 @@ async fn test_perform() {
     let primary = format!("{}-{}", config.stack().as_str(), bucket_name);
     let repl = format!("{}-{}-repl", config.stack().as_str(), bucket_name);
 
+    // Note: we upload to the managed bucket (not the request bucket) intentionally
+    // because if the function is deployed we don't want to process twice
     let file = File::new(
         config.stack().managed_bucket(),
         format!("bucket-request/test-{}.txt", ts),

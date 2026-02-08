@@ -49,11 +49,6 @@ resource "aws_iam_role_policy" "bucket_request" {
       },
       {
         Effect   = "Allow"
-        Action   = "iam:GetRole"
-        Resource = aws_iam_role.replication.arn
-      },
-      {
-        Effect   = "Allow"
         Action   = "iam:PassRole"
         Resource = aws_iam_role.replication.arn
         Condition = {

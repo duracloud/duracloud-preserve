@@ -60,3 +60,22 @@ resource "aws_iam_role_policy_attachment" "lambda" {
   policy_arn = local.basic_role
   role       = aws_iam_role.lambda[each.key].name
 }
+
+resource "aws_iam_role_policy" "role_access" {
+  for_each = local.functions
+
+  role = aws_iam_role.lambda[each.key].name
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = "iam:GetRole"
+        Resource = [
+          aws_iam_role.batch.arn,
+          aws_iam_role.replication.arn,
+        ]
+      }
+    ]
+  })
+}

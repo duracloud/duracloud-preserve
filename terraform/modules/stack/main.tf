@@ -18,10 +18,11 @@ locals {
   stack      = var.stack
 
   # prefixes
-  cloudtrail_prefix = "cloudtrail"
-  feedback_prefix   = "feedback"  # c.f. stack.rs
-  inventory_prefix  = "manifests" # c.f. bucket_creator.rs
-  logging_prefix    = "audit"     # c.f. bucket_creator.rs
-  metadata_prefix   = "metadata"  # c.f. stack.rs
-  reports_prefix    = "reports"   # c.f. stack.rs
+  batch_prefix      = "batch"      # c.f. batch.rs
+  cloudtrail_prefix = "cloudtrail" # tf only
+  feedback_prefix   = "feedback"   # c.f. stack.rs
+  inventory_prefix  = "manifests"  # c.f. bucket_creator.rs
+  logging_prefix    = "audit"      # c.f. bucket_creator.rs
+  metadata_prefix   = "metadata"   # c.f. stack.rs
+  reports_prefix    = "reports"    # c.f. stack.rs
 }

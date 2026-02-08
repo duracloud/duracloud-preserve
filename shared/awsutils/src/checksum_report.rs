@@ -5,8 +5,15 @@ use crate::{
     file::{self, File},
 };
 
+#[derive(Debug, Default)]
+pub struct PerformOptions {}
+
 /// Generate a consolidated checksum report using batch compute checksum results
-pub async fn perform(config: &Config, job_file: &File) -> Result<(), RequestError> {
+pub async fn perform(
+    config: &Config,
+    job_file: &File,
+    _opts: &PerformOptions,
+) -> Result<(), RequestError> {
     tracing::info!("Retrieving job file from S3: {}", job_file.s3_url());
 
     let bytes = file::download_bytes(config.s3(), job_file).await?;

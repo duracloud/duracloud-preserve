@@ -7,8 +7,11 @@ variable "deploy_functions" {
 variable "functions" {
   description = "Function configurations"
   type = map(object({
-    bucket   = string
-    file     = string
+    # required
+    bucket = string
+    file   = string
+    # optionals
+    env      = optional(map(string), {})
     memory   = optional(number, 128)
     schedule = optional(string)
     storage  = optional(number, 512)

@@ -24,6 +24,7 @@ locals {
     bucket-request = {
       bucket = local.functions_bucket
       file   = "target/lambda/bucket-request/bootstrap.zip"
+      env    = { STORAGE_TIER = "GLACIER_IR" }
     }
     inventory-report = {
       bucket = local.functions_bucket

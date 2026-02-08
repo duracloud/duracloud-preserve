@@ -30,7 +30,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let manifest = File::new(config.stack().managed_bucket(), object);
-    let stats = inventory_report::perform(&config, &manifest, date_ctx).await?;
+    let opts = inventory_report::PerformOptions { date_ctx };
+    let stats = inventory_report::perform(&config, &manifest, &opts).await?;
 
     println!(
         "Processed {} files, {} bytes total",

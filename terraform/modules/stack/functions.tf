@@ -22,9 +22,10 @@ resource "aws_lambda_function" "main" {
   s3_key        = each.value.file
 
   environment {
-    variables = {
-      STACK = local.stack
-    }
+    variables = merge(
+      { STACK = local.stack },
+      each.value.env
+    )
   }
 
   logging_config {

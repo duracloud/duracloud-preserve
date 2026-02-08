@@ -41,7 +41,8 @@ async fn test_perform() {
     .await
     .unwrap();
 
-    awsutils::bucket_request::perform(&config, &file)
+    let opts = awsutils::bucket_request::PerformOptions::default();
+    awsutils::bucket_request::perform(&config, &file, &opts)
         .await
         .unwrap();
 

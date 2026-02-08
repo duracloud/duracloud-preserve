@@ -9,6 +9,7 @@
 
 mod common;
 
+use aws_sdk_s3::types::TransitionStorageClass;
 use aws_smithy_types::body::SdkBody;
 use awsutils::bucket::{
     Bucket, Type, delete, empty, exists, get_stack_buckets, get_stack_buckets_by_type,
@@ -25,7 +26,7 @@ async fn test_bucket_from_name() {
     let ts = timestamp();
     let bucket_name = format!("{}-inttest-fromname-{}", config.stack().as_str(), ts);
     let bucket = Bucket::new(&bucket_name, Type::Standard).unwrap();
-    let creator = BucketCreator::new(&config, &bucket);
+    let creator = BucketCreator::new(&config, &bucket, Some(TransitionStorageClass::GlacierIr));
 
     creator.create().await.expect("bucket creation failed");
 
@@ -57,7 +58,7 @@ async fn test_get_stack_buckets() {
     let ts = timestamp();
     let bucket_name = format!("{}-inttest-discovery-{}", config.stack().as_str(), ts);
     let bucket = Bucket::new(&bucket_name, Type::Standard).unwrap();
-    let creator = BucketCreator::new(&config, &bucket);
+    let creator = BucketCreator::new(&config, &bucket, Some(TransitionStorageClass::GlacierIr));
 
     creator.create().await.expect("bucket creation failed");
 
@@ -85,8 +86,12 @@ async fn test_get_stack_buckets_by_type() {
     let std_bucket = Bucket::new(&std_name, Type::Standard).unwrap();
     let repl_bucket = Bucket::new(&repl_name, Type::Replication).unwrap();
 
-    let std_creator = BucketCreator::new(&config, &std_bucket);
-    let repl_creator = BucketCreator::new(&config, &repl_bucket);
+    let std_creator = BucketCreator::new(
+        &config,
+        &std_bucket,
+        Some(TransitionStorageClass::GlacierIr),
+    );
+    let repl_creator = BucketCreator::new(&config, &repl_bucket, None);
 
     std_creator
         .create()
@@ -126,7 +131,7 @@ async fn test_empty_bucket() {
     let ts = timestamp();
     let bucket_name = format!("{}-inttest-empty-{}", config.stack().as_str(), ts);
     let bucket = Bucket::new(&bucket_name, Type::Standard).unwrap();
-    let creator = BucketCreator::new(&config, &bucket);
+    let creator = BucketCreator::new(&config, &bucket, Some(TransitionStorageClass::GlacierIr));
 
     creator.create().await.expect("bucket creation failed");
     creator.setup().await.expect("bucket setup failed");

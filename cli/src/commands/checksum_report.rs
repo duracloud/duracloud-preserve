@@ -24,7 +24,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // TODO: return report location
-    checksum_report::perform(&config, &file).await?;
+    let opts = checksum_report::PerformOptions::default();
+    checksum_report::perform(&config, &file, &opts).await?;
 
     Ok(())
 }

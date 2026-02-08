@@ -5,8 +5,15 @@ use crate::{
 };
 use futures::future::BoxFuture;
 
+#[derive(Debug, Default)]
+pub struct PerformOptions {}
+
 /// Trigger S3 batch compute checksum jobs
-pub async fn perform(config: &Config, bucket: Option<&Name>) -> Result<Vec<String>, BatchError> {
+pub async fn perform(
+    config: &Config,
+    bucket: Option<&Name>,
+    _opts: &PerformOptions,
+) -> Result<Vec<String>, BatchError> {
     tracing::info!("Retrieving buckets for checksum report");
 
     let bucket_pairs = match bucket {
@@ -144,8 +151,9 @@ mod tests {
             .s3_error("NoSuchBucket", "bucket not found")
             .build();
         let config = test_config_with_client(client);
+        let opts = PerformOptions::default();
 
-        let err = perform(&config, Some(&bucket_name))
+        let err = perform(&config, Some(&bucket_name), &opts)
             .await
             .expect_err("missing bucket should be invalid");
 
@@ -161,8 +169,9 @@ mod tests {
         let tagging = bucket_tagging_xml(&[("BucketType", "replication")]);
         let client = TestClientBuilder::new().success(tagging, None).build();
         let config = test_config_with_client(client);
+        let opts = PerformOptions::default();
 
-        let err = perform(&config, Some(&bucket_name))
+        let err = perform(&config, Some(&bucket_name), &opts)
             .await
             .expect_err("replication bucket should be invalid");
 
@@ -181,8 +190,9 @@ mod tests {
             .success(tags, None)
             .build();
         let config = test_config_with_client(client);
+        let opts = PerformOptions::default();
 
-        let err = perform(&config, None)
+        let err = perform(&config, None, &opts)
             .await
             .expect_err("missing replication pair should fail");
 
@@ -201,8 +211,9 @@ mod tests {
             .success(list_buckets_xml(&[]), None)
             .build();
         let config = test_config_with_client(client);
+        let opts = PerformOptions::default();
 
-        let receipts = perform(&config, None)
+        let receipts = perform(&config, None, &opts)
             .await
             .expect("no source buckets should return empty receipts");
 

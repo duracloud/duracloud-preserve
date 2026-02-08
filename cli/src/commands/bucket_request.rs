@@ -53,7 +53,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         file.key()
     );
 
-    awsutils::bucket_request::perform(&config, &file).await?;
+    let opts = awsutils::bucket_request::PerformOptions::default();
+    awsutils::bucket_request::perform(&config, &file, &opts).await?;
 
     println!("All buckets created successfully");
     Ok(())

@@ -10,10 +10,15 @@ use crate::{
     inventory::{InventoryError, InventoryManifest, process},
 };
 
+#[derive(Debug, Clone, Copy)]
+pub struct PerformOptions {
+    pub date_ctx: DateCtx,
+}
+
 pub async fn perform(
     config: &Config,
     manifest_file: &File,
-    date_ctx: DateCtx,
+    opts: &PerformOptions,
 ) -> Result<InventoryStats, InventoryError> {
     tracing::info!("Retrieving manifest file: {}", manifest_file.s3_url());
     let manifest = InventoryManifest::fetch(config.s3(), manifest_file).await?;
@@ -58,7 +63,7 @@ pub async fn perform(
     let csv_bytes = Bytes::from(csv);
     let stats_bytes = Bytes::from(serde_json::to_vec(&stats)?);
 
-    for ctx in [stack::DateCtx::Latest, date_ctx] {
+    for ctx in [stack::DateCtx::Latest, opts.date_ctx] {
         let csv_path = config
             .stack()
             .reports_manifest_path(&manifest.source_bucket, ctx);
@@ -146,7 +151,10 @@ mod tests {
 
         let config = test_config_with_client(client);
         let manifest_file = File::new(config.stack().managed_bucket(), manifest_key);
-        let stats = perform(&config, &manifest_file, DateCtx::Today)
+        let opts = PerformOptions {
+            date_ctx: DateCtx::Today,
+        };
+        let stats = perform(&config, &manifest_file, &opts)
             .await
             .expect("perform should succeed");
 
@@ -238,8 +246,11 @@ mod tests {
             .build_with_replay();
         let config = test_config_with_client(client);
         let manifest_file = File::new(config.stack().managed_bucket(), manifest_key);
+        let opts = PerformOptions {
+            date_ctx: DateCtx::Today,
+        };
 
-        let err = perform(&config, &manifest_file, DateCtx::Today)
+        let err = perform(&config, &manifest_file, &opts)
             .await
             .expect_err("perform should fail for non-parquet format");
         match err {

@@ -36,11 +36,31 @@ const STORAGE_TRANSITION_DAYS: u8 = 7;
 pub struct BucketCreator<'a> {
     bucket: &'a Bucket,
     config: &'a Config,
+    storage_tier_override: Option<TransitionStorageClass>,
 }
 
 impl<'a> BucketCreator<'a> {
-    pub fn new(config: &'a Config, bucket: &'a Bucket) -> Self {
-        Self { bucket, config }
+    pub fn new(
+        config: &'a Config,
+        bucket: &'a Bucket,
+        storage_tier_override: Option<TransitionStorageClass>,
+    ) -> Self {
+        Self {
+            bucket,
+            config,
+            storage_tier_override,
+        }
+    }
+
+    fn storage_tier(&self) -> TransitionStorageClass {
+        self.storage_tier_override
+            .clone()
+            .unwrap_or_else(|| match self.bucket.bucket_type() {
+                Type::Public => STORAGE_CLASS_PUBLIC,
+                Type::Replication => STORAGE_CLASS_REPLICATION,
+                Type::Standard => STORAGE_CLASS_STANDARD,
+                _ => STORAGE_CLASS_STANDARD,
+            })
     }
 
     pub async fn create(&self) -> Result<(), RequestError> {
@@ -121,7 +141,7 @@ impl<'a> BucketCreator<'a> {
     async fn setup_public_bucket(&self) -> Result<(), RequestError> {
         self.add_deny_upload_policy().await?;
         self.enable_versioning().await?;
-        self.add_lifecycle(STORAGE_CLASS_PUBLIC).await?;
+        self.add_lifecycle(self.storage_tier()).await?;
         self.enable_notifications().await?;
         self.enable_bucket_logging().await?;
         self.enable_inventory().await?;
@@ -132,13 +152,13 @@ impl<'a> BucketCreator<'a> {
 
     async fn setup_replication_bucket(&self) -> Result<(), RequestError> {
         self.enable_versioning().await?;
-        self.add_lifecycle(STORAGE_CLASS_REPLICATION).await
+        self.add_lifecycle(self.storage_tier()).await
     }
 
     async fn setup_standard_bucket(&self) -> Result<(), RequestError> {
         self.add_deny_upload_policy().await?;
         self.enable_versioning().await?;
-        self.add_lifecycle(STORAGE_CLASS_STANDARD).await?;
+        self.add_lifecycle(self.storage_tier()).await?;
         self.enable_notifications().await?;
         self.enable_bucket_logging().await?;
         self.enable_inventory().await?;
@@ -577,7 +597,7 @@ mod tests {
         let client = TestClientBuilder::new().build();
         let config = test_config_with_client(client);
         let bucket = Bucket::new("test-internal", Type::Internal).unwrap();
-        let creator = BucketCreator::new(&config, &bucket);
+        let creator = BucketCreator::new(&config, &bucket, None);
 
         let result = creator.setup().await;
 

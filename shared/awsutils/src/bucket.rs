@@ -8,7 +8,7 @@ use apputils::{
     stack::{DISALLOWED_AFFIXES, STACK_BUCKET_DELIMITER},
 };
 
-use aws_sdk_s3::Client;
+use aws_sdk_s3::{Client, types::TransitionStorageClass};
 use thiserror::Error;
 use tokio::io::AsyncBufReadExt;
 
@@ -30,8 +30,9 @@ pub const REPLICATION_SUFFIX: &str = "-repl";
 async fn create<'a>(
     config: &'a Config,
     bucket: &'a Bucket,
+    storage_tier_override: Option<TransitionStorageClass>,
 ) -> Result<BucketCreator<'a>, RequestError> {
-    let creator = BucketCreator::new(config, bucket);
+    let creator = BucketCreator::new(config, bucket, storage_tier_override);
 
     creator.create().await?; // escape immediately if create fails
 
@@ -46,11 +47,32 @@ async fn create<'a>(
 }
 
 /// Create primary and replication buckets
-pub async fn create_buckets(config: &Config, buckets: &[(Bucket, Bucket)]) -> Vec<String> {
+pub async fn create_buckets(
+    config: &Config,
+    buckets: &[(Bucket, Bucket)],
+    standard_storage_tier: TransitionStorageClass,
+) -> Vec<String> {
     let mut issues = Vec::new();
 
     for (primary, replication) in buckets {
-        let result = create_bucket_pair(config, primary, replication).await;
+        // Note: for now we only need to allow override of the storage tier
+        // for standard buckets, but this is leaving space to do it for
+        // public and replication buckets in the future (we'd pass opts).
+        let primary_storage_tier_override = match primary.bucket_type() {
+            Type::Standard => Some(standard_storage_tier.clone()),
+            _ => None,
+        };
+
+        let replication_storage_tier_override = None;
+
+        let result = create_bucket_pair(
+            config,
+            primary,
+            replication,
+            primary_storage_tier_override,
+            replication_storage_tier_override,
+        )
+        .await;
         if let Err(e) = &result {
             issues.push(e.to_string());
         }
@@ -64,10 +86,12 @@ async fn create_bucket_pair(
     config: &Config,
     primary: &Bucket,
     replication: &Bucket,
+    primary_storage_tier_override: Option<TransitionStorageClass>,
+    replication_storage_tier_override: Option<TransitionStorageClass>,
 ) -> Result<(), RequestError> {
-    let primary_creator = create(config, primary).await?;
+    let primary_creator = create(config, primary, primary_storage_tier_override).await?;
 
-    let repl_creator = match create(config, replication).await {
+    let repl_creator = match create(config, replication, replication_storage_tier_override).await {
         Ok(creator) => creator,
         Err(e) => {
             if let Err(rollback_err) = primary_creator.rollback().await {

@@ -1,9 +1,10 @@
 use aws_lambda_events::event::s3::S3Event;
-use awsutils::{config::Config, file::File};
+use awsutils::{bucket_request::PerformOptions, config::Config, file::File};
 use lambda_runtime::{tracing, Error, LambdaEvent};
 
 pub(crate) async fn function_handler(
     config: &Config,
+    perform_opts: &PerformOptions,
     event: LambdaEvent<S3Event>,
 ) -> Result<(), Error> {
     let payload = event.payload;
@@ -26,7 +27,7 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    awsutils::bucket_request::perform(config, &File::new(bucket, object))
+    awsutils::bucket_request::perform(config, &File::new(bucket, object), perform_opts)
         .await
         .map_err(|e| Error::from(e.to_string()))?;
 
@@ -56,7 +57,8 @@ mod tests {
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let config = test_config(true);
-        function_handler(&config, event).await.unwrap();
+        let opts = PerformOptions::default();
+        function_handler(&config, &opts, event).await.unwrap();
     }
 
     #[tokio::test]
@@ -70,6 +72,7 @@ mod tests {
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let config = test_config(true);
-        function_handler(&config, event).await.unwrap();
+        let opts = PerformOptions::default();
+        function_handler(&config, &opts, event).await.unwrap();
     }
 }

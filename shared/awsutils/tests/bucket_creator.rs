@@ -12,7 +12,7 @@ mod common;
 use aws_sdk_s3::error::SdkError;
 use aws_sdk_s3::types::{
     BucketVersioningStatus, ExpirationStatus, InventoryFrequency, InventoryIncludedObjectVersions,
-    InventoryOptionalField,
+    InventoryOptionalField, TransitionStorageClass,
 };
 use aws_smithy_types::error::metadata::ProvideErrorMetadata;
 use awsutils::bucket::{Bucket, Type, exists};
@@ -579,7 +579,7 @@ async fn test_create_standard_bucket() {
     let bucket_name = format!("{}-inttest-std-{}", config.stack().as_str(), timestamp());
 
     let bucket = Bucket::new(&bucket_name, Type::Standard).unwrap();
-    let creator = BucketCreator::new(&config, &bucket);
+    let creator = BucketCreator::new(&config, &bucket, Some(TransitionStorageClass::GlacierIr));
 
     creator.create().await.expect("bucket creation failed");
     creator.setup().await.expect("bucket setup failed");
@@ -602,7 +602,7 @@ async fn test_create_public_bucket() {
     let bucket_name = format!("{}-inttest-pub-{}", config.stack().as_str(), timestamp());
 
     let bucket = Bucket::new(&bucket_name, Type::Public).unwrap();
-    let creator = BucketCreator::new(&config, &bucket);
+    let creator = BucketCreator::new(&config, &bucket, None);
 
     creator.create().await.expect("bucket creation failed");
     creator.setup().await.expect("bucket setup failed");
@@ -626,7 +626,7 @@ async fn test_create_replication_bucket() {
     let bucket_name = format!("{}-inttest-repl-{}", config.stack().as_str(), timestamp());
 
     let bucket = Bucket::new(&bucket_name, Type::Replication).unwrap();
-    let creator = BucketCreator::new(&config, &bucket);
+    let creator = BucketCreator::new(&config, &bucket, None);
 
     creator.create().await.expect("bucket creation failed");
     creator.setup().await.expect("bucket setup failed");
@@ -653,7 +653,8 @@ async fn test_create_standard_bucket_pair_with_replication() {
     let primary = Bucket::new(&primary_name, Type::Standard).unwrap();
     let replication = Bucket::new(&repl_name, Type::Replication).unwrap();
 
-    let primary_creator = BucketCreator::new(&config, &primary);
+    let primary_creator =
+        BucketCreator::new(&config, &primary, Some(TransitionStorageClass::GlacierIr));
     primary_creator
         .create()
         .await
@@ -663,7 +664,7 @@ async fn test_create_standard_bucket_pair_with_replication() {
         .await
         .expect("primary bucket setup failed");
 
-    let repl_creator = BucketCreator::new(&config, &replication);
+    let repl_creator = BucketCreator::new(&config, &replication, None);
     repl_creator
         .create()
         .await
@@ -699,7 +700,7 @@ async fn test_create_public_bucket_pair_with_replication() {
     let primary = Bucket::new(&primary_name, Type::Public).unwrap();
     let replication = Bucket::new(&repl_name, Type::Replication).unwrap();
 
-    let primary_creator = BucketCreator::new(&config, &primary);
+    let primary_creator = BucketCreator::new(&config, &primary, None);
     primary_creator
         .create()
         .await
@@ -709,7 +710,7 @@ async fn test_create_public_bucket_pair_with_replication() {
         .await
         .expect("primary bucket setup failed");
 
-    let repl_creator = BucketCreator::new(&config, &replication);
+    let repl_creator = BucketCreator::new(&config, &replication, None);
     repl_creator
         .create()
         .await
@@ -744,7 +745,7 @@ async fn test_rollback_deletes_bucket() {
     );
     let bucket = Bucket::new(&bucket_name, Type::Standard).unwrap();
 
-    let creator = BucketCreator::new(&config, &bucket);
+    let creator = BucketCreator::new(&config, &bucket, Some(TransitionStorageClass::GlacierIr));
     creator.create().await.expect("bucket creation failed");
 
     assert!(

@@ -30,12 +30,10 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    let stats = inventory_report::perform(
-        config,
-        &File::new(bucket, object),
-        apputils::stack::DateCtx::Today,
-    )
-    .await?;
+    let opts = inventory_report::PerformOptions {
+        date_ctx: apputils::stack::DateCtx::Today,
+    };
+    let stats = inventory_report::perform(config, &File::new(bucket, object), &opts).await?;
 
     tracing::info!(
         "Processed {} files, {} bytes total",

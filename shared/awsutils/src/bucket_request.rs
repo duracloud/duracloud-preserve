@@ -1,3 +1,4 @@
+use aws_sdk_s3::types::TransitionStorageClass;
 use aws_smithy_types::body::SdkBody;
 use tracing;
 
@@ -7,8 +8,25 @@ use crate::bucket::{self, RequestError};
 use crate::config::Config;
 use crate::file::{self, File};
 
+#[derive(Debug, Clone)]
+pub struct PerformOptions {
+    pub standard_storage_tier: TransitionStorageClass,
+}
+
+impl Default for PerformOptions {
+    fn default() -> Self {
+        Self {
+            standard_storage_tier: TransitionStorageClass::GlacierIr,
+        }
+    }
+}
+
 /// Process a bucket creation request file from S3
-pub async fn perform(config: &Config, file: &File) -> Result<(), RequestError> {
+pub async fn perform(
+    config: &Config,
+    file: &File,
+    opts: &PerformOptions,
+) -> Result<(), RequestError> {
     tracing::info!("Retrieving request file from S3: {}", file.s3_url());
 
     let names = match bucket::get_bucket_names(config.s3(), file).await {
@@ -35,7 +53,7 @@ pub async fn perform(config: &Config, file: &File) -> Result<(), RequestError> {
     tracing::info!("Buckets to create: {:?}", buckets);
     tracing::info!("Creating buckets");
 
-    let issues = bucket::create_buckets(config, &buckets).await;
+    let issues = bucket::create_buckets(config, &buckets, opts.standard_storage_tier.clone()).await;
     if !issues.is_empty() {
         tracing::error!("{:?}", issues);
         file::feedback(

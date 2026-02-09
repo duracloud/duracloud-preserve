@@ -17,16 +17,17 @@ data "aws_s3_object" "main" {
 resource "aws_lambda_function" "main" {
   for_each = local.functions
 
-  architectures = local.architectures
-  function_name = "${local.stack}-${each.key}"
-  handler       = local.handler
-  memory_size   = each.value.memory
-  timeout       = each.value.timeout
-  package_type  = local.package_type
-  role          = aws_iam_role.lambda[each.key].arn
-  runtime       = local.runtime
-  s3_bucket     = data.aws_s3_object.main[each.key].bucket
-  s3_key        = data.aws_s3_object.main[each.key].key
+  architectures    = local.architectures
+  function_name    = "${local.stack}-${each.key}"
+  handler          = local.handler
+  memory_size      = each.value.memory
+  timeout          = each.value.timeout
+  package_type     = local.package_type
+  role             = aws_iam_role.lambda[each.key].arn
+  runtime          = local.runtime
+  s3_bucket        = data.aws_s3_object.main[each.key].bucket
+  s3_key           = data.aws_s3_object.main[each.key].key
+  source_code_hash = data.aws_s3_object.main[each.key].etag
 
   environment {
     variables = merge(

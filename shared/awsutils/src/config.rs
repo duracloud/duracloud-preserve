@@ -125,9 +125,10 @@ pub struct Roles {
 pub async fn config(stack: Stack) -> Config {
     let sdk_config = default_config().await;
 
-    let account_id = get_account_id(&sdk_config)
-        .await
-        .expect("failed to get account ID");
+    let account_id = get_account_id(&sdk_config).await.unwrap_or_else(|e| {
+        eprintln!("get_account_id failed: {e:?}");
+        panic!("failed to get account id");
+    });
 
     let batch_role_name = stack.batch_role_name();
     let replication_role_name = stack.replication_role_name();
@@ -136,7 +137,10 @@ pub async fn config(stack: Stack) -> Config {
         get_role_arn(&sdk_config, &batch_role_name),
         get_role_arn(&sdk_config, &replication_role_name),
     )
-    .expect("failed to get role ARNs");
+    .unwrap_or_else(|e| {
+        eprintln!("get_role_arn failed: {e:?}");
+        panic!("failed to get role ARNs");
+    });
 
     let roles = Roles {
         batch: batch_role,
@@ -154,16 +158,15 @@ pub async fn default_config() -> SdkConfig {
 /// Get the AWS account ID via STS
 pub async fn get_account_id(config: &SdkConfig) -> Result<String, RequestError> {
     let sts_client = aws_sdk_sts::Client::new(config);
-    let identity = sts_client
-        .get_caller_identity()
-        .send()
-        .await
-        .map_err(|e| RequestError::S3Error(format!("failed to get caller identity: {}", e)))?;
+    let identity =
+        sts_client.get_caller_identity().send().await.map_err(|e| {
+            RequestError::ConfigError(format!("failed to get caller identity: {}", e))
+        })?;
 
     identity
         .account()
         .map(|s| s.to_string())
-        .ok_or_else(|| RequestError::S3Error("no account ID in caller identity".to_string()))
+        .ok_or_else(|| RequestError::ConfigError("no account ID in caller identity".to_string()))
 }
 
 /// Get the S3 Batch Operations role ARN for the stack.
@@ -177,7 +180,7 @@ pub fn get_region(client: &aws_sdk_s3::Client) -> Result<String, RequestError> {
         .config()
         .region()
         .map(|r| r.to_string())
-        .ok_or_else(|| RequestError::S3Error("No region configured for S3 client".to_string()))
+        .ok_or_else(|| RequestError::ConfigError("No region configured for S3 client".to_string()))
 }
 
 /// Get the S3 replication role ARN for the stack.
@@ -198,12 +201,14 @@ async fn get_role_arn(config: &SdkConfig, role_name: &str) -> Result<String, Req
         .role_name(role_name)
         .send()
         .await
-        .map_err(|e| RequestError::S3Error(format!("failed to get role '{}': {}", role_name, e)))?;
+        .map_err(|e| {
+            RequestError::ConfigError(format!("failed to get role '{}': {}", role_name, e))
+        })?;
 
     response
         .role()
         .map(|r| r.arn().to_string())
-        .ok_or_else(|| RequestError::S3Error("role missing ARN".to_string()))
+        .ok_or_else(|| RequestError::ConfigError("role missing ARN".to_string()))
 }
 
 /// Load test config from TEST_STACK env var (defaults to "int-test")

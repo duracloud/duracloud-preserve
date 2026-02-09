@@ -483,6 +483,8 @@ impl Request {
 /// Custom error type for bucket requests
 #[derive(Debug, Error)]
 pub enum RequestError {
+    #[error("Config error: {0}")]
+    ConfigError(String),
     #[error("File size {actual} bytes exceeds maximum of {max} bytes")]
     FileTooLarge { actual: i64, max: i64 },
     #[error("Content Type error: must be a text file")]

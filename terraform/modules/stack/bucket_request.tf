@@ -44,6 +44,7 @@ resource "aws_iam_role_policy" "bucket_request" {
           "s3:PutInventoryConfiguration",
           "s3:PutLifecycleConfiguration",
           "s3:PutReplicationConfiguration",
+          "s3:TagResource",
         ]
         Resource = "arn:aws:s3:::${local.stack}-*"
       },

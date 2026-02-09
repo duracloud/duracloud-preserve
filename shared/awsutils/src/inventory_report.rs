@@ -103,7 +103,7 @@ mod tests {
     use aws_smithy_types::body::SdkBody;
 
     use super::*;
-    use crate::test_client::{TestClientBuilder, recorded_requests, test_config_with_client};
+    use crate::test_client::{MockConfigBuilder, TestClientBuilder, recorded_requests};
 
     fn manifest_json(file_format: &str, parquet_key: &str, parquet_size: usize) -> String {
         serde_json::json!({
@@ -149,7 +149,7 @@ mod tests {
             .ok()
             .build_with_replay();
 
-        let config = test_config_with_client(client);
+        let config = MockConfigBuilder::new().client(client).build();
         let manifest_file = File::new(config.stack().managed_bucket(), manifest_key);
         let opts = PerformOptions {
             date_ctx: DateCtx::Today,
@@ -244,7 +244,7 @@ mod tests {
         let (client, replay) = TestClientBuilder::new()
             .success(manifest, None)
             .build_with_replay();
-        let config = test_config_with_client(client);
+        let config = MockConfigBuilder::new().client(client).build();
         let manifest_file = File::new(config.stack().managed_bucket(), manifest_key);
         let opts = PerformOptions {
             date_ctx: DateCtx::Today,

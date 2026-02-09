@@ -93,7 +93,7 @@ mod tests {
     use super::*;
     use crate::{
         bucket::RequestError,
-        test_client::{TestClientBuilder, test_config_with_client},
+        test_client::{MockConfigBuilder, TestClientBuilder},
     };
 
     fn list_buckets_xml(names: &[&str]) -> String {
@@ -150,7 +150,7 @@ mod tests {
         let client = TestClientBuilder::new()
             .s3_error("NoSuchBucket", "bucket not found")
             .build();
-        let config = test_config_with_client(client);
+        let config = MockConfigBuilder::new().client(client).build();
         let opts = PerformOptions::default();
 
         let err = perform(&config, Some(&bucket_name), &opts)
@@ -168,7 +168,7 @@ mod tests {
         let bucket_name = Name::new("test-stack-alpha-repl").unwrap();
         let tagging = bucket_tagging_xml(&[("BucketType", "replication")]);
         let client = TestClientBuilder::new().success(tagging, None).build();
-        let config = test_config_with_client(client);
+        let config = MockConfigBuilder::new().client(client).build();
         let opts = PerformOptions::default();
 
         let err = perform(&config, Some(&bucket_name), &opts)
@@ -189,7 +189,7 @@ mod tests {
             .success(buckets, None)
             .success(tags, None)
             .build();
-        let config = test_config_with_client(client);
+        let config = MockConfigBuilder::new().client(client).build();
         let opts = PerformOptions::default();
 
         let err = perform(&config, None, &opts)
@@ -210,7 +210,7 @@ mod tests {
         let client = TestClientBuilder::new()
             .success(list_buckets_xml(&[]), None)
             .build();
-        let config = test_config_with_client(client);
+        let config = MockConfigBuilder::new().client(client).build();
         let opts = PerformOptions::default();
 
         let receipts = perform(&config, None, &opts)
@@ -226,7 +226,9 @@ mod tests {
             bucket_pair("test-stack-alpha", bucket::Type::Standard),
             bucket_pair("test-stack-bravo-public", bucket::Type::Public),
         ];
-        let config = test_config_with_client(TestClientBuilder::new().build());
+        let config = MockConfigBuilder::new()
+            .client(TestClientBuilder::new().build())
+            .build();
 
         let receipts = dispatch_checksum_jobs(&config, &bucket_pairs, |_cfg, source, _repl| {
             let source_name = source.name().to_string();
@@ -258,7 +260,9 @@ mod tests {
             bucket_pair("test-stack-bravo-public", bucket::Type::Public),
             bucket_pair("test-stack-charlie", bucket::Type::Standard),
         ];
-        let config = test_config_with_client(TestClientBuilder::new().build());
+        let config = MockConfigBuilder::new()
+            .client(TestClientBuilder::new().build())
+            .build();
 
         let err = dispatch_checksum_jobs(&config, &bucket_pairs, |_cfg, source, _repl| {
             let source_name = source.name().to_string();
@@ -290,7 +294,9 @@ mod tests {
             bucket_pair("test-stack-bravo-public", bucket::Type::Public),
             bucket_pair("test-stack-charlie", bucket::Type::Standard),
         ];
-        let config = test_config_with_client(TestClientBuilder::new().build());
+        let config = MockConfigBuilder::new()
+            .client(TestClientBuilder::new().build())
+            .build();
         let calls: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
 
         let err = dispatch_checksum_jobs(&config, &bucket_pairs, {

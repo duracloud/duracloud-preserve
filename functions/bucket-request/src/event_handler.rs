@@ -37,7 +37,7 @@ pub(crate) async fn function_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use awsutils::test_client::mock_test_config;
+    use awsutils::test_client::MockConfigBuilder;
     use lambda_runtime::{Context, LambdaEvent};
 
     #[tokio::test]
@@ -47,7 +47,7 @@ mod tests {
         let s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
 
         let event = LambdaEvent::new(s3_event, Context::default());
-        let config = mock_test_config(true);
+        let config = MockConfigBuilder::new().debug_handler(true).build();
         let opts = PerformOptions::default();
         function_handler(&config, &opts, event).await.unwrap();
     }
@@ -62,7 +62,7 @@ mod tests {
         s3_event.records[0].s3.bucket.name = Some("test-other-bucket-request".to_string());
 
         let event = LambdaEvent::new(s3_event, Context::default());
-        let config = mock_test_config(true);
+        let config = MockConfigBuilder::new().debug_handler(true).build();
         let opts = PerformOptions::default();
         function_handler(&config, &opts, event).await.unwrap();
     }

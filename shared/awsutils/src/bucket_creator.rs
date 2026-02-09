@@ -594,12 +594,12 @@ impl<'a> BucketCreator<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_client::{TestClientBuilder, test_config_with_client};
+    use crate::test_client::{MockConfigBuilder, TestClientBuilder};
 
     #[tokio::test]
     async fn test_setup_unsupported_for_internal_bucket() {
         let client = TestClientBuilder::new().build();
-        let config = test_config_with_client(client);
+        let config = MockConfigBuilder::new().client(client).build();
         let bucket = Bucket::new("test-internal", Type::Internal).unwrap();
         let creator = BucketCreator::new(&config, &bucket, None);
 

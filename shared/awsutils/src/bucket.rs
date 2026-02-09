@@ -536,7 +536,7 @@ impl std::fmt::Display for Type {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_client::{TestClientBuilder, test_config_with_client_and_stack};
+    use crate::test_client::{MockConfigBuilder, TestClientBuilder};
 
     #[test]
     fn test_type_from_tag_value() {
@@ -726,7 +726,7 @@ mod tests {
     fn test_review_bucket_names() {
         let stack = Stack::new("test-stack").unwrap();
         let client = TestClientBuilder::new().ok().build();
-        let config = test_config_with_client_and_stack(client, stack);
+        let config = MockConfigBuilder::new().client(client).stack(stack).build();
 
         let names = vec!["example".to_string(), "data-public".to_string()];
 

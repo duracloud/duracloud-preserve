@@ -8,6 +8,71 @@ use crate::config::{Clients, Config, Roles};
 
 const DEFAULT_TEST_URI: &str = "https://test.s3.amazonaws.com/";
 
+/// Builder for creating mock Config values in tests.
+pub struct MockConfigBuilder {
+    client: aws_sdk_s3::Client,
+    stack: Stack,
+    debug_handler: bool,
+}
+
+impl Default for MockConfigBuilder {
+    fn default() -> Self {
+        Self {
+            client: TestClientBuilder::new().ok().build(),
+            stack: Stack::new("test-stack").unwrap(),
+            debug_handler: false,
+        }
+    }
+}
+
+impl MockConfigBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn client(mut self, client: aws_sdk_s3::Client) -> Self {
+        self.client = client;
+        self
+    }
+
+    pub fn stack(mut self, stack: Stack) -> Self {
+        self.stack = stack;
+        self
+    }
+
+    pub fn debug_handler(mut self, debug_handler: bool) -> Self {
+        self.debug_handler = debug_handler;
+        self
+    }
+
+    pub fn build(self) -> Config {
+        build_mock_config(self.client, self.stack, self.debug_handler)
+    }
+}
+
+fn build_mock_config(client: aws_sdk_s3::Client, stack: Stack, debug_handler: bool) -> Config {
+    let sdk_config = aws_config::SdkConfig::builder()
+        .behavior_version(aws_config::BehaviorVersion::latest())
+        .region(aws_config::Region::new("us-east-1"))
+        .build();
+
+    let roles = Roles {
+        batch: "arn:aws:iam::123456789:role/test-batch-role".to_string(),
+        replication: "arn:aws:iam::123456789:role/test-replication-role".to_string(),
+    };
+
+    let clients = Clients::with_s3(&sdk_config, client);
+
+    Config::new_with_clients(
+        sdk_config,
+        "123456789".to_string(),
+        roles,
+        stack,
+        debug_handler,
+        clients,
+    )
+}
+
 /// Builder for creating test S3 clients with mock responses.
 ///
 /// URIs are not matched by StaticReplayClient - responses are returned in order.
@@ -117,19 +182,6 @@ pub async fn integration_test_config() -> Config {
     crate::config::config(stack).await
 }
 
-/// Create a default mock Config for unit tests.
-pub fn mock_test_config(debug_handler: bool) -> Config {
-    mock_test_config_with_stack(Stack::new("test-stack").unwrap(), debug_handler)
-}
-
-/// Create a mock Config for unit tests with custom stack and debug flag.
-pub fn mock_test_config_with_stack(stack: Stack, debug_handler: bool) -> Config {
-    let client = TestClientBuilder::new().ok().build();
-    let mut config = test_config_with_client_and_stack(client, stack);
-    config.debug_handler = debug_handler;
-    config
-}
-
 /// Minimal request record for test assertions.
 #[derive(Debug, Clone)]
 pub struct RecordedRequest {
@@ -165,41 +217,5 @@ pub fn replay_event(uri: &str, status: u16, body: impl Into<SdkBody>) -> ReplayE
             .status(status)
             .body(body.into())
             .unwrap(),
-    )
-}
-
-/// Create a test Config with a mock S3 client.
-///
-/// WARNING: Only the S3 client is mocked. The s3control and lambda clients are
-/// real clients that will attempt network calls and use the credentials chain.
-/// Tests should only exercise code paths that use the S3 client.
-pub fn test_config_with_client(client: aws_sdk_s3::Client) -> Config {
-    test_config_with_client_and_stack(client, Stack::new("test-stack").unwrap())
-}
-
-/// Create a test Config with a mock S3 client and custom stack.
-pub fn test_config_with_client_and_stack(
-    client: aws_sdk_s3::Client,
-    stack: apputils::Stack,
-) -> Config {
-    let sdk_config = aws_config::SdkConfig::builder()
-        .behavior_version(aws_config::BehaviorVersion::latest())
-        .region(aws_config::Region::new("us-east-1"))
-        .build();
-
-    let roles = Roles {
-        batch: "arn:aws:iam::123456789:role/test-batch-role".to_string(),
-        replication: "arn:aws:iam::123456789:role/test-replication-role".to_string(),
-    };
-
-    let clients = Clients::with_s3(&sdk_config, client);
-
-    Config::new_with_clients(
-        sdk_config,
-        "123456789".to_string(),
-        roles,
-        stack,
-        false,
-        clients,
     )
 }

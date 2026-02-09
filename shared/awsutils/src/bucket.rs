@@ -19,8 +19,8 @@ pub(crate) const BUCKET_TAG_STACK_KEY: &str = "Stack";
 pub(crate) const BUCKET_TAG_TYPE_KEY: &str = "BucketType";
 
 pub const MAX_BUCKETS_PER_REQUEST: u8 = 5;
-pub const MAX_BUCKETS_REQUEST_FILE_SIZE: u16 = 512;
-pub const MAX_LEN_FOR_REQUEST_NAME: u8 = 63;
+pub const MAX_REQUEST_FILE_SIZE: u16 = 512;
+pub const MAX_LEN_FOR_NAME: u8 = 63;
 
 const PUBLIC_SUFFIX: &str = "-public";
 pub const REPLICATION_SUFFIX: &str = "-repl";
@@ -212,11 +212,11 @@ pub async fn get_bucket_names(client: &Client, file: &File) -> Result<Vec<String
     }
 
     if let Some(len) = r.content_length()
-        && len > MAX_BUCKETS_REQUEST_FILE_SIZE as i64
+        && len > MAX_REQUEST_FILE_SIZE as i64
     {
         return Err(RequestError::FileTooLarge {
             actual: len,
-            max: MAX_BUCKETS_REQUEST_FILE_SIZE as i64,
+            max: MAX_REQUEST_FILE_SIZE as i64,
         });
     }
 
@@ -407,10 +407,10 @@ impl Name {
             }
         }
 
-        if name.len() > MAX_LEN_FOR_REQUEST_NAME as usize {
+        if name.len() > MAX_LEN_FOR_NAME as usize {
             return Err(RequestError::ValidationError(format!(
                 "name cannot exceed total length of {} ({})",
-                MAX_LEN_FOR_REQUEST_NAME, name
+                MAX_LEN_FOR_NAME, name
             )));
         }
 
@@ -594,8 +594,8 @@ mod tests {
         assert!(Name::new("test-").is_err());
 
         // length
-        assert!(Name::new("t".repeat(MAX_LEN_FOR_REQUEST_NAME as usize).as_str()).is_ok());
-        assert!(Name::new("t".repeat((MAX_LEN_FOR_REQUEST_NAME as usize) + 1).as_str()).is_err());
+        assert!(Name::new("t".repeat(MAX_LEN_FOR_NAME as usize).as_str()).is_ok());
+        assert!(Name::new("t".repeat((MAX_LEN_FOR_NAME as usize) + 1).as_str()).is_err());
 
         // invalid chars
         assert!(Name::new("test ").is_err());
@@ -623,7 +623,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_bucket_names_exceeds_size_limit() {
-        let content = "a".repeat((MAX_BUCKETS_REQUEST_FILE_SIZE + 1) as usize);
+        let content = "a".repeat((MAX_REQUEST_FILE_SIZE + 1) as usize);
         let file = File::new("test-bucket", "buckets.txt");
         let client = TestClientBuilder::new()
             .success(content, Some("text/plain".to_string()))
@@ -634,8 +634,8 @@ mod tests {
         assert!(result.is_err());
         match result {
             Err(RequestError::FileTooLarge { actual, max }) => {
-                assert_eq!(actual, (MAX_BUCKETS_REQUEST_FILE_SIZE + 1) as i64);
-                assert_eq!(max, MAX_BUCKETS_REQUEST_FILE_SIZE as i64);
+                assert_eq!(actual, (MAX_REQUEST_FILE_SIZE + 1) as i64);
+                assert_eq!(max, MAX_REQUEST_FILE_SIZE as i64);
             }
             _ => panic!("Expected FileTooLarge error"),
         }

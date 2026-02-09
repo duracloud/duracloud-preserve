@@ -7,6 +7,13 @@ locals {
   runtime       = "provided.al2023"
 }
 
+data "aws_s3_object" "main" {
+  for_each = local.functions
+
+  bucket = each.value.bucket
+  key    = each.value.file
+}
+
 resource "aws_lambda_function" "main" {
   for_each = local.functions
 
@@ -18,8 +25,8 @@ resource "aws_lambda_function" "main" {
   package_type  = local.package_type
   role          = aws_iam_role.lambda[each.key].arn
   runtime       = local.runtime
-  s3_bucket     = each.value.bucket
-  s3_key        = each.value.file
+  s3_bucket     = data.aws_s3_object.main[each.key].bucket
+  s3_key        = data.aws_s3_object.main[each.key].key
 
   environment {
     variables = merge(

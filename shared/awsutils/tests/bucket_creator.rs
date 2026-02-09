@@ -17,7 +17,8 @@ use aws_sdk_s3::types::{
 use aws_smithy_types::error::metadata::ProvideErrorMetadata;
 use awsutils::bucket::{Bucket, Type, exists};
 use awsutils::bucket_creator::BucketCreator;
-use awsutils::config::{Config, test_config};
+use awsutils::config::Config;
+use awsutils::test_client::integration_test_config;
 use common::{cleanup_bucket, timestamp};
 
 // --- Verification Helpers ---
@@ -575,7 +576,7 @@ async fn verify_no_bucket_policy(config: &Config, bucket: &str) {
 #[tokio::test]
 #[ignore]
 async fn test_create_standard_bucket() {
-    let config = test_config().await;
+    let config = integration_test_config().await;
     let bucket_name = format!("{}-inttest-std-{}", config.stack().as_str(), timestamp());
 
     let bucket = Bucket::new(&bucket_name, Type::Standard).unwrap();
@@ -598,7 +599,7 @@ async fn test_create_standard_bucket() {
 #[tokio::test]
 #[ignore]
 async fn test_create_public_bucket() {
-    let config = test_config().await;
+    let config = integration_test_config().await;
     let bucket_name = format!("{}-inttest-pub-{}", config.stack().as_str(), timestamp());
 
     let bucket = Bucket::new(&bucket_name, Type::Public).unwrap();
@@ -622,7 +623,7 @@ async fn test_create_public_bucket() {
 #[tokio::test]
 #[ignore]
 async fn test_create_replication_bucket() {
-    let config = test_config().await;
+    let config = integration_test_config().await;
     let bucket_name = format!("{}-inttest-repl-{}", config.stack().as_str(), timestamp());
 
     let bucket = Bucket::new(&bucket_name, Type::Replication).unwrap();
@@ -645,7 +646,7 @@ async fn test_create_replication_bucket() {
 #[tokio::test]
 #[ignore]
 async fn test_create_standard_bucket_pair_with_replication() {
-    let config = test_config().await;
+    let config = integration_test_config().await;
     let ts = timestamp();
     let primary_name = format!("{}-inttest-pair-{}", config.stack().as_str(), ts);
     let repl_name = format!("{}-inttest-pair-{}-repl", config.stack().as_str(), ts);
@@ -688,7 +689,7 @@ async fn test_create_standard_bucket_pair_with_replication() {
 #[tokio::test]
 #[ignore]
 async fn test_create_public_bucket_pair_with_replication() {
-    let config = test_config().await;
+    let config = integration_test_config().await;
     let ts = timestamp();
     let primary_name = format!("{}-inttest-pairpub-{}-public", config.stack().as_str(), ts);
     let repl_name = format!(
@@ -737,7 +738,7 @@ async fn test_create_public_bucket_pair_with_replication() {
 #[tokio::test]
 #[ignore]
 async fn test_rollback_deletes_bucket() {
-    let config = test_config().await;
+    let config = integration_test_config().await;
     let bucket_name = format!(
         "{}-inttest-rollback-{}",
         config.stack().as_str(),

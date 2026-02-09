@@ -4,7 +4,7 @@
 //!   cargo test --test bucket_request -- --ignored --test-threads=1
 //!
 //! Prerequisites:
-//!   - Set TEST_STACK env var (defaults to "inttest")
+//!   - Set TEST_STACK env var (defaults to "int-test")
 //!   - Run: make setup s=<stack> p=<profile>
 
 mod common;
@@ -12,14 +12,14 @@ mod common;
 use apputils::content_type;
 use aws_smithy_types::body::SdkBody;
 use awsutils::bucket::{delete, empty, exists};
-use awsutils::config::test_config;
 use awsutils::file::File;
+use awsutils::test_client::integration_test_config;
 use common::timestamp;
 
 #[tokio::test]
 #[ignore]
 async fn test_perform() {
-    let config = test_config().await;
+    let config = integration_test_config().await;
     let ts = timestamp();
     let bucket_name = format!("perf-{}", ts);
 

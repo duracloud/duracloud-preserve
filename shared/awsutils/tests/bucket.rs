@@ -4,7 +4,7 @@
 //!   cargo test --test bucket -- --ignored --test-threads=1
 //!
 //! Prerequisites:
-//!   - Set TEST_STACK env var (defaults to "inttest")
+//!   - Set TEST_STACK env var (defaults to "int-test")
 //!   - Run: make setup s=<stack> p=<profile>
 
 mod common;
@@ -15,13 +15,13 @@ use awsutils::bucket::{
     Bucket, Type, delete, empty, exists, get_stack_buckets, get_stack_buckets_by_type,
 };
 use awsutils::bucket_creator::BucketCreator;
-use awsutils::config::test_config;
+use awsutils::test_client::integration_test_config;
 use common::timestamp;
 
 #[tokio::test]
 #[ignore]
 async fn test_bucket_from_name() {
-    let config = test_config().await;
+    let config = integration_test_config().await;
 
     let ts = timestamp();
     let bucket_name = format!("{}-inttest-fromname-{}", config.stack().as_str(), ts);
@@ -53,7 +53,7 @@ async fn test_bucket_from_name() {
 #[tokio::test]
 #[ignore]
 async fn test_get_stack_buckets() {
-    let config = test_config().await;
+    let config = integration_test_config().await;
 
     let ts = timestamp();
     let bucket_name = format!("{}-inttest-discovery-{}", config.stack().as_str(), ts);
@@ -77,7 +77,7 @@ async fn test_get_stack_buckets() {
 #[tokio::test]
 #[ignore]
 async fn test_get_stack_buckets_by_type() {
-    let config = test_config().await;
+    let config = integration_test_config().await;
 
     let ts = timestamp();
     let std_name = format!("{}-inttest-type-std-{}", config.stack().as_str(), ts);
@@ -126,7 +126,7 @@ async fn test_get_stack_buckets_by_type() {
 #[tokio::test]
 #[ignore]
 async fn test_empty_bucket() {
-    let config = test_config().await;
+    let config = integration_test_config().await;
 
     let ts = timestamp();
     let bucket_name = format!("{}-inttest-empty-{}", config.stack().as_str(), ts);

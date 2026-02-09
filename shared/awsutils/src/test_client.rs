@@ -1,3 +1,4 @@
+use apputils::Stack;
 use aws_sdk_s3::{Client, config::Region, primitives::SdkBody};
 use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
 use http::header::CONTENT_TYPE;
@@ -109,6 +110,26 @@ impl TestClientBuilder {
     }
 }
 
+/// Create a Config for integration tests using TEST_STACK (defaults to "int-test").
+pub async fn integration_test_config() -> Config {
+    let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "int-test".to_string());
+    let stack = Stack::new(&stack_name).expect("invalid stack name");
+    crate::config::config(stack).await
+}
+
+/// Create a default mock Config for unit tests.
+pub fn mock_test_config(debug_handler: bool) -> Config {
+    mock_test_config_with_stack(Stack::new("test-stack").unwrap(), debug_handler)
+}
+
+/// Create a mock Config for unit tests with custom stack and debug flag.
+pub fn mock_test_config_with_stack(stack: Stack, debug_handler: bool) -> Config {
+    let client = TestClientBuilder::new().ok().build();
+    let mut config = test_config_with_client_and_stack(client, stack);
+    config.debug_handler = debug_handler;
+    config
+}
+
 /// Minimal request record for test assertions.
 #[derive(Debug, Clone)]
 pub struct RecordedRequest {
@@ -153,7 +174,6 @@ pub fn replay_event(uri: &str, status: u16, body: impl Into<SdkBody>) -> ReplayE
 /// real clients that will attempt network calls and use the credentials chain.
 /// Tests should only exercise code paths that use the S3 client.
 pub fn test_config_with_client(client: aws_sdk_s3::Client) -> Config {
-    use apputils::Stack;
     test_config_with_client_and_stack(client, Stack::new("test-stack").unwrap())
 }
 

@@ -1,3 +1,4 @@
+use awsutils::bucket_creator;
 use lambda_runtime::{run, service_fn, tracing, Error};
 
 mod event_handler;
@@ -18,7 +19,7 @@ async fn main() -> Result<(), Error> {
 
     let standard_storage_tier = match env::var("STORAGE_TIER") {
         Ok(value) => parse_storage_tier(&value)?,
-        Err(env::VarError::NotPresent) => TransitionStorageClass::GlacierIr,
+        Err(env::VarError::NotPresent) => bucket_creator::STORAGE_CLASS_STANDARD_DEFAULT,
         Err(e) => {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,

@@ -26,9 +26,13 @@ const INVENTORY_ID: &str = "inventory";
 const INVENTORY_PREFIX: &str = "manifests";
 const LOGGING_PREFIX: &str = "audit";
 
-const STORAGE_CLASS_PUBLIC: TransitionStorageClass = TransitionStorageClass::IntelligentTiering;
-const STORAGE_CLASS_REPLICATION: TransitionStorageClass = TransitionStorageClass::DeepArchive;
-const STORAGE_CLASS_STANDARD: TransitionStorageClass = TransitionStorageClass::GlacierIr;
+pub const STORAGE_CLASS_STANDARD_DEFAULT: TransitionStorageClass =
+    TransitionStorageClass::GlacierIr;
+const STORAGE_CLASS_PUBLIC_DEFAULT: TransitionStorageClass =
+    TransitionStorageClass::IntelligentTiering;
+const STORAGE_CLASS_REPLICATION_DEFAULT: TransitionStorageClass =
+    TransitionStorageClass::DeepArchive;
+
 const STORAGE_TRANSITION_DAYS: u8 = 7;
 
 /// Handles bucket setup by delegating to the appropriate methods per bucket type.
@@ -56,10 +60,10 @@ impl<'a> BucketCreator<'a> {
         self.storage_tier_override
             .clone()
             .unwrap_or_else(|| match self.bucket.bucket_type() {
-                Type::Public => STORAGE_CLASS_PUBLIC,
-                Type::Replication => STORAGE_CLASS_REPLICATION,
-                Type::Standard => STORAGE_CLASS_STANDARD,
-                _ => STORAGE_CLASS_STANDARD,
+                Type::Public => STORAGE_CLASS_PUBLIC_DEFAULT,
+                Type::Replication => STORAGE_CLASS_REPLICATION_DEFAULT,
+                Type::Standard => STORAGE_CLASS_STANDARD_DEFAULT,
+                _ => STORAGE_CLASS_STANDARD_DEFAULT,
             })
     }
 

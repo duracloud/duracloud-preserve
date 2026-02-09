@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "cli",
     "functions/bucket-request",
+    "functions/compute-checksums",
     "functions/inventory-report",
     "shared/apputils",
     "shared/awsutils"

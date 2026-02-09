@@ -17,8 +17,8 @@ resource "aws_cloudwatch_event_rule" "batch_job_complete" {
 }
 
 # Event target associating batch job complete rule with lambda functions
-# resource "aws_cloudwatch_event_target" "batch_job_complete_for_compute_checksums" {
+# resource "aws_cloudwatch_event_target" "batch_job_complete_for_checksum_report" {
 #   rule      = aws_cloudwatch_event_rule.batch_job_complete.name
 #   target_id = "checksum-report"
-#   arn       = aws_lambda_function.main["compute-checksums"].arn
+#   arn       = aws_lambda_function.main["checksum-report"].arn
 # }

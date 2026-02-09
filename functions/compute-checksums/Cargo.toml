@@ -1,0 +1,11 @@
+[package]
+name = "compute-checksums"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+apputils = { path = "../../shared/apputils/" }
+aws_lambda_events = { version = "1.0.0", default-features = false, features = ["cloudwatch_events"] }
+awsutils = { path = "../../shared/awsutils" }
+lambda_runtime = "1.0.1"
+tokio = { version = "1", features = ["macros"] }

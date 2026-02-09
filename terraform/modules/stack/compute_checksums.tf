@@ -21,8 +21,11 @@ resource "aws_iam_role_policy" "compute_checksums" {
         Resource = "*"
       },
       {
-        Effect   = "Allow"
-        Action   = "s3:GetBucketTagging"
+        Effect = "Allow"
+        Action = [
+          "s3:GetBucketTagging",
+          "s3:ListTagsForResource"
+        ]
         Resource = "arn:aws:s3:::${local.stack}-*"
       },
       {

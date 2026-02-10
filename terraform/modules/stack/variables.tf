@@ -13,9 +13,10 @@ variable "functions" {
     # optionals
     env      = optional(map(string), {})
     memory   = optional(number, 128)
-    schedule = optional(string)
+    schedule = optional(string, "cron(0 0 1 1,6 ? *)")
     storage  = optional(number, 512)
     timeout  = optional(number, 30)
+    tz       = optional(string, "UTC")
   }))
   default = {}
 }

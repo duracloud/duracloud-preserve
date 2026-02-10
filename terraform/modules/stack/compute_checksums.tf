@@ -47,31 +47,49 @@ resource "aws_iam_role_policy" "compute_checksums" {
   })
 }
 
-resource "aws_lambda_permission" "compute_checksums" {
+resource "aws_scheduler_schedule" "compute_checksums" {
   count = local.deploy_compute_checksums ? 1 : 0
 
-  statement_id  = "AllowExecutionFromEventBridge"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.main["compute-checksums"].function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.compute_checksums[0].arn
+  name                         = "${local.stack}-compute-checksums-schedule"
+  schedule_expression          = local.functions["compute-checksums"].schedule
+  schedule_expression_timezone = local.functions["compute-checksums"].tz
 
-  depends_on = [aws_lambda_function.main["compute-checksums"]]
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = aws_lambda_function.main["compute-checksums"].arn
+    role_arn = aws_iam_role.compute_checksums_scheduler[0].arn
+  }
+
+  depends_on = [aws_iam_role_policy.compute_checksums_scheduler[0]]
 }
 
-resource "aws_cloudwatch_event_rule" "compute_checksums" {
+resource "aws_iam_role" "compute_checksums_scheduler" {
   count = local.deploy_compute_checksums ? 1 : 0
 
-  name                = "${local.stack}-compute-checksums-schedule"
-  description         = "Trigger compute checksums job"
-  schedule_expression = local.functions["compute-checksums"].schedule
-  state               = "ENABLED"
+  name = "${local.stack}-compute-checksums-scheduler"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "scheduler.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
 }
 
-resource "aws_cloudwatch_event_target" "compute_checksums" {
+resource "aws_iam_role_policy" "compute_checksums_scheduler" {
   count = local.deploy_compute_checksums ? 1 : 0
 
-  rule      = aws_cloudwatch_event_rule.compute_checksums[0].name
-  target_id = "compute-checksums"
-  arn       = aws_lambda_function.main["compute-checksums"].arn
+  role = aws_iam_role.compute_checksums_scheduler[0].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "lambda:InvokeFunction"
+      Resource = aws_lambda_function.main["compute-checksums"].arn
+    }]
+  })
 }

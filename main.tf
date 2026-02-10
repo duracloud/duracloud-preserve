@@ -26,6 +26,12 @@ locals {
       file   = "target/lambda/bucket-request/bootstrap.zip"
       env    = { STORAGE_TIER = "GLACIER_IR" }
     }
+    compute-checksums = {
+      bucket = local.functions_bucket
+      file   = "target/lambda/compute-checksums/bootstrap.zip"
+      # schedule = "at(2026-02-09T16:30:00)" # uncomment and adjust for one-off invokes
+      # tz       = "America/Los_Angeles"
+    }
     inventory-report = {
       bucket = local.functions_bucket
       file   = "target/lambda/inventory-report/bootstrap.zip"
@@ -39,6 +45,8 @@ module "stack" {
   deploy_functions = var.deploy
   stack            = local.stack
   functions        = local.functions
+
+  depends_on = [module.artifacts]
 }
 
 module "artifacts" {

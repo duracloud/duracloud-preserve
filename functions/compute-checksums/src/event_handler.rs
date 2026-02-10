@@ -25,6 +25,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_event_handler() {
+        // This is very unexciting because a scheduled event doesn't have anything for us
         let event = LambdaEvent::new(CloudWatchEvent::default(), Context::default());
         let config = MockConfigBuilder::new().debug_handler(true).build();
         function_handler(&config, event).await.unwrap();

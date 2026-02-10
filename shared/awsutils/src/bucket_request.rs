@@ -5,6 +5,7 @@ use tracing;
 use apputils::content_type::TEXT_PLAIN;
 
 use crate::bucket::{self, RequestError};
+use crate::bucket_creator;
 use crate::config::Config;
 use crate::file::{self, File};
 
@@ -16,7 +17,7 @@ pub struct PerformOptions {
 impl Default for PerformOptions {
     fn default() -> Self {
         Self {
-            standard_storage_tier: TransitionStorageClass::GlacierIr,
+            standard_storage_tier: bucket_creator::STORAGE_CLASS_STANDARD_DEFAULT,
         }
     }
 }

@@ -49,6 +49,27 @@ resource "aws_cloudwatch_log_group" "main" {
   retention_in_days = 7
 }
 
+# resource "aws_cloudwatch_metric_alarm" "main" {
+#   for_each = local.functions
+
+#   alarm_name          = "${local.stack}-${each.key}-alarm"
+#   comparison_operator = "GreaterThanThreshold"
+#   evaluation_periods  = "1"
+#   metric_name         = "Errors"
+#   namespace           = "AWS/Lambda"
+#   period              = "300"
+#   statistic           = "Sum"
+#   threshold           = "0"
+#   alarm_description   = "Error processing ${local.stack} ${each.key}"
+#   treat_missing_data  = "notBreaching"
+
+#   dimensions = {
+#     FunctionName = aws_lambda_function.main[each.key].function_name
+#   }
+
+#   alarm_actions = []
+# }
+
 resource "aws_iam_role" "lambda" {
   for_each = local.functions
 

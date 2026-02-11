@@ -3,6 +3,8 @@ use aws_sdk_s3::Client;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3control::{
     self as s3control,
+    error::{DisplayErrorContext, ProvideErrorMetadata, SdkError as S3ControlSdkError},
+    operation::RequestId,
     types::{
         ComputeObjectChecksumAlgorithm, ComputeObjectChecksumType, GeneratedManifestFormat,
         JobManifestGenerator, JobOperation, JobReport, JobReportFormat, JobReportScope, JobStatus,
@@ -207,7 +209,7 @@ async fn run(params: JobParams<'_>) -> Result<String, BatchError> {
         .confirmation_required(false)
         .send()
         .await
-        .map_err(|e| BatchError::S3Control(Box::new(e)))?;
+        .map_err(|e| BatchError::S3Control(Box::new(s3control_error("CreateJob", &e))))?;
 
     response
         .job_id
@@ -245,7 +247,7 @@ pub async fn get_job_status(config: &Config, job_id: &str) -> Result<JobStatus, 
         .job_id(job_id)
         .send()
         .await
-        .map_err(|e| BatchError::S3Control(Box::new(e)))?;
+        .map_err(|e| BatchError::S3Control(Box::new(s3control_error("DescribeJob", &e))))?;
 
     let job = resp
         .job
@@ -279,6 +281,20 @@ pub async fn get_manifest_if_ready(
             Ok(None)
         }
     }
+}
+
+fn s3control_error<E>(operation: &str, e: &S3ControlSdkError<E>) -> std::io::Error
+where
+    E: std::error::Error + ProvideErrorMetadata + std::fmt::Debug + Send + Sync + 'static,
+{
+    let code = e.code().unwrap_or("unknown");
+    let message = e.message().unwrap_or("unknown");
+    let request_id = e.request_id().unwrap_or("unknown");
+
+    std::io::Error::other(format!(
+        "{operation} failed: code={code}, message={message}, request_id={request_id}, context={}",
+        DisplayErrorContext(e)
+    ))
 }
 
 /// Trigger compute checksum jobs for source and replication bucket pair

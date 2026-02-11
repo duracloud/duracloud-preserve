@@ -11,13 +11,12 @@ resource "aws_iam_role_policy" "compute_checksums" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = "s3:CreateJob"
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = "s3:ListAllMyBuckets"
+        Effect = "Allow"
+        Action = [
+          "s3:CreateJob",
+          "s3:GetAccountPublicAccessBlock",
+          "s3:ListAllMyBuckets"
+        ]
         Resource = "*"
       },
       {
@@ -39,7 +38,10 @@ resource "aws_iam_role_policy" "compute_checksums" {
         Resource = aws_iam_role.batch.arn
         Condition = {
           StringEquals = {
-            "iam:PassedToService" = "batchoperations.s3.amazonaws.com"
+            "iam:PassedToService" = [
+              "s3.amazonaws.com",
+              "batchoperations.s3.amazonaws.com"
+            ]
           }
         }
       }

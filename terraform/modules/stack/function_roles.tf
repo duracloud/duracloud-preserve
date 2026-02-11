@@ -22,6 +22,15 @@ resource "aws_iam_role_policy" "batch" {
     Version = "2012-10-17"
     Statement = [
       {
+        Effect = "Allow"
+        Action = [
+          "s3:GetBucketLocation",
+          "s3:ListBucket",
+          "s3:PutInventoryConfiguration"
+        ]
+        Resource = "arn:aws:s3:::${local.stack}*"
+      },
+      {
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:GetObjectVersion", "s3:RestoreObject"]
         Resource = "arn:aws:s3:::${local.stack}*/*"
@@ -30,11 +39,6 @@ resource "aws_iam_role_policy" "batch" {
         Effect   = "Allow"
         Action   = "s3:PutObject"
         Resource = "${aws_s3_bucket.main["managed"].arn}/*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = "s3:PutInventoryConfiguration"
-        Resource = "arn:aws:s3:::${local.stack}*"
       }
     ]
   })

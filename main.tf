@@ -15,6 +15,13 @@ provider "aws" {}
 variable "deploy" { default = false }
 variable "stack" {}
 
+# To one-off run compute checksums create a `.local.auto.tfvars` with content like:
+# compute_checksums_schedule = "at(2026-02-10T16:00:00)"
+# compute_checksums_tz       = "America/Los_Angeles"
+# Deploy it, then delete when done.
+variable "compute_checksums_schedule" { default = null }
+variable "compute_checksums_tz" { default = null }
+
 locals {
   deploy = var.deploy
   stack  = var.stack
@@ -26,12 +33,16 @@ locals {
       file   = "target/lambda/bucket-request/bootstrap.zip"
       env    = { STORAGE_TIER = "GLACIER_IR" }
     }
-    compute-checksums = {
-      bucket = local.functions_bucket
-      file   = "target/lambda/compute-checksums/bootstrap.zip"
-      # schedule = "at(2026-02-09T16:30:00)" # uncomment and adjust for one-off invokes
-      # tz       = "America/Los_Angeles"
-    }
+    compute-checksums = merge(
+      {
+        bucket = local.functions_bucket
+        file   = "target/lambda/compute-checksums/bootstrap.zip"
+      },
+      var.compute_checksums_schedule != null ? {
+        schedule = var.compute_checksums_schedule
+        tz       = coalesce(var.compute_checksums_tz, "America/Los_Angeles")
+      } : {}
+    )
     inventory-report = {
       bucket = local.functions_bucket
       file   = "target/lambda/inventory-report/bootstrap.zip"

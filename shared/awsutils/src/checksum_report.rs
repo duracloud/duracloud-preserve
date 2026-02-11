@@ -14,7 +14,7 @@ pub async fn perform(
     job_file: &File,
     _opts: &PerformOptions,
 ) -> Result<(), RequestError> {
-    tracing::info!("Retrieving job file from S3: {}", job_file.s3_url());
+    tracing::info!("Retrieving job receipt from S3: {}", job_file.s3_url());
 
     let bytes = file::download_bytes(config.s3(), job_file).await?;
     let receipt: ChecksumJobReceipt = serde_json::from_slice(&bytes)?;
@@ -26,7 +26,7 @@ pub async fn perform(
         return Ok(());
     };
 
-    tracing::info!("{:?}", &source);
+    tracing::info!("Source job file found: {:?}", &source);
 
     let Some(repl) =
         get_manifest_if_ready(config, &receipt.repl_bucket, &receipt.repl_job_id).await?
@@ -35,7 +35,7 @@ pub async fn perform(
         return Ok(());
     };
 
-    tracing::info!("{:?}", &repl);
+    tracing::info!("Replication job file found: {:?}", &repl);
 
     // download the files (as inventory does)
     // pass to ChecksumVerifier::load(source_reports, replication_reports)

@@ -1,6 +1,21 @@
 # Lyrasis hosting and support
 
-Details regarding configuration for hosted deployments:
+DuraCloud is open source and freely available for anyone to deploy into their own AWS account. However, Lyrasis provides a hosted option for individuals or institutions wanting a managed service.
+
+## Benefits
+
+- Lyrasis manages an AWS account for you, which can be transferred to your ownership at any time with 30 days notice of cancelation of your hosting contract.
+- Setup, configuration, and monitoring are fully handled by Lyrasis.
+- You receive S3 access credentials to interact with DuraCloud using any S3 client.
+  - Credentials can provide "full" or more "limited" access per user.
+- Technical support is provided by experienced hosting staff.
+- A simple web based option for file uploads is made available to you.
+
+For pricing information and other details [...](#).
+
+## Configuration
+
+Here are details regarding configuration for hosted deployments:
 
 ## Lifecycle transitions
 

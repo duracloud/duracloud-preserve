@@ -1,9 +1,10 @@
 use aws_lambda_events::event::s3::S3Event;
 use awsutils::{config::Config, file::File, inventory_report};
-use lambda_runtime::{tracing, Error, LambdaEvent};
+use lambda_runtime::{Error, LambdaEvent, tracing};
 
 pub(crate) async fn function_handler(
     config: &Config,
+    perform_opts: &inventory_report::PerformOptions,
     event: LambdaEvent<S3Event>,
 ) -> Result<(), Error> {
     let payload = event.payload;
@@ -30,10 +31,7 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    let opts = inventory_report::PerformOptions {
-        date_ctx: apputils::stack::DateCtx::Today,
-    };
-    let stats = inventory_report::perform(config, &File::new(bucket, object), &opts).await?;
+    let stats = inventory_report::perform(config, &File::new(bucket, object), perform_opts).await?;
 
     tracing::info!(
         "Processed {} files, {} bytes total",
@@ -58,7 +56,10 @@ mod tests {
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let config = MockConfigBuilder::new().debug_handler(true).build();
-        function_handler(&config, event).await.unwrap();
+        let opts = inventory_report::PerformOptions {
+            date_ctx: apputils::stack::DateCtx::Today,
+        };
+        function_handler(&config, &opts, event).await.unwrap();
     }
 
     #[tokio::test]
@@ -72,6 +73,9 @@ mod tests {
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let config = MockConfigBuilder::new().debug_handler(true).build();
-        function_handler(&config, event).await.unwrap();
+        let opts = inventory_report::PerformOptions {
+            date_ctx: apputils::stack::DateCtx::Today,
+        };
+        function_handler(&config, &opts, event).await.unwrap();
     }
 }

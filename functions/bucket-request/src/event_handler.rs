@@ -1,6 +1,6 @@
 use aws_lambda_events::event::s3::S3Event;
 use awsutils::{bucket_request::PerformOptions, config::Config, file::File};
-use lambda_runtime::{tracing, Error, LambdaEvent};
+use lambda_runtime::{Error, LambdaEvent, tracing};
 
 pub(crate) async fn function_handler(
     config: &Config,

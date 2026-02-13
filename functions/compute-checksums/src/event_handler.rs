@@ -1,9 +1,10 @@
 use aws_lambda_events::event::cloudwatch_events::CloudWatchEvent;
 use awsutils::{compute_checksums, config::Config};
-use lambda_runtime::{tracing, Error, LambdaEvent};
+use lambda_runtime::{Error, LambdaEvent, tracing};
 
 pub(crate) async fn function_handler(
     config: &Config,
+    perform_opts: &compute_checksums::PerformOptions,
     event: LambdaEvent<CloudWatchEvent>,
 ) -> Result<(), Error> {
     let payload = event.payload;
@@ -14,8 +15,7 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    let opts = compute_checksums::PerformOptions::default();
-    compute_checksums::perform(config, None, &opts).await?;
+    compute_checksums::perform(config, None, perform_opts).await?;
 
     Ok(())
 }
@@ -31,6 +31,7 @@ mod tests {
         // This is very unexciting because a scheduled event doesn't have anything for us
         let event = LambdaEvent::new(CloudWatchEvent::default(), Context::default());
         let config = MockConfigBuilder::new().debug_handler(true).build();
-        function_handler(&config, event).await.unwrap();
+        let opts = compute_checksums::PerformOptions::default();
+        function_handler(&config, &opts, event).await.unwrap();
     }
 }

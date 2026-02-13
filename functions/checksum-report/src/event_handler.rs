@@ -1,5 +1,9 @@
 use aws_lambda_events::event::cloudwatch_events::CloudWatchEvent;
-use awsutils::{checksum_report, config::Config, file::File};
+use awsutils::{
+    checksum_report,
+    config::Config,
+    file::{self, File},
+};
 use lambda_runtime::{Error, LambdaEvent, tracing};
 use serde::{Deserialize, Serialize};
 
@@ -58,6 +62,11 @@ pub(crate) async fn function_handler(
             .stack()
             .metadata_checksums_path(&job.job_id, apputils::stack::DateCtx::Latest),
     );
+
+    if !file::exists(config.s3(), &receipt_file).await {
+        tracing::info!("Batch job does not belong to this stack");
+        return Ok(());
+    }
 
     let stats = checksum_report::perform(config, &receipt_file, perform_opts).await?;
     tracing::info!(

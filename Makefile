@@ -86,7 +86,7 @@ teardown: reset ## Destroy all infrastructure (make teardown s=stack p=profile)
 
 .PHONY: trigger-compute-checksums
 trigger-compute-checksums: ## Trigger compute-checksums lambda remotely (make trigger-compute-checksums s=stack p=profile)
-	@AWS_PROFILE=$(p) aws lambda invoke --function-name $(s)-compute-checksums --payload '{}' --cli-binary-format raw-in-base64-out /dev/stdout
+	@./scripts/trigger-compute-checksums.sh $(s) $(p)
 
 .PHONY: test
 test: ## Run local tests with no AWS calls (make test)

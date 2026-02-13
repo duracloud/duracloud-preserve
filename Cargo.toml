@@ -4,6 +4,7 @@ members = [
     "cli",
     "functions/bucket-request",
     "functions/compute-checksums",
+    "functions/checksum-report",
     "functions/inventory-report",
     "shared/apputils",
     "shared/awsutils"

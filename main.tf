@@ -43,6 +43,10 @@ locals {
         tz       = coalesce(var.compute_checksums_tz, "America/Los_Angeles")
       } : {}
     )
+    checksum-report = {
+      bucket = local.functions_bucket
+      file   = "target/lambda/checksum-report/bootstrap.zip"
+    }
     inventory-report = {
       bucket = local.functions_bucket
       file   = "target/lambda/inventory-report/bootstrap.zip"

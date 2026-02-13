@@ -1,7 +1,7 @@
 # Setup
 
 This documentation is focused on the technical aspects of the
-core functions and how to test them locally using the provided
+core functionality and how to test locally using the provided
 cli and remotely after the functions have been deployed.
 
 This documentation does not address user functionality or

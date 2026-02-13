@@ -35,6 +35,14 @@ Give the example file `files/buckets.txt` four buckets should be created
 - `digipres-dev1-public` (public s3 bucket)
 - `digipres-dev1-public-repl` (public s3 bucket replication destination)
 
+You can view these using:
+
+```bash
+make bucket a=list p=default
+# or with grep to filter by stack
+make bucket a=list p=default | grep digipres-dev1
+```
+
 ## QA testing
 
 Aside from the happy path here are variations to try:

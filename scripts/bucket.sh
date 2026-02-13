@@ -49,7 +49,7 @@ empty_bucket_versions() {
 
 case $ACTION in
     list)
-        aws s3api list-buckets
+        aws s3api list-buckets --query 'Buckets[].Name' --output text | tr '\t' '\n'
     ;;
     create)
         aws s3 mb s3://$BUCKET_NAME || true

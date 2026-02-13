@@ -1,5 +1,5 @@
 use aws_lambda_events::event::cloudwatch_events::CloudWatchEvent;
-use awsutils::config::Config;
+use awsutils::{checksum_report, config::Config, file::File};
 use lambda_runtime::{Error, LambdaEvent, tracing};
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +21,7 @@ pub struct S3BatchJobStatusChange {
 
 pub(crate) async fn function_handler(
     config: &Config,
+    perform_opts: &checksum_report::PerformOptions,
     event: LambdaEvent<CloudWatchEvent<S3BatchJobDetail>>,
 ) -> Result<(), Error> {
     let detail = event.payload.detail.ok_or_else(|| {
@@ -51,6 +52,25 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
+    let receipt_file = File::new(
+        config.stack().managed_bucket(),
+        config
+            .stack()
+            .metadata_checksums_path(&job.job_id, apputils::stack::DateCtx::Latest),
+    );
+
+    let stats = checksum_report::perform(config, &receipt_file, perform_opts).await?;
+    tracing::info!(
+        total_objects = stats.total_objects,
+        matches = stats.matches,
+        mismatches = stats.mismatches,
+        missing_replica = stats.missing_replica,
+        missing_source = stats.missing_source,
+        failed_source = stats.failed_source,
+        failed_replication = stats.failed_replication,
+        "Checksum report processing complete",
+    );
+
     Ok(())
 }
 
@@ -70,7 +90,8 @@ mod tests {
 
         let event = LambdaEvent::new(cw_event, Context::default());
         let config = MockConfigBuilder::new().debug_handler(true).build();
-        function_handler(&config, event).await.unwrap();
+        let opts = checksum_report::PerformOptions::default();
+        function_handler(&config, &opts, event).await.unwrap();
     }
 
     #[tokio::test]
@@ -83,7 +104,8 @@ mod tests {
 
         let event = LambdaEvent::new(cw_event, Context::default());
         let config = MockConfigBuilder::new().debug_handler(true).build();
-        let err = function_handler(&config, event)
+        let opts = checksum_report::PerformOptions::default();
+        let err = function_handler(&config, &opts, event)
             .await
             .expect_err("Expected handler to return error for failed status");
         assert!(err.to_string().contains("failed"));

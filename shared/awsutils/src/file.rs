@@ -5,6 +5,7 @@ use aws_sdk_s3::{
     operation::get_object::{GetObjectError, GetObjectOutput},
     primitives::ByteStream,
 };
+use std::path::PathBuf;
 /// Delete a file from S3
 pub async fn delete(client: &Client, file: &File) -> Result<(), RequestError> {
     client
@@ -43,6 +44,33 @@ pub async fn download_bytes(client: &Client, file: &File) -> Result<bytes::Bytes
         .await
         .map_err(|e| RequestError::S3Error(format!("failed to read body: {}", e)))
         .map(|data| data.into_bytes())
+}
+
+/// Download S3 files to a temporary directory using collision-safe local names.
+pub async fn download_files_to_temp(
+    client: &Client,
+    files: &[File],
+    temp_dir: &tempfile::TempDir,
+    file_kind: &str,
+) -> Result<Vec<PathBuf>, RequestError> {
+    let mut local_paths = Vec::new();
+
+    for (index, file) in files.iter().enumerate() {
+        tracing::info!(
+            file_kind,
+            s3_url = %file.s3_url(),
+            "Downloading file from S3",
+        );
+
+        let bytes = download_bytes(client, file).await?;
+        let filename = file.key().rsplit('/').next().unwrap_or(file.key());
+        let local_path = temp_dir.path().join(format!("{index:05}-{filename}"));
+
+        tokio::fs::write(&local_path, &bytes).await?;
+        local_paths.push(local_path);
+    }
+
+    Ok(local_paths)
 }
 
 /// Check if a file exists in S3

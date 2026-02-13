@@ -4,6 +4,8 @@ pub use bucket::Name as BucketName;
 pub mod bucket_creator;
 pub mod bucket_request;
 #[cfg(feature = "duckdb")]
+pub mod checksum;
+#[cfg(feature = "duckdb")]
 pub mod checksum_report;
 pub mod compute_checksums;
 pub mod config;

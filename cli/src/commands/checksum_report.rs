@@ -23,9 +23,16 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         stack.metadata_checksums_path(&bucket, DateCtx::Latest),
     );
 
-    // TODO: return report location
     let opts = checksum_report::PerformOptions::default();
-    checksum_report::perform(&config, &file, &opts).await?;
+    let stats = checksum_report::perform(&config, &file, &opts).await?;
+    println!("Checksum report complete:");
+    println!("\tTotal objects:      {}", stats.total_objects);
+    println!("\tMatches:            {}", stats.matches);
+    println!("\tMismatches:         {}", stats.mismatches);
+    println!("\tMissing replica:    {}", stats.missing_replica);
+    println!("\tMissing source:     {}", stats.missing_source);
+    println!("\tFailed source:      {}", stats.failed_source);
+    println!("\tFailed replication: {}", stats.failed_replication);
 
     Ok(())
 }

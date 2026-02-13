@@ -3,7 +3,7 @@ use lambda_runtime::{Error, run, service_fn, tracing};
 mod event_handler;
 use event_handler::function_handler;
 
-use apputils::{Stack, stack::DateCtx};
+use apputils::Stack;
 use awsutils::inventory_report::PerformOptions;
 use std::env;
 
@@ -14,9 +14,7 @@ async fn main() -> Result<(), Error> {
     let stack =
         Stack::new(&env::var("STACK").expect("Stack is required")).expect("Invalid stack name");
     let config = awsutils::config::config(stack).await;
-    let perform_opts = PerformOptions {
-        date_ctx: DateCtx::Today,
-    };
+    let perform_opts = PerformOptions::default();
 
     run(service_fn(|event| {
         function_handler(&config, &perform_opts, event)

@@ -15,6 +15,14 @@ pub struct PerformOptions {
     pub date_ctx: DateCtx,
 }
 
+impl Default for PerformOptions {
+    fn default() -> Self {
+        Self {
+            date_ctx: DateCtx::Today,
+        }
+    }
+}
+
 pub async fn perform(
     config: &Config,
     manifest_file: &File,
@@ -143,9 +151,7 @@ mod tests {
 
         let config = MockConfigBuilder::new().client(client).build();
         let manifest_file = File::new(config.stack().managed_bucket(), manifest_key);
-        let opts = PerformOptions {
-            date_ctx: DateCtx::Today,
-        };
+        let opts = PerformOptions::default();
         let stats = perform(&config, &manifest_file, &opts)
             .await
             .expect("perform should succeed");
@@ -238,9 +244,7 @@ mod tests {
             .build_with_replay();
         let config = MockConfigBuilder::new().client(client).build();
         let manifest_file = File::new(config.stack().managed_bucket(), manifest_key);
-        let opts = PerformOptions {
-            date_ctx: DateCtx::Today,
-        };
+        let opts = PerformOptions::default();
 
         let err = perform(&config, &manifest_file, &opts)
             .await

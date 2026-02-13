@@ -56,9 +56,7 @@ mod tests {
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let config = MockConfigBuilder::new().debug_handler(true).build();
-        let opts = inventory_report::PerformOptions {
-            date_ctx: apputils::stack::DateCtx::Today,
-        };
+        let opts = inventory_report::PerformOptions::default();
         function_handler(&config, &opts, event).await.unwrap();
     }
 
@@ -73,9 +71,7 @@ mod tests {
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let config = MockConfigBuilder::new().debug_handler(true).build();
-        let opts = inventory_report::PerformOptions {
-            date_ctx: apputils::stack::DateCtx::Today,
-        };
+        let opts = inventory_report::PerformOptions::default();
         function_handler(&config, &opts, event).await.unwrap();
     }
 }

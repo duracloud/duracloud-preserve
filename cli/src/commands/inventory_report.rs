@@ -30,7 +30,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let manifest = File::new(config.stack().managed_bucket(), object);
-    let opts = inventory_report::PerformOptions { date_ctx };
+    let opts = inventory_report::PerformOptions::default();
     let stats = inventory_report::perform(&config, &manifest, &opts).await?;
 
     println!(

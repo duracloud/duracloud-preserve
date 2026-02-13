@@ -7,8 +7,8 @@ use thiserror::Error;
 use crate::stats::VerificationStats;
 
 pub fn process(
-    source_reports: &[&str],
-    replication_reports: &[&str],
+    source_reports: &[impl AsRef<str>],
+    replication_reports: &[impl AsRef<str>],
 ) -> Result<(Vec<u8>, VerificationStats), ChecksumError> {
     let verifier = ChecksumVerifier::load(source_reports, replication_reports)?;
     let mut csv = Vec::new();
@@ -90,20 +90,20 @@ pub struct ChecksumVerifier {
 
 impl ChecksumVerifier {
     pub fn load(
-        source_reports: &[&str],
-        replication_reports: &[&str],
+        source_reports: &[impl AsRef<str>],
+        replication_reports: &[impl AsRef<str>],
     ) -> Result<Self, ChecksumError> {
         let conn = Connection::open_in_memory()?;
 
         let sources = source_reports
             .iter()
-            .map(|p| format!("'{p}'"))
+            .map(|p| format!("'{}'", p.as_ref()))
             .collect::<Vec<_>>()
             .join(", ");
 
         let repls = replication_reports
             .iter()
-            .map(|p| format!("'{p}'"))
+            .map(|p| format!("'{}'", p.as_ref()))
             .collect::<Vec<_>>()
             .join(", ");
 

@@ -116,6 +116,11 @@ impl Stack {
         format!("{METADATA_PREFIX}/{date_ctx}/checksums/{identifier}.json",)
     }
 
+    /// Checksum verification stats (json) destination
+    pub fn metadata_checksums_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
+        format!("{METADATA_PREFIX}/{date_ctx}/checksums/stats/{bucket}.json")
+    }
+
     /// Usage stats (json) destination used to generate storage reports
     pub fn metadata_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
         format!("{METADATA_PREFIX}/{date_ctx}/stats/{bucket}.json")
@@ -134,6 +139,11 @@ impl Stack {
     /// File manifest (csv) upload destination provided for user access
     pub fn reports_manifest_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
         format!("{REPORTS_PREFIX}/{date_ctx}/manifests/{bucket}.csv")
+    }
+
+    /// Checksum verification report (csv) upload destination provided for user access
+    pub fn reports_checksums_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
+        format!("{REPORTS_PREFIX}/{date_ctx}/checksums/{bucket}.csv")
     }
 
     /// Storage report (html) destination provided for user access
@@ -301,11 +311,29 @@ mod tests {
     }
 
     #[test]
+    fn test_metadata_checksums_stats_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.metadata_checksums_stats_path("my-bucket", DateCtx::Latest),
+            "metadata/latest/checksums/stats/my-bucket.json"
+        );
+    }
+
+    #[test]
     fn test_reports_storage_path() {
         let stack = Stack::new("test-stack").unwrap();
         assert_eq!(
             stack.reports_storage_path("my-bucket", DateCtx::Latest),
             "reports/latest/storage/my-bucket.html"
+        );
+    }
+
+    #[test]
+    fn test_reports_checksums_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.reports_checksums_path("my-bucket", DateCtx::Latest),
+            "reports/latest/checksums/my-bucket.csv"
         );
     }
 

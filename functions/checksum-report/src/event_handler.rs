@@ -41,7 +41,7 @@ pub(crate) async fn function_handler(
             status_change_reason = ?job.status_change_reason,
             "S3 batch job failed",
         );
-        return Err(std::io::Error::other(format!("S3 batch job {} failed", job.job_id)).into());
+        return Err(std::io::Error::other(format!("Batch job {} failed", job.job_id)).into());
     }
 
     tracing::info!(job_id = %job.job_id, "Batch job was completed successfully");

@@ -32,33 +32,25 @@ pub async fn perform(
     }
 
     let temp_dir = tempfile::tempdir()?;
-    let mut local_paths = Vec::new();
-
-    for entry in &manifest.files {
-        let file = File::new(&bucket, &entry.key);
-        tracing::info!("Downloading inventory file: {}", file.s3_url());
-
-        let bytes = file::download_bytes(config.s3(), &file).await?;
-
-        let filename = entry.key.rsplit('/').next().unwrap_or(&entry.key);
-        let local_path = temp_dir.path().join(filename);
-        tokio::fs::write(&local_path, &bytes).await?;
-        local_paths.push(local_path);
-    }
-
-    let path_strs: Vec<&str> = local_paths
+    let files = manifest
+        .files
         .iter()
-        .map(|p| p.to_str().expect("valid utf-8 path"))
+        .map(|entry| File::new(&bucket, &entry.key))
+        .collect::<Vec<_>>();
+
+    let local_paths =
+        file::download_files_to_temp(config.s3(), &files, &temp_dir, "inventory manifest file")
+            .await?;
+
+    let path_strs_owned: Vec<String> = local_paths
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
         .collect();
 
-    tracing::info!("Processing parquet files: {:?}", path_strs);
-    let path_strs_owned: Vec<String> = path_strs.iter().map(|s| s.to_string()).collect();
-    let (csv, stats) = tokio::task::spawn_blocking(move || {
-        let refs: Vec<&str> = path_strs_owned.iter().map(|s| s.as_str()).collect();
-        process(&refs)
-    })
-    .await
-    .expect("spawn_blocking task panicked")?;
+    tracing::info!("Processing parquet files: {:?}", path_strs_owned);
+    let (csv, stats) = tokio::task::spawn_blocking(move || process(&path_strs_owned))
+        .await
+        .expect("spawn_blocking task panicked")?;
 
     let csv_bytes = Bytes::from(csv);
     let stats_bytes = Bytes::from(serde_json::to_vec(&stats)?);

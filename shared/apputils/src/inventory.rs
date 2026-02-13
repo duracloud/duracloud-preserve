@@ -5,7 +5,9 @@ use thiserror::Error;
 
 use crate::stats::{InventoryStats, PrefixStats};
 
-pub fn process(parquet_files: &[&str]) -> Result<(Vec<u8>, InventoryStats), InventoryError> {
+pub fn process(
+    parquet_files: &[impl AsRef<str>],
+) -> Result<(Vec<u8>, InventoryStats), InventoryError> {
     let processor = InventoryProcessor::load(parquet_files)?;
     let mut csv = Vec::new();
     processor.write_csv(&mut csv)?;
@@ -30,13 +32,13 @@ pub struct InventoryProcessor {
 }
 
 impl InventoryProcessor {
-    pub fn load(parquet_files: &[&str]) -> Result<Self, InventoryError> {
+    pub fn load(parquet_files: &[impl AsRef<str>]) -> Result<Self, InventoryError> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch("LOAD parquet;")?;
 
         let files_list = parquet_files
             .iter()
-            .map(|f| format!("'{}'", f))
+            .map(|f| format!("'{}'", f.as_ref()))
             .collect::<Vec<_>>()
             .join(", ");
 

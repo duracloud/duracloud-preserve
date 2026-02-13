@@ -68,3 +68,20 @@ pub fn empty_stats() -> VerificationStats {
         failed_replication: 0,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_empty_stats_shape() {
+        let stats = empty_stats();
+        assert_eq!(stats.total_objects, 0);
+        assert_eq!(stats.matches, 0);
+        assert_eq!(stats.mismatches, 0);
+        assert_eq!(stats.missing_replica, 0);
+        assert_eq!(stats.missing_source, 0);
+        assert_eq!(stats.failed_source, 0);
+        assert_eq!(stats.failed_replication, 0);
+    }
+}

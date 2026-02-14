@@ -27,13 +27,11 @@ make upload b=digipress-dev1-bucket-request f=files/buckets.txt p=default
 
 ## Output
 
-Give the example file `files/buckets.txt` four buckets should be created
+Give the example file `files/buckets.txt` two buckets should be created
 (assuming they do not already exist).
 
 - `digipres-dev1-private` (private s3 bucket)
 - `digipres-dev1-private-repl` (private s3 bucket replication destination)
-- `digipres-dev1-public` (public s3 bucket)
-- `digipres-dev1-public-repl` (public s3 bucket replication destination)
 
 You can view these using:
 

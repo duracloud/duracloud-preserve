@@ -12,10 +12,16 @@ terraform {
 }
 
 provider "aws" {}
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1" # for cloudfront
+}
+
 variable "deploy" { default = false }
+variable "domain" { default = "duracloud.org" } # omit or "" for no cloudfront resources
 variable "stack" {}
 
-# To one-off run compute checksums create a `.local.auto.tfvars` with content like:
+# To run a one-off compute checksums job create a `.local.auto.tfvars` with content like:
 # compute_checksums_schedule = "at(2026-02-10T16:00:00)"
 # compute_checksums_tz       = "America/Los_Angeles"
 # Deploy it, then delete when done.
@@ -57,7 +63,13 @@ locals {
 module "stack" {
   source = "./terraform/modules/stack"
 
+  providers = {
+    aws           = aws
+    aws.us_east_1 = aws.us_east_1
+  }
+
   deploy_functions = var.deploy
+  domain           = var.domain
   stack            = local.stack
   functions        = local.functions
 
@@ -69,4 +81,19 @@ module "artifacts" {
 
   bucket = local.functions_bucket
   files  = { for k, v in local.functions : k => v.file }
+}
+
+# Outputs for creating DNS records:
+# 1. ACM validation CNAME (`_abc123.dev1.example.org` -> `_def456.acm-validations.aws.`)
+# 2. Alias record (`dev1.example.org` -> `d1234567890abc.cloudfront.net` with zone ID `Z2FDTNDATAQYW2`)
+output "acm_domain_validation_options" {
+  value = module.stack.acm_domain_validation_options
+}
+
+output "cloudfront_domain_name" {
+  value = module.stack.cloudfront_domain_name
+}
+
+output "cloudfront_hosted_zone_id" {
+  value = module.stack.cloudfront_hosted_zone_id
 }

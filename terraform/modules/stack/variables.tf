@@ -1,7 +1,19 @@
+variable "cert_ready" {
+  description = "Set to true after the ACM certificate has been validated (if using domain)"
+  type        = bool
+  default     = false
+}
+
 variable "deploy_functions" {
   description = "Enable to deploy functions"
   type        = bool
   default     = false
+}
+
+variable "domain" {
+  description = "The domain that will be used for public file access"
+  type        = string
+  default     = ""
 }
 
 variable "functions" {

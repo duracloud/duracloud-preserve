@@ -49,9 +49,15 @@ Of most significance for testing using the above example will create:
 - `digipres-dev1-s3-replication-role` (i.e. `${stack}-s3-replication-role`)
 - `digipres-dev1-bucket-request` (i.e. `${stack}-bucket-request`)
 - `digipres-dev1-managed` (i.e. `${stack}-managed`)
+- `digipres-dev1-public` (i.e. `${stack}-public`)
+- `digipres-dev1-public-repl` (i.e. `${stack}-public-repl`)
 
 The `managed` bucket will also be assigned a policy that permits it to be
 a target for S3 inventory from buckets using the same stack name (prefix).
+
+The `public` bucket is "special" as it works differently from regular
+user created public buckets owing to a CloudFront distribution that is
+created to provide access to the files, rather than using raw S3 urls.
 
 ## Testing remotely with Lambda
 
@@ -73,3 +79,23 @@ when run through Lambda with these primary differences:
 - Local cli testing uses your local AWS credentials
 - Deployed Lambdas use permissions provided by IAM roles
 - The entrypoints are different: see the `cli` vs. `functions` folders
+
+## Testing public access via CloudFront
+
+```bash
+terraform output cloudfront_domain_name
+```
+
+This will output something like: `d2vy8bpfecxis5.cloudfront.net`.
+
+```bash
+make upload b=digipres-dev1-public f=files/buckets.txt p=default
+```
+
+Then access the file in the browser, it should work:
+
+- https://d2vy8bpfecxis5.cloudfront.net/buckets.txt
+
+For production the other Terraform outputs can be used for setting up
+a custom domain using [ACM](#), see the [deployment documentation](#) for
+more details.

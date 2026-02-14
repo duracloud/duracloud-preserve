@@ -10,10 +10,12 @@ locals {
 
   public_buckets = {
     public = {
+      bucket_type     = "public"
       storage_class   = "INTELLIGENT_TIERING"
       transition_days = 7
     }
     public-repl = {
+      bucket_type     = "replication"
       storage_class   = "DEEP_ARCHIVE"
       transition_days = 7
     }
@@ -128,7 +130,7 @@ resource "aws_s3_bucket" "public" {
 
   tags = {
     BucketOrigin = local.bucket_origin
-    BucketType   = "public"
+    BucketType   = each.value.bucket_type
     Stack        = local.stack
   }
 }
@@ -185,7 +187,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "public" {
 }
 
 resource "aws_s3_bucket_inventory" "public" {
-  for_each = local.public_buckets
+  for_each = { for k, v in local.public_buckets : k => v if v.bucket_type == "public" }
 
   bucket = aws_s3_bucket.public[each.key].id
   name   = "inventory"
@@ -211,6 +213,13 @@ resource "aws_s3_bucket_inventory" "public" {
     "StorageClass",
     "ReplicationStatus",
   ]
+}
+
+resource "aws_s3_bucket_notification" "public" {
+  for_each = { for k, v in local.public_buckets : k => v if v.bucket_type == "public" }
+
+  bucket      = aws_s3_bucket.public[each.key].id
+  eventbridge = true
 }
 
 resource "aws_s3_bucket_replication_configuration" "public" {
@@ -248,6 +257,11 @@ resource "aws_s3_bucket_replication_configuration" "public" {
       status = "Enabled"
     }
   }
+
+  depends_on = [
+    aws_s3_bucket_versioning.public["public"],
+    aws_s3_bucket_versioning.public["public-repl"],
+  ]
 }
 
 resource "aws_s3_bucket_logging" "public" {

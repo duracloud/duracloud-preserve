@@ -8,10 +8,10 @@ duckdb = ["apputils/duckdb"]
 
 [dependencies]
 apputils = { path = "../apputils" }
-aws-config = "1.8.13"
-aws-sdk-iam = "1.103.0"
-aws-sdk-s3 = "1.122.0"
-aws-sdk-s3control = "1.109.0"
+aws-config = "1.8.14"
+aws-sdk-iam = "1.104.0"
+aws-sdk-s3 = "1.123.0"
+aws-sdk-s3control = "1.110.0"
 aws-sdk-sts = "1.96.0"
 aws-smithy-runtime = { version = "1.9.4", features = ["test-util"] }
 aws-smithy-runtime-api = "1.9.2"

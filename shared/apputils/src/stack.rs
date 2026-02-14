@@ -92,7 +92,7 @@ impl Stack {
 
     /// Batch compute checksums manifest upload path (when report is ready)
     pub fn batch_reports_checksum_manifest(&self, bucket: &str, job_id: &str) -> String {
-        format!("{BATCH_CHECKSUM_PREFIX}/{bucket}/job-{job_id}/manifest.json",)
+        format!("{BATCH_CHECKSUM_PREFIX}/{bucket}/job-{job_id}/manifest.json")
     }
 
     /// Batch operations role name for stack
@@ -113,7 +113,7 @@ impl Stack {
     /// Checksums job receipt (json) destination used for checksum verification processing
     /// A valid identifier is either a source (not replication) bucket name or job id
     pub fn metadata_checksums_path(&self, identifier: &str, date_ctx: DateCtx) -> String {
-        format!("{METADATA_PREFIX}/{date_ctx}/checksums/{identifier}.json",)
+        format!("{METADATA_PREFIX}/{date_ctx}/checksums/{identifier}.json")
     }
 
     /// Checksum verification stats (json) destination

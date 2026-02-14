@@ -46,8 +46,6 @@ fn parse_storage_tier(value: &str) -> Result<TransitionStorageClass, std::io::Er
         "GLACIER" => TransitionStorageClass::Glacier,
         "GLACIER_IR" => TransitionStorageClass::GlacierIr,
         "INTELLIGENT_TIERING" => TransitionStorageClass::IntelligentTiering,
-        "ONEZONE_IA" => TransitionStorageClass::OnezoneIa,
-        "STANDARD_IA" => TransitionStorageClass::StandardIa,
         _ => {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,

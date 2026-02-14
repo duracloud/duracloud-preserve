@@ -36,6 +36,16 @@ pub struct VerificationStats {
     pub failed_replication: usize,
 }
 
+impl VerificationStats {
+    // Do not treat missing_replica as an error due to potential replication lag
+    pub fn is_ok(&self) -> bool {
+        self.mismatches == 0
+            && self.missing_source == 0
+            && self.failed_source == 0
+            && self.failed_replication == 0
+    }
+}
+
 /// Consolidated storage report across all buckets
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StorageReport {
@@ -204,5 +214,56 @@ mod tests {
         assert!(json.contains("\"bucket\":\"my-bucket\""));
         assert!(json.contains("\"total_files\":5"));
         assert!(!json.contains("\"stats\""));
+    }
+
+    #[test]
+    fn test_verification_stats_is_ok() {
+        let stats = VerificationStats {
+            total_objects: 100,
+            matches: 95,
+            mismatches: 0,
+            missing_replica: 5,
+            missing_source: 0,
+            failed_source: 0,
+            failed_replication: 0,
+        };
+        // missing_replica alone should not cause failure
+        assert!(stats.is_ok());
+    }
+
+    #[test]
+    fn test_verification_stats_is_not_ok() {
+        let base = VerificationStats {
+            total_objects: 100,
+            matches: 99,
+            mismatches: 0,
+            missing_replica: 0,
+            missing_source: 0,
+            failed_source: 0,
+            failed_replication: 0,
+        };
+
+        let cases = [
+            VerificationStats {
+                mismatches: 1,
+                ..base
+            },
+            VerificationStats {
+                missing_source: 1,
+                ..base
+            },
+            VerificationStats {
+                failed_source: 1,
+                ..base
+            },
+            VerificationStats {
+                failed_replication: 1,
+                ..base
+            },
+        ];
+
+        for stats in &cases {
+            assert!(!stats.is_ok());
+        }
     }
 }

@@ -69,6 +69,7 @@ pub(crate) async fn function_handler(
     }
 
     let stats = checksum_report::perform(config, &receipt_file, perform_opts).await?;
+
     tracing::info!(
         total_objects = stats.total_objects,
         matches = stats.matches,
@@ -79,6 +80,10 @@ pub(crate) async fn function_handler(
         failed_replication = stats.failed_replication,
         "Checksum report processing complete",
     );
+
+    if !stats.is_ok() {
+        return Err(std::io::Error::other("Checksum report encountered an error").into());
+    }
 
     Ok(())
 }

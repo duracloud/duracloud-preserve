@@ -7,4 +7,3 @@ pub mod config;
 pub mod file;
 #[cfg(feature = "duckdb")]
 pub mod inventory;
-pub mod test_client;

@@ -192,6 +192,7 @@ pub fn from_tags(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_support::TestClientBuilder;
 
     #[test]
     fn test_from_tags() {
@@ -224,7 +225,7 @@ mod tests {
     async fn test_get_bucket_names() {
         let content = "123\n456\n789\n234\n567\n890";
         let file = File::new("test-bucket", "buckets.txt");
-        let client = crate::test_client::TestClientBuilder::new()
+        let client = TestClientBuilder::new()
             .success(content, Some("text/plain".to_string()))
             .build();
 
@@ -241,7 +242,7 @@ mod tests {
     async fn test_get_bucket_names_exceeds_size_limit() {
         let content = "a".repeat((MAX_REQUEST_FILE_SIZE + 1) as usize);
         let file = File::new("test-bucket", "buckets.txt");
-        let client = crate::test_client::TestClientBuilder::new()
+        let client = TestClientBuilder::new()
             .success(content, Some("text/plain".to_string()))
             .build();
 
@@ -261,7 +262,7 @@ mod tests {
     async fn test_get_bucket_names_content_type_with_charset() {
         let content = "bucket1\nbucket2";
         let file = File::new("test-bucket", "buckets.txt");
-        let client = crate::test_client::TestClientBuilder::new()
+        let client = TestClientBuilder::new()
             .success(content, Some("text/plain; charset=utf-8".to_string()))
             .build();
 
@@ -276,7 +277,7 @@ mod tests {
     async fn test_get_bucket_names_invalid_content_type() {
         let content = "bucket1\nbucket2";
         let file = File::new("test-bucket", "buckets.txt");
-        let client = crate::test_client::TestClientBuilder::new()
+        let client = TestClientBuilder::new()
             .success(content, Some("application/json".to_string()))
             .build();
 
@@ -290,7 +291,7 @@ mod tests {
     async fn test_get_bucket_names_truncates_at_max() {
         let content = "a\nb\nc\nd\ne\nf\ng";
         let file = File::new("test-bucket", "buckets.txt");
-        let client = crate::test_client::TestClientBuilder::new()
+        let client = TestClientBuilder::new()
             .success(content, Some("text/plain".to_string()))
             .build();
 

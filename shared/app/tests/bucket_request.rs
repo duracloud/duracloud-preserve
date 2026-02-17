@@ -8,7 +8,7 @@
 //!   - Run: make setup s=<stack> p=<profile>
 
 use app::perform::bucket_request;
-use app::test_client::integration_test_config;
+use apputils::Stack;
 use apputils::content_type;
 use aws_smithy_types::body::SdkBody;
 use awsutils::bucket::{delete, empty, exists};
@@ -21,12 +21,18 @@ fn timestamp() -> u64 {
         .as_secs()
 }
 
+async fn integration_test_config() -> app::config::Config {
+    let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "int-test".to_string());
+    let stack = Stack::new(&stack_name).expect("invalid stack name");
+    app::config::config(stack)
+        .await
+        .expect("failed to build integration test config")
+}
+
 #[tokio::test]
 #[ignore]
 async fn test_perform() {
-    let config = integration_test_config()
-        .await
-        .expect("failed to build integration test config");
+    let config = integration_test_config().await;
     let ts = timestamp();
     let bucket_name = format!("perf-{}", ts);
 

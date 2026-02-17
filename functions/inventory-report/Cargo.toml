@@ -11,3 +11,7 @@ awsutils = { path = "../../shared/awsutils", features = ["duckdb"] }
 lambda_runtime = "1.0.2"
 serde_json = "1.0.149"
 tokio = { version = "1", features = ["macros"] }
+
+[dev-dependencies]
+aws-config = "1.8.13"
+test-support = { path = "../../shared/test-support" }

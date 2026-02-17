@@ -605,7 +605,7 @@ mod tests {
     use apputils::Stack;
 
     use super::*;
-    use crate::test_client::TestClientBuilder;
+    use test_support::TestClientBuilder;
 
     #[tokio::test]
     async fn test_setup_unsupported_for_internal_bucket() {

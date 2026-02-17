@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "shared/app",
+    "shared/test-support",
     "cli",
     "functions/bucket-request",
     "functions/compute-checksums",

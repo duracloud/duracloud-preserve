@@ -100,11 +100,12 @@ pub async fn perform(
 mod tests {
     use std::collections::HashSet;
 
+    use apputils::Stack;
     use aws_smithy_types::body::SdkBody;
 
     use super::*;
-    use crate::test_client::MockConfigBuilder;
-    use awsutils::test_client::{TestClientBuilder, recorded_requests};
+    use crate::config::{Clients, Config, Roles};
+    use test_support::{TestClientBuilder, recorded_requests};
 
     fn manifest_json(file_format: &str, parquet_key: &str, parquet_size: usize) -> String {
         serde_json::json!({
@@ -131,6 +132,30 @@ mod tests {
         uri.contains(key) || uri.contains(&encoded_upper) || uri.contains(&encoded_lower)
     }
 
+    fn mock_config(client: aws_sdk_s3::Client) -> Config {
+        let sdk_config = aws_config::SdkConfig::builder()
+            .behavior_version(aws_config::BehaviorVersion::latest())
+            .region(aws_config::Region::new("us-east-1"))
+            .build();
+
+        let roles = Roles {
+            batch: "arn:aws:iam::123456789:role/test-batch-role".to_string(),
+            replication: "arn:aws:iam::123456789:role/test-replication-role".to_string(),
+        };
+
+        let stack = Stack::new("test-stack").expect("test stack should be valid");
+        let clients = Clients::with_s3(&sdk_config, client);
+
+        Config::new_with_clients(
+            sdk_config,
+            "123456789".to_string(),
+            roles,
+            stack,
+            false,
+            clients,
+        )
+    }
+
     #[tokio::test]
     async fn test_perform_processes_manifest_and_writes_latest_and_dated_outputs() {
         let manifest_key = "inventory-report-tests/input-manifest.json";
@@ -150,7 +175,7 @@ mod tests {
             .ok()
             .build_with_replay();
 
-        let config = MockConfigBuilder::new().client(client).build();
+        let config = mock_config(client);
         let manifest_file = File::new(config.stack().managed_bucket(), manifest_key);
         let opts = PerformOptions::default();
         let stats = perform(&config, &manifest_file, &opts)
@@ -243,7 +268,7 @@ mod tests {
         let (client, replay) = TestClientBuilder::new()
             .success(manifest, None)
             .build_with_replay();
-        let config = MockConfigBuilder::new().client(client).build();
+        let config = mock_config(client);
         let manifest_file = File::new(config.stack().managed_bucket(), manifest_key);
         let opts = PerformOptions::default();
 

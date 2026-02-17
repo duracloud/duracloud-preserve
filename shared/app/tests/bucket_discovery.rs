@@ -9,7 +9,7 @@
 
 use app::bucket::{get_stack_buckets, get_stack_buckets_by_type};
 use app::config::Config;
-use app::test_client::integration_test_config;
+use apputils::Stack;
 use aws_sdk_s3::types::TransitionStorageClass;
 use awsutils::bucket::{Bucket, Type, delete};
 use awsutils::bucket_creator::{BucketCreator, BucketCreatorParams};
@@ -19,6 +19,14 @@ fn timestamp() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs()
+}
+
+async fn integration_test_config() -> Config {
+    let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "int-test".to_string());
+    let stack = Stack::new(&stack_name).expect("invalid stack name");
+    app::config::config(stack)
+        .await
+        .expect("failed to build integration test config")
 }
 
 fn bucket_creator<'a>(
@@ -47,9 +55,7 @@ async fn cleanup_buckets(client: &aws_sdk_s3::Client, bucket_names: &[String]) {
 #[tokio::test]
 #[ignore]
 async fn test_get_stack_buckets_finds_tagged_stack_buckets() {
-    let config = integration_test_config()
-        .await
-        .expect("failed to build integration test config");
+    let config = integration_test_config().await;
     let ts = timestamp();
     let standard_name = format!("{}-inttest-discovery-{}", config.stack().as_str(), ts);
     let replication_name = format!("{}-inttest-discovery-{}-repl", config.stack().as_str(), ts);
@@ -81,9 +87,7 @@ async fn test_get_stack_buckets_finds_tagged_stack_buckets() {
 #[tokio::test]
 #[ignore]
 async fn test_get_stack_buckets_by_type_filters_results() {
-    let config = integration_test_config()
-        .await
-        .expect("failed to build integration test config");
+    let config = integration_test_config().await;
     let ts = timestamp();
     let standard_name = format!("{}-inttest-filter-{}", config.stack().as_str(), ts);
     let replication_name = format!("{}-inttest-filter-{}-repl", config.stack().as_str(), ts);

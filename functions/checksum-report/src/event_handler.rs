@@ -88,8 +88,34 @@ pub(crate) async fn function_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use app::test_client::MockConfigBuilder;
+    use app::config::{Clients, Roles};
+    use apputils::Stack;
     use lambda_runtime::{Context, LambdaEvent};
+    use test_support::TestClientBuilder;
+
+    fn mock_config(debug_handler: bool) -> Config {
+        let client = TestClientBuilder::new().ok().build();
+        let stack = Stack::new("test-stack").unwrap();
+        let sdk_config = aws_config::SdkConfig::builder()
+            .behavior_version(aws_config::BehaviorVersion::latest())
+            .region(aws_config::Region::new("us-east-1"))
+            .build();
+
+        let roles = Roles {
+            batch: "arn:aws:iam::123456789:role/test-batch-role".to_string(),
+            replication: "arn:aws:iam::123456789:role/test-replication-role".to_string(),
+        };
+        let clients = Clients::with_s3(&sdk_config, client);
+
+        Config::new_with_clients(
+            sdk_config,
+            "123456789".to_string(),
+            roles,
+            stack,
+            debug_handler,
+            clients,
+        )
+    }
 
     #[tokio::test]
     async fn test_event_handler_complete_status() {
@@ -100,7 +126,7 @@ mod tests {
         assert_eq!(detail.service_event_details.status, "Complete");
 
         let event = LambdaEvent::new(cw_event, Context::default());
-        let config = MockConfigBuilder::new().debug_handler(true).build();
+        let config = mock_config(true);
         let opts = checksum_report::PerformOptions::default();
         function_handler(&config, &opts, event).await.unwrap();
     }
@@ -114,7 +140,7 @@ mod tests {
         assert_eq!(detail.service_event_details.status, "Failed");
 
         let event = LambdaEvent::new(cw_event, Context::default());
-        let config = MockConfigBuilder::new().debug_handler(true).build();
+        let config = mock_config(true);
         let opts = checksum_report::PerformOptions::default();
         let err = function_handler(&config, &opts, event)
             .await

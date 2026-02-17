@@ -169,7 +169,7 @@ pub async fn get_stack_buckets_by_type(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use awsutils::test_client::TestClientBuilder;
+    use test_support::TestClientBuilder;
 
     fn list_buckets_xml(names: &[&str]) -> String {
         let buckets = names

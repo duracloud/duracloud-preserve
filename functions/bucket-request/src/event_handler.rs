@@ -41,34 +41,9 @@ pub(crate) async fn function_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use app::config::{Clients, Roles};
-    use apputils::Stack;
+    use app::config as app_config;
     use lambda_runtime::{Context, LambdaEvent};
     use test_support::TestClientBuilder;
-
-    fn mock_config(debug_handler: bool) -> Config {
-        let client = TestClientBuilder::new().ok().build();
-        let stack = Stack::new("test-stack").unwrap();
-        let sdk_config = aws_config::SdkConfig::builder()
-            .behavior_version(aws_config::BehaviorVersion::latest())
-            .region(aws_config::Region::new("us-east-1"))
-            .build();
-
-        let roles = Roles {
-            batch: "arn:aws:iam::123456789:role/test-batch-role".to_string(),
-            replication: "arn:aws:iam::123456789:role/test-replication-role".to_string(),
-        };
-        let clients = Clients::with_s3(&sdk_config, client);
-
-        Config::new_with_clients(
-            sdk_config,
-            "123456789".to_string(),
-            roles,
-            stack,
-            debug_handler,
-            clients,
-        )
-    }
 
     #[tokio::test]
     async fn test_valid_event_handler() {
@@ -77,7 +52,8 @@ mod tests {
         let s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
 
         let event = LambdaEvent::new(s3_event, Context::default());
-        let config = mock_config(true);
+        let config =
+            test_support::mock_app_config!(app_config, TestClientBuilder::new().ok().build(), true);
         let opts = PerformOptions::default();
         function_handler(&config, &opts, event).await.unwrap();
     }
@@ -92,7 +68,8 @@ mod tests {
         s3_event.records[0].s3.bucket.name = Some("test-other-bucket-request".to_string());
 
         let event = LambdaEvent::new(s3_event, Context::default());
-        let config = mock_config(true);
+        let config =
+            test_support::mock_app_config!(app_config, TestClientBuilder::new().ok().build(), true);
         let opts = PerformOptions::default();
         function_handler(&config, &opts, event).await.unwrap();
     }

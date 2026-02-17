@@ -29,6 +29,43 @@ macro_rules! bucket_creator {
     }};
 }
 
+/// Construct a mock app Config backed by a provided test S3 client.
+///
+/// This macro accepts either:
+/// - `($config_mod, $client)` and defaults `debug_handler` to `false`
+/// - `($config_mod, $client, $debug_handler)`
+///
+/// `$config_mod` should be an in-scope module identifier exposing `Config`,
+/// `Clients`, and `Roles`, such as `app_config` (aliased to `crate::config`
+/// or `app::config`).
+#[macro_export]
+macro_rules! mock_app_config {
+    ($config_mod:ident, $client:expr $(,)?) => {{ $crate::mock_app_config!($config_mod, $client, false) }};
+    ($config_mod:ident, $client:expr, $debug_handler:expr $(,)?) => {{
+        let sdk_config = aws_config::SdkConfig::builder()
+            .behavior_version(aws_config::BehaviorVersion::latest())
+            .region(aws_config::Region::new("us-east-1"))
+            .build();
+
+        let roles = $config_mod::Roles {
+            batch: "arn:aws:iam::123456789:role/test-batch-role".to_string(),
+            replication: "arn:aws:iam::123456789:role/test-replication-role".to_string(),
+        };
+
+        let stack = apputils::Stack::new("test-stack").expect("test stack should be valid");
+        let clients = $config_mod::Clients::with_s3(&sdk_config, $client);
+
+        $config_mod::Config::new_with_clients(
+            sdk_config,
+            "123456789".to_string(),
+            roles,
+            stack,
+            $debug_handler,
+            clients,
+        )
+    }};
+}
+
 /// Parse TEST_STACK from env (defaults to "int-test") for integration tests.
 pub fn integration_test_stack() -> Stack {
     let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "int-test".to_string());

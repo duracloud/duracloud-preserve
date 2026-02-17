@@ -133,11 +133,10 @@ async fn process_and_upload(
 
 #[cfg(test)]
 mod tests {
-    use apputils::Stack;
     use aws_smithy_types::body::SdkBody;
 
     use super::*;
-    use crate::config::{Clients, Config, Roles};
+    use crate::config as app_config;
     use test_support::{TestClientBuilder, recorded_requests};
 
     fn batch_result(status: &str, bucket: &str, key: &str) -> BatchResultEntry {
@@ -153,30 +152,6 @@ mod tests {
         let encoded_upper = key.replace('/', "%2F");
         let encoded_lower = key.replace('/', "%2f");
         uri.contains(key) || uri.contains(&encoded_upper) || uri.contains(&encoded_lower)
-    }
-
-    fn mock_config(client: aws_sdk_s3::Client) -> Config {
-        let sdk_config = aws_config::SdkConfig::builder()
-            .behavior_version(aws_config::BehaviorVersion::latest())
-            .region(aws_config::Region::new("us-east-1"))
-            .build();
-
-        let roles = Roles {
-            batch: "arn:aws:iam::123456789:role/test-batch-role".to_string(),
-            replication: "arn:aws:iam::123456789:role/test-replication-role".to_string(),
-        };
-
-        let stack = Stack::new("test-stack").expect("test stack should be valid");
-        let clients = Clients::with_s3(&sdk_config, client);
-
-        Config::new_with_clients(
-            sdk_config,
-            "123456789".to_string(),
-            roles,
-            stack,
-            false,
-            clients,
-        )
     }
 
     #[tokio::test]
@@ -196,7 +171,7 @@ mod tests {
             .ok()
             .ok()
             .build_with_replay();
-        let config = mock_config(client);
+        let config = test_support::mock_app_config!(app_config, client);
         let managed_bucket = config.stack().managed_bucket();
         let opts = PerformOptions::default();
 
@@ -295,7 +270,7 @@ mod tests {
             .ok()
             .ok()
             .build_with_replay();
-        let config = mock_config(client);
+        let config = test_support::mock_app_config!(app_config, client);
         let managed_bucket = config.stack().managed_bucket();
         let opts = PerformOptions::default();
 

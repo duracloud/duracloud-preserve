@@ -2,11 +2,14 @@
 
 use apputils::Stack;
 use aws_sdk_s3::Client;
+use aws_sdk_s3::types::TransitionStorageClass;
 
 use awsutils::{
-    bucket::{delete, empty},
+    bucket::{Bucket, delete, empty},
+    bucket_creator::BucketCreator,
     config,
 };
+use test_support::integration_test_stack;
 
 pub struct IntegrationTestContext {
     pub account_id: String,
@@ -16,8 +19,7 @@ pub struct IntegrationTestContext {
 }
 
 pub async fn integration_test_context() -> IntegrationTestContext {
-    let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "int-test".to_string());
-    let stack = Stack::new(&stack_name).expect("invalid stack name");
+    let stack = integration_test_stack();
 
     let sdk_config = config::default_config().await;
     let s3 = Client::new(&sdk_config);
@@ -38,14 +40,26 @@ pub async fn integration_test_context() -> IntegrationTestContext {
     }
 }
 
+pub fn bucket_creator<'a>(
+    ctx: &'a IntegrationTestContext,
+    bucket: &'a Bucket,
+    storage_tier_override: Option<TransitionStorageClass>,
+) -> BucketCreator<'a> {
+    test_support::bucket_creator!(
+        bucket,
+        storage_tier_override,
+        &ctx.account_id,
+        &ctx.s3,
+        &ctx.replication_role_arn,
+        &ctx.stack,
+    )
+}
+
 pub async fn cleanup_bucket(client: &Client, bucket: &str) {
     let _ = empty(client, bucket).await;
     let _ = delete(client, bucket).await;
 }
 
 pub fn timestamp() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
+    test_support::unix_timestamp_secs()
 }

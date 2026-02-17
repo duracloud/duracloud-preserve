@@ -16,25 +16,10 @@ use aws_sdk_s3::types::{
 };
 use aws_smithy_types::error::metadata::ProvideErrorMetadata;
 use awsutils::bucket::{Bucket, Type, exists};
-use awsutils::bucket_creator::{BucketCreator, BucketCreatorParams, INVENTORY_FORMAT};
-use common::{IntegrationTestContext, cleanup_bucket, integration_test_context, timestamp};
-
-fn bucket_creator<'a>(
-    ctx: &'a IntegrationTestContext,
-    bucket: &'a Bucket,
-    storage_tier_override: Option<TransitionStorageClass>,
-) -> BucketCreator<'a> {
-    BucketCreator::new(
-        BucketCreatorParams {
-            account_id: &ctx.account_id,
-            client: &ctx.s3,
-            replication_role_arn: &ctx.replication_role_arn,
-            stack: &ctx.stack,
-        },
-        bucket,
-        storage_tier_override,
-    )
-}
+use awsutils::bucket_creator::INVENTORY_FORMAT;
+use common::{
+    IntegrationTestContext, bucket_creator, cleanup_bucket, integration_test_context, timestamp,
+};
 
 async fn verify_bucket_tags(ctx: &IntegrationTestContext, bucket: &str, expected_type: Type) {
     let result = ctx

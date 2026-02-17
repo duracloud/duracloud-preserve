@@ -1,8 +1,52 @@
+use apputils::Stack;
 use aws_sdk_s3::{Client, config::Region, primitives::SdkBody};
 use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
 use http::header::CONTENT_TYPE;
 
 const DEFAULT_TEST_URI: &str = "https://test.s3.amazonaws.com/";
+
+/// Construct a BucketCreator from shared integration test inputs.
+#[macro_export]
+macro_rules! bucket_creator {
+    (
+        $bucket:expr,
+        $storage_tier_override:expr,
+        $account_id:expr,
+        $client:expr,
+        $replication_role_arn:expr,
+        $stack:expr $(,)?
+    ) => {{
+        awsutils::bucket_creator::BucketCreator::new(
+            awsutils::bucket_creator::BucketCreatorParams {
+                account_id: $account_id,
+                client: $client,
+                replication_role_arn: $replication_role_arn,
+                stack: $stack,
+            },
+            $bucket,
+            $storage_tier_override,
+        )
+    }};
+}
+
+/// Parse TEST_STACK from env (defaults to "int-test") for integration tests.
+pub fn integration_test_stack() -> Stack {
+    let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "int-test".to_string());
+    Stack::new(&stack_name).unwrap_or_else(|e| panic!("invalid TEST_STACK '{}': {}", stack_name, e))
+}
+
+/// Build integration test config values from TEST_STACK.
+pub async fn integration_test_config<T, E, F, Fut>(build: F) -> T
+where
+    F: FnOnce(Stack) -> Fut,
+    Fut: std::future::Future<Output = Result<T, E>>,
+    E: std::fmt::Display,
+{
+    let stack = integration_test_stack();
+    build(stack)
+        .await
+        .unwrap_or_else(|e| panic!("failed to build integration test config: {}", e))
+}
 
 /// Builder for creating test S3 clients with mock responses.
 ///
@@ -142,4 +186,12 @@ pub fn replay_event(uri: &str, status: u16, body: impl Into<SdkBody>) -> ReplayE
             .body(body.into())
             .unwrap(),
     )
+}
+
+/// Return current unix timestamp in seconds.
+pub fn unix_timestamp_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system clock should be after unix epoch")
+        .as_secs()
 }

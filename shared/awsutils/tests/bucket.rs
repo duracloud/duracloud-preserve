@@ -12,25 +12,7 @@ mod common;
 use aws_sdk_s3::types::TransitionStorageClass;
 use aws_smithy_types::body::SdkBody;
 use awsutils::bucket::{Bucket, Type, delete, empty, exists, from_name};
-use awsutils::bucket_creator::{BucketCreator, BucketCreatorParams};
-use common::{integration_test_context, timestamp};
-
-fn bucket_creator<'a>(
-    ctx: &'a common::IntegrationTestContext,
-    bucket: &'a Bucket,
-    storage_tier_override: Option<TransitionStorageClass>,
-) -> BucketCreator<'a> {
-    BucketCreator::new(
-        BucketCreatorParams {
-            account_id: &ctx.account_id,
-            client: &ctx.s3,
-            replication_role_arn: &ctx.replication_role_arn,
-            stack: &ctx.stack,
-        },
-        bucket,
-        storage_tier_override,
-    )
-}
+use common::{bucket_creator, integration_test_context, timestamp};
 
 #[tokio::test]
 #[ignore]

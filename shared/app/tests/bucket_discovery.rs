@@ -8,43 +8,9 @@
 //!   - Run: make setup s=<stack> p=<profile>
 
 use app::bucket::{get_stack_buckets, get_stack_buckets_by_type};
-use app::config::Config;
-use apputils::Stack;
 use aws_sdk_s3::types::TransitionStorageClass;
 use awsutils::bucket::{Bucket, Type, delete};
-use awsutils::bucket_creator::{BucketCreator, BucketCreatorParams};
-
-fn timestamp() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
-}
-
-async fn integration_test_config() -> Config {
-    let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "int-test".to_string());
-    let stack = Stack::new(&stack_name).expect("invalid stack name");
-    app::config::config(stack)
-        .await
-        .expect("failed to build integration test config")
-}
-
-fn bucket_creator<'a>(
-    config: &'a Config,
-    bucket: &'a Bucket,
-    storage_tier_override: Option<TransitionStorageClass>,
-) -> BucketCreator<'a> {
-    BucketCreator::new(
-        BucketCreatorParams {
-            account_id: config.account_id(),
-            client: config.s3(),
-            replication_role_arn: config.replication_role_arn(),
-            stack: config.stack(),
-        },
-        bucket,
-        storage_tier_override,
-    )
-}
+use test_support::{integration_test_config, unix_timestamp_secs};
 
 async fn cleanup_buckets(client: &aws_sdk_s3::Client, bucket_names: &[String]) {
     for name in bucket_names {
@@ -55,17 +21,30 @@ async fn cleanup_buckets(client: &aws_sdk_s3::Client, bucket_names: &[String]) {
 #[tokio::test]
 #[ignore]
 async fn test_get_stack_buckets_finds_tagged_stack_buckets() {
-    let config = integration_test_config().await;
-    let ts = timestamp();
+    let config = integration_test_config(app::config::config).await;
+    let ts = unix_timestamp_secs();
     let standard_name = format!("{}-inttest-discovery-{}", config.stack().as_str(), ts);
     let replication_name = format!("{}-inttest-discovery-{}-repl", config.stack().as_str(), ts);
     let bucket_names = vec![standard_name.clone(), replication_name.clone()];
 
     let standard = Bucket::new(&standard_name, Type::Standard).unwrap();
     let replication = Bucket::new(&replication_name, Type::Replication).unwrap();
-    let standard_creator =
-        bucket_creator(&config, &standard, Some(TransitionStorageClass::GlacierIr));
-    let replication_creator = bucket_creator(&config, &replication, None);
+    let standard_creator = test_support::bucket_creator!(
+        &standard,
+        Some(TransitionStorageClass::GlacierIr),
+        config.account_id(),
+        config.s3(),
+        config.replication_role_arn(),
+        config.stack(),
+    );
+    let replication_creator = test_support::bucket_creator!(
+        &replication,
+        None,
+        config.account_id(),
+        config.s3(),
+        config.replication_role_arn(),
+        config.stack(),
+    );
 
     standard_creator
         .create()
@@ -87,17 +66,30 @@ async fn test_get_stack_buckets_finds_tagged_stack_buckets() {
 #[tokio::test]
 #[ignore]
 async fn test_get_stack_buckets_by_type_filters_results() {
-    let config = integration_test_config().await;
-    let ts = timestamp();
+    let config = integration_test_config(app::config::config).await;
+    let ts = unix_timestamp_secs();
     let standard_name = format!("{}-inttest-filter-{}", config.stack().as_str(), ts);
     let replication_name = format!("{}-inttest-filter-{}-repl", config.stack().as_str(), ts);
     let bucket_names = vec![standard_name.clone(), replication_name.clone()];
 
     let standard = Bucket::new(&standard_name, Type::Standard).unwrap();
     let replication = Bucket::new(&replication_name, Type::Replication).unwrap();
-    let standard_creator =
-        bucket_creator(&config, &standard, Some(TransitionStorageClass::GlacierIr));
-    let replication_creator = bucket_creator(&config, &replication, None);
+    let standard_creator = test_support::bucket_creator!(
+        &standard,
+        Some(TransitionStorageClass::GlacierIr),
+        config.account_id(),
+        config.s3(),
+        config.replication_role_arn(),
+        config.stack(),
+    );
+    let replication_creator = test_support::bucket_creator!(
+        &replication,
+        None,
+        config.account_id(),
+        config.s3(),
+        config.replication_role_arn(),
+        config.stack(),
+    );
 
     standard_creator
         .create()

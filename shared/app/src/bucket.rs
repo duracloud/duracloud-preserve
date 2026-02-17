@@ -165,3 +165,124 @@ pub async fn get_stack_buckets_by_type(
         .filter(|b| types.contains(b.bucket_type()))
         .collect())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use awsutils::test_client::TestClientBuilder;
+
+    fn list_buckets_xml(names: &[&str]) -> String {
+        let buckets = names
+            .iter()
+            .map(|name| {
+                format!(
+                    "<Bucket><Name>{name}</Name><CreationDate>2025-01-01T00:00:00.000Z</CreationDate></Bucket>"
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("");
+
+        format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Owner>
+    <ID>owner-id</ID>
+    <DisplayName>owner</DisplayName>
+  </Owner>
+  <Buckets>{buckets}</Buckets>
+</ListAllMyBucketsResult>"#
+        )
+    }
+
+    fn bucket_tagging_xml(tags: &[(&str, &str)]) -> String {
+        let entries = tags
+            .iter()
+            .map(|(k, v)| format!("<Tag><Key>{k}</Key><Value>{v}</Value></Tag>"))
+            .collect::<Vec<_>>()
+            .join("");
+
+        format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<Tagging xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <TagSet>{entries}</TagSet>
+</Tagging>"#
+        )
+    }
+
+    #[tokio::test]
+    async fn test_get_stack_buckets_skips_tag_lookup_failures() {
+        let stack = Stack::new("test-stack").unwrap();
+        let list = list_buckets_xml(&["test-stack-alpha", "test-stack-bravo"]);
+        let bravo_tags = bucket_tagging_xml(&[("Stack", "test-stack"), ("BucketType", "standard")]);
+
+        let client = TestClientBuilder::new()
+            .success(list, None)
+            .s3_error("AccessDenied", "tagging denied")
+            .success(bravo_tags, None)
+            .build();
+
+        let buckets = get_stack_buckets(&client, &stack).await.unwrap();
+
+        assert_eq!(buckets.len(), 1);
+        assert_eq!(buckets[0].name(), "test-stack-bravo");
+        assert_eq!(buckets[0].bucket_type(), &Type::Standard);
+    }
+
+    #[tokio::test]
+    async fn test_get_stack_buckets_excludes_non_matching_stack_tag() {
+        let stack = Stack::new("test-stack").unwrap();
+        let list = list_buckets_xml(&["test-stack-alpha"]);
+        let tags = bucket_tagging_xml(&[("Stack", "other-stack"), ("BucketType", "standard")]);
+
+        let client = TestClientBuilder::new()
+            .success(list, None)
+            .success(tags, None)
+            .build();
+
+        let buckets = get_stack_buckets(&client, &stack).await.unwrap();
+        assert!(buckets.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_stack_buckets_excludes_missing_or_invalid_bucket_type() {
+        let stack = Stack::new("test-stack").unwrap();
+        let list = list_buckets_xml(&["test-stack-alpha", "test-stack-bravo"]);
+        let missing_type_tags = bucket_tagging_xml(&[("Stack", "test-stack")]);
+        let invalid_type_tags = bucket_tagging_xml(&[
+            ("Stack", "test-stack"),
+            ("BucketType", "not-a-supported-type"),
+        ]);
+
+        let client = TestClientBuilder::new()
+            .success(list, None)
+            .success(missing_type_tags, None)
+            .success(invalid_type_tags, None)
+            .build();
+
+        let buckets = get_stack_buckets(&client, &stack).await.unwrap();
+        assert!(buckets.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_stack_buckets_by_type_filters_results() {
+        let stack = Stack::new("test-stack").unwrap();
+        let list = list_buckets_xml(&["test-stack-public", "test-stack-repl"]);
+        let public_tags = bucket_tagging_xml(&[("Stack", "test-stack"), ("BucketType", "public")]);
+        let repl_tags =
+            bucket_tagging_xml(&[("Stack", "test-stack"), ("BucketType", "replication")]);
+
+        let client = TestClientBuilder::new()
+            .success(list, None)
+            .success(public_tags, None)
+            .success(repl_tags, None)
+            .build();
+
+        let buckets = get_stack_buckets_by_type(&client, &stack, &[Type::Public])
+            .await
+            .unwrap();
+
+        assert_eq!(buckets.len(), 1);
+        assert_eq!(buckets[0].name(), "test-stack-public");
+        assert_eq!(buckets[0].bucket_type(), &Type::Public);
+    }
+}

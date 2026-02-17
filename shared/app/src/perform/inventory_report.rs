@@ -141,16 +141,16 @@ mod tests {
         let manifest = manifest_json(INVENTORY_FORMAT.as_str(), parquet_key, parquet_bytes.len());
 
         // StaticReplayClient responds in sequence, so key naming here is for readability/safety.
-        let (client, replay) = TestClientBuilder::new()
+        let (sdk_config, replay) = TestClientBuilder::new()
             .success(manifest, None)
             .success(SdkBody::from(parquet_bytes.to_vec()), None)
             .ok()
             .ok()
             .ok()
             .ok()
-            .build_with_replay();
+            .build_sdk_config_with_replay();
 
-        let config = test_support::mock_app_config!(app_config, client);
+        let config = app_config::Config::for_tests(sdk_config, false);
         let manifest_file = File::new(config.stack().managed_bucket(), manifest_key);
         let opts = PerformOptions::default();
         let stats = perform(&config, &manifest_file, &opts)
@@ -240,10 +240,10 @@ mod tests {
         let parquet_key = "inventory-report-tests/example.csv";
         let manifest = manifest_json("CSV", parquet_key, 10);
 
-        let (client, replay) = TestClientBuilder::new()
+        let (sdk_config, replay) = TestClientBuilder::new()
             .success(manifest, None)
-            .build_with_replay();
-        let config = test_support::mock_app_config!(app_config, client);
+            .build_sdk_config_with_replay();
+        let config = app_config::Config::for_tests(sdk_config, false);
         let manifest_file = File::new(config.stack().managed_bucket(), manifest_key);
         let opts = PerformOptions::default();
 

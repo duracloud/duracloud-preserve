@@ -57,8 +57,8 @@ mod tests {
         let s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
 
         let event = LambdaEvent::new(s3_event, Context::default());
-        let config =
-            test_support::mock_app_config!(app_config, TestClientBuilder::new().ok().build(), true);
+        let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, true);
         let opts = inventory_report::PerformOptions::default();
         function_handler(&config, &opts, event).await.unwrap();
     }
@@ -73,8 +73,8 @@ mod tests {
         s3_event.records[0].s3.object.key = Some("something-else.json".to_string());
 
         let event = LambdaEvent::new(s3_event, Context::default());
-        let config =
-            test_support::mock_app_config!(app_config, TestClientBuilder::new().ok().build(), true);
+        let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, true);
         let opts = inventory_report::PerformOptions::default();
         function_handler(&config, &opts, event).await.unwrap();
     }

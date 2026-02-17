@@ -16,14 +16,6 @@ impl Clients {
             s3control: aws_sdk_s3control::Client::new(sdk_config),
         }
     }
-
-    /// Create Clients with a custom S3 client (for testing with mock clients)
-    pub fn with_s3(sdk_config: &SdkConfig, s3: aws_sdk_s3::Client) -> Self {
-        Self {
-            s3,
-            s3control: aws_sdk_s3control::Client::new(sdk_config),
-        }
-    }
 }
 
 /// Common configuration for all functions
@@ -66,17 +58,17 @@ impl Config {
         }
     }
 
-    /// Create a Config with pre-built clients (for testing with mock clients)
-    pub fn new_with_clients(
-        sdk_config: SdkConfig,
-        account_id: String,
-        roles: Roles,
-        stack: Stack,
-        debug_handler: bool,
-        clients: Clients,
-    ) -> Self {
+    /// Create a Config for tests from a mocked SDK config.
+    pub fn for_tests(sdk_config: SdkConfig, debug_handler: bool) -> Self {
+        let roles = Roles {
+            batch: "arn:aws:iam::123456789:role/test-batch-role".to_string(),
+            replication: "arn:aws:iam::123456789:role/test-replication-role".to_string(),
+        };
+        let stack = Stack::new("test-stack").expect("test stack should be valid");
+        let clients = Clients::new(&sdk_config);
+
         Self {
-            account_id,
+            account_id: "123456789".to_string(),
             debug_handler,
             roles,
             stack,

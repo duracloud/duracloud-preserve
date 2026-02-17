@@ -1,5 +1,6 @@
 use apputils::Stack;
-use aws_sdk_s3::{Client, config::Region, primitives::SdkBody};
+use aws_config::{BehaviorVersion, SdkConfig};
+use aws_sdk_s3::{Client, primitives::SdkBody};
 use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
 use http::header::CONTENT_TYPE;
 
@@ -25,43 +26,6 @@ macro_rules! bucket_creator {
             },
             $bucket,
             $storage_tier_override,
-        )
-    }};
-}
-
-/// Construct a mock app Config backed by a provided test S3 client.
-///
-/// This macro accepts either:
-/// - `($config_mod, $client)` and defaults `debug_handler` to `false`
-/// - `($config_mod, $client, $debug_handler)`
-///
-/// `$config_mod` should be an in-scope module identifier exposing `Config`,
-/// `Clients`, and `Roles`, such as `app_config` (aliased to `crate::config`
-/// or `app::config`).
-#[macro_export]
-macro_rules! mock_app_config {
-    ($config_mod:ident, $client:expr $(,)?) => {{ $crate::mock_app_config!($config_mod, $client, false) }};
-    ($config_mod:ident, $client:expr, $debug_handler:expr $(,)?) => {{
-        let sdk_config = aws_config::SdkConfig::builder()
-            .behavior_version(aws_config::BehaviorVersion::latest())
-            .region(aws_config::Region::new("us-east-1"))
-            .build();
-
-        let roles = $config_mod::Roles {
-            batch: "arn:aws:iam::123456789:role/test-batch-role".to_string(),
-            replication: "arn:aws:iam::123456789:role/test-replication-role".to_string(),
-        };
-
-        let stack = apputils::Stack::new("test-stack").expect("test stack should be valid");
-        let clients = $config_mod::Clients::with_s3(&sdk_config, $client);
-
-        $config_mod::Config::new_with_clients(
-            sdk_config,
-            "123456789".to_string(),
-            roles,
-            stack,
-            $debug_handler,
-            clients,
         )
     }};
 }
@@ -106,15 +70,20 @@ impl TestClientBuilder {
 
     /// Build the test client and return the replay handle for request assertions.
     pub fn build_with_replay(self) -> (Client, StaticReplayClient) {
-        let http_client = StaticReplayClient::new(self.events);
+        let (sdk_config, replay) = self.build_sdk_config_with_replay();
+        let config = aws_sdk_s3::Config::from(&sdk_config);
 
-        let config = aws_sdk_s3::Config::builder()
-            .behavior_version_latest()
-            .http_client(http_client.clone())
-            .region(Region::new("us-east-1"))
-            .build();
+        (Client::from_conf(config), replay)
+    }
 
-        (Client::from_conf(config), http_client)
+    /// Build a mocked SDK config for constructing any AWS service client in tests.
+    pub fn build_sdk_config(self) -> SdkConfig {
+        self.build_sdk_config_with_replay().0
+    }
+
+    /// Build a mocked SDK config and return the replay handle for request assertions.
+    pub fn build_sdk_config_with_replay(self) -> (SdkConfig, StaticReplayClient) {
+        mock_sdk_config_with_events(self.events)
     }
 
     /// Add an error response with XML error body.
@@ -187,6 +156,26 @@ impl TestClientBuilder {
     }
 }
 
+/// Build an AWS SDK config and replay handle for service clients under test.
+pub fn mock_sdk_config(event: ReplayEvent) -> (SdkConfig, StaticReplayClient) {
+    mock_sdk_config_with_events(vec![event])
+}
+
+/// Build an AWS SDK config and replay handle for service clients under test with multiple events.
+pub fn mock_sdk_config_with_events(events: Vec<ReplayEvent>) -> (SdkConfig, StaticReplayClient) {
+    let http_client = StaticReplayClient::new(events);
+    let sdk_config = SdkConfig::builder()
+        .behavior_version(BehaviorVersion::latest())
+        .region(aws_config::Region::new("us-east-1"))
+        .credentials_provider(aws_sdk_s3::config::SharedCredentialsProvider::new(
+            aws_sdk_s3::config::Credentials::for_tests(),
+        ))
+        .http_client(http_client.clone())
+        .build();
+
+    (sdk_config, http_client)
+}
+
 /// Minimal request record for test assertions.
 #[derive(Debug, Clone)]
 pub struct RecordedRequest {
@@ -222,6 +211,37 @@ pub fn replay_event(uri: &str, status: u16, body: impl Into<SdkBody>) -> ReplayE
             .status(status)
             .body(body.into())
             .unwrap(),
+    )
+}
+
+/// Helper to create a ReplayEvent with an optional content type response header.
+pub fn replay_event_with_content_type(
+    uri: &str,
+    status: u16,
+    body: impl Into<SdkBody>,
+    content_type: Option<&str>,
+) -> ReplayEvent {
+    let mut response = http::Response::builder().status(status);
+    if let Some(content_type) = content_type {
+        response = response.header("Content-Type", content_type);
+    }
+
+    ReplayEvent::new(
+        http::Request::builder()
+            .uri(uri)
+            .body(SdkBody::empty())
+            .unwrap(),
+        response.body(body.into()).unwrap(),
+    )
+}
+
+/// Helper to create an XML ReplayEvent using the default test URI.
+pub fn replay_xml_event(status: u16, body: impl Into<String>) -> ReplayEvent {
+    replay_event_with_content_type(
+        DEFAULT_TEST_URI,
+        status,
+        SdkBody::from(body.into()),
+        Some("text/xml"),
     )
 }
 

@@ -101,8 +101,8 @@ mod tests {
         assert_eq!(detail.service_event_details.status, "Complete");
 
         let event = LambdaEvent::new(cw_event, Context::default());
-        let config =
-            test_support::mock_app_config!(app_config, TestClientBuilder::new().ok().build(), true);
+        let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, true);
         let opts = checksum_report::PerformOptions::default();
         function_handler(&config, &opts, event).await.unwrap();
     }
@@ -116,8 +116,8 @@ mod tests {
         assert_eq!(detail.service_event_details.status, "Failed");
 
         let event = LambdaEvent::new(cw_event, Context::default());
-        let config =
-            test_support::mock_app_config!(app_config, TestClientBuilder::new().ok().build(), true);
+        let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, true);
         let opts = checksum_report::PerformOptions::default();
         let err = function_handler(&config, &opts, event)
             .await

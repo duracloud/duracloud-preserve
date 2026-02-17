@@ -259,3 +259,112 @@ where
         DisplayErrorContext(e)
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_support::{mock_sdk_config, recorded_requests, replay_xml_event};
+
+    #[tokio::test]
+    async fn test_create_copy_job_serializes_copy_operation_and_prefixes() {
+        let (sdk_config, replay) = mock_sdk_config(replay_xml_event(
+            200,
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<CreateJobResult xmlns="http://awss3control.amazonaws.com/doc/2018-08-20/">
+  <JobId>copy-job-1</JobId>
+</CreateJobResult>"#,
+        ));
+        let client = s3control::Client::new(&sdk_config);
+
+        let job_id = create_copy_job(
+            &client,
+            "123456789012",
+            "arn:aws:iam::123456789012:role/test-batch-role",
+            "source-bucket",
+            "dest-bucket",
+            "report-bucket",
+        )
+        .await
+        .expect("create_copy_job should succeed");
+
+        assert_eq!(job_id, "copy-job-1");
+
+        let requests = recorded_requests(&replay);
+        assert_eq!(requests.len(), 1, "expected one CreateJob request");
+        let body = String::from_utf8(requests[0].body.clone())
+            .expect("request body should be valid utf-8");
+
+        assert!(body.contains("<S3PutObjectCopy>"));
+        assert!(body.contains("<TargetResource>arn:aws:s3:::dest-bucket</TargetResource>"));
+        assert!(body.contains("<ManifestPrefix>batch/manifests/copy</ManifestPrefix>"));
+        assert!(body.contains("<Prefix>batch/reports/copy/source-bucket</Prefix>"));
+        assert!(!body.contains("<S3ComputeObjectChecksum>"));
+    }
+
+    #[tokio::test]
+    async fn test_create_checksum_job_serializes_checksum_operation_and_prefixes() {
+        let (sdk_config, replay) = mock_sdk_config(replay_xml_event(
+            200,
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<CreateJobResult xmlns="http://awss3control.amazonaws.com/doc/2018-08-20/">
+  <JobId>checksum-job-1</JobId>
+</CreateJobResult>"#,
+        ));
+        let client = s3control::Client::new(&sdk_config);
+
+        let job_id = create_checksum_job(
+            &client,
+            "123456789012",
+            "arn:aws:iam::123456789012:role/test-batch-role",
+            "source-bucket",
+            "report-bucket",
+        )
+        .await
+        .expect("create_checksum_job should succeed");
+
+        assert_eq!(job_id, "checksum-job-1");
+
+        let requests = recorded_requests(&replay);
+        assert_eq!(requests.len(), 1, "expected one CreateJob request");
+        let body = String::from_utf8(requests[0].body.clone())
+            .expect("request body should be valid utf-8");
+
+        assert!(body.contains("<S3ComputeObjectChecksum>"));
+        assert!(body.contains("<ChecksumAlgorithm>CRC64NVME</ChecksumAlgorithm>"));
+        assert!(body.contains("<ChecksumType>FULL_OBJECT</ChecksumType>"));
+        assert!(body.contains("<ManifestPrefix>batch/manifests/checksum</ManifestPrefix>"));
+        assert!(body.contains("<Prefix>batch/reports/checksum/source-bucket</Prefix>"));
+        assert!(!body.contains("<S3PutObjectCopy>"));
+    }
+
+    #[tokio::test]
+    async fn test_create_copy_job_maps_create_job_failures_to_batch_error() {
+        let (sdk_config, _replay) = mock_sdk_config(replay_xml_event(
+            400,
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+  <Code>BadRequestException</Code>
+  <Message>invalid request</Message>
+</Error>"#,
+        ));
+        let client = s3control::Client::new(&sdk_config);
+
+        let err = create_copy_job(
+            &client,
+            "123456789012",
+            "arn:aws:iam::123456789012:role/test-batch-role",
+            "source-bucket",
+            "dest-bucket",
+            "report-bucket",
+        )
+        .await
+        .expect_err("create_copy_job should fail");
+
+        match err {
+            BatchError::S3Control(inner) => {
+                assert!(inner.to_string().contains("CreateJob failed"));
+            }
+            other => panic!("expected S3Control error, got: {other:?}"),
+        }
+    }
+}

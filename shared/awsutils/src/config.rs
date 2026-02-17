@@ -52,36 +52,7 @@ pub async fn get_role_arn(config: &SdkConfig, role_name: &str) -> Result<String,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
-    use aws_smithy_types::body::SdkBody;
-
-    fn replay_event(status: u16, body: &str) -> ReplayEvent {
-        ReplayEvent::new(
-            http::Request::builder()
-                .uri("https://test.amazonaws.com/")
-                .body(SdkBody::empty())
-                .expect("request should build"),
-            http::Response::builder()
-                .status(status)
-                .header("Content-Type", "text/xml")
-                .body(SdkBody::from(body.to_string()))
-                .expect("response should build"),
-        )
-    }
-
-    fn mock_sdk_config(event: ReplayEvent) -> (SdkConfig, StaticReplayClient) {
-        let http_client = StaticReplayClient::new(vec![event]);
-        let sdk_config = SdkConfig::builder()
-            .behavior_version(BehaviorVersion::latest())
-            .region(aws_config::Region::new("us-east-1"))
-            .credentials_provider(aws_sdk_s3::config::SharedCredentialsProvider::new(
-                aws_sdk_s3::config::Credentials::for_tests(),
-            ))
-            .http_client(http_client.clone())
-            .build();
-
-        (sdk_config, http_client)
-    }
+    use test_support::{mock_sdk_config, replay_xml_event};
 
     #[tokio::test]
     async fn test_get_account_id_returns_account_from_sts_identity() {
@@ -96,7 +67,7 @@ mod tests {
     <RequestId>req-1</RequestId>
   </ResponseMetadata>
 </GetCallerIdentityResponse>"#;
-        let (sdk_config, _replay) = mock_sdk_config(replay_event(200, body));
+        let (sdk_config, _replay) = mock_sdk_config(replay_xml_event(200, body));
 
         let account_id = get_account_id(&sdk_config)
             .await
@@ -124,7 +95,7 @@ mod tests {
     <RequestId>req-2</RequestId>
   </ResponseMetadata>
 </GetRoleResponse>"#;
-        let (sdk_config, _replay) = mock_sdk_config(replay_event(200, body));
+        let (sdk_config, _replay) = mock_sdk_config(replay_xml_event(200, body));
 
         let arn = get_role_arn(&sdk_config, "test-role")
             .await
@@ -144,7 +115,7 @@ mod tests {
   </Error>
   <RequestId>req-3</RequestId>
 </ErrorResponse>"#;
-        let (sdk_config, _replay) = mock_sdk_config(replay_event(404, body));
+        let (sdk_config, _replay) = mock_sdk_config(replay_xml_event(404, body));
 
         let err = get_role_arn(&sdk_config, "missing-role")
             .await

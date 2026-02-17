@@ -31,8 +31,8 @@ mod tests {
     async fn test_event_handler() {
         // This is very unexciting because a scheduled event doesn't have anything for us
         let event = LambdaEvent::new(CloudWatchEvent::default(), Context::default());
-        let config =
-            test_support::mock_app_config!(app_config, TestClientBuilder::new().ok().build(), true);
+        let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, true);
         let opts = compute_checksums::PerformOptions::default();
         function_handler(&config, &opts, event).await.unwrap();
     }

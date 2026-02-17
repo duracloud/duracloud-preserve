@@ -163,15 +163,15 @@ mod tests {
         let source_csv = include_bytes!("../../../../files/checksum-source.csv");
         let repl_csv = include_bytes!("../../../../files/checksum-replication.csv");
 
-        let (client, replay) = TestClientBuilder::new()
+        let (sdk_config, replay) = TestClientBuilder::new()
             .success(SdkBody::from(source_csv.to_vec()), None)
             .success(SdkBody::from(repl_csv.to_vec()), None)
             .ok()
             .ok()
             .ok()
             .ok()
-            .build_with_replay();
-        let config = test_support::mock_app_config!(app_config, client);
+            .build_sdk_config_with_replay();
+        let config = app_config::Config::for_tests(sdk_config, false);
         let managed_bucket = config.stack().managed_bucket();
         let opts = PerformOptions::default();
 
@@ -262,15 +262,15 @@ mod tests {
         let source_csv = include_bytes!("../../../../files/checksum-source.csv");
         let repl_csv = include_bytes!("../../../../files/checksum-replication.csv");
 
-        let (client, replay) = TestClientBuilder::new()
+        let (sdk_config, replay) = TestClientBuilder::new()
             .success(SdkBody::from(source_csv.to_vec()), None)
             .success(SdkBody::from(repl_csv.to_vec()), None)
             .ok()
             .ok()
             .ok()
             .ok()
-            .build_with_replay();
-        let config = test_support::mock_app_config!(app_config, client);
+            .build_sdk_config_with_replay();
+        let config = app_config::Config::for_tests(sdk_config, false);
         let managed_bucket = config.stack().managed_bucket();
         let opts = PerformOptions::default();
 

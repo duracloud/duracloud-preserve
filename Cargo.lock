@@ -3580,6 +3580,7 @@ name = "test-support"
 version = "0.1.0"
 dependencies = [
  "apputils",
+ "aws-config",
  "aws-sdk-s3",
  "aws-smithy-runtime",
  "http 1.4.0",

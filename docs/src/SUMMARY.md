@@ -6,6 +6,14 @@
 # User guide
 
 - [Getting started](user/README.md)
+- [Connecting to S3](user/connecting-to-s3.md)
+- [Managed Resources](user/managed-resources.md)
+- [How to Create Buckets](user/creating-buckets.md)
+- [Uploading Files](user/uploading-files.md)
+- [Reports](user/reports.md)
+- [Downloading Content](user/downloading-content.md)
+- [Making Content Public](user/making-content-public.md)
+- [External Documentation](user/external-documentation.md)
 
 # Deployment guide
 

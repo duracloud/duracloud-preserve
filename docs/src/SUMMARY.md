@@ -13,7 +13,7 @@
 - [Reports](user/reports.md)
 - [Downloading Content](user/downloading-content.md)
 - [Making Content Public](user/making-content-public.md)
-- [External Documentation](user/making-content-public.md)
+- [External Documentation](user/external-documentation.md)
 
 # Deployment guide
 

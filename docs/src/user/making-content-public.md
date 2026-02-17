@@ -1,5 +1,19 @@
 # Making Content Public
-You can make content publicly available by designating a bucket as `-public` - See [How to Create Buckets](creating-buckets.md) or by uploading content to your `public` folder if you're using the SFTPGo web-based application.
+
+There are two ways to make content public.
+
+## Pre-created bucket with friendly domain (recommended)
+
+Docs needed.
+
+To use this:
+
+- upload files to your stack `-public` bucket.
+- upload content to your `public` folder if you're using the SFTPGo web-based application
+
+## Public buckets (not recommended)
+
+You can also make content publicly available by designating a bucket as `-public` - See [How to Create Buckets](creating-buckets.md).
 
 You can construct what a public link will look like based on this pattern:
 
@@ -17,6 +31,7 @@ OR, without the region information:
 
 https://duracloud-lyrasis-public.s3.amazonaws.com/test-01/catpics/callie_and_friend.jpg
 
+**Note this feature is currently available but may be restricted in the future as it goes against AWS guidelines.**
 
 ## Cyberduck sharing options
 Cyberduck has some additional ways to share folders and individual objects.

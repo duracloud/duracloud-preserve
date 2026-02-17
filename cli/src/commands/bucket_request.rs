@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use app::perform::bucket_request;
 use apputils::{Stack, content_type};
 use awsutils::file::File;
 use clap::Args as ClapArgs;
@@ -24,7 +25,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Err("No bucket names found in file".into());
     }
 
-    let config = awsutils::config::config(stack.clone()).await;
+    let config = app::config::config(stack.clone()).await;
 
     let filename = args
         .names
@@ -53,8 +54,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         file.key()
     );
 
-    let opts = awsutils::bucket_request::PerformOptions::default();
-    awsutils::bucket_request::perform(&config, &file, &opts).await?;
+    let opts = app::perform::bucket_request::PerformOptions::default();
+    bucket_request::perform(&config, &file, &opts).await?;
 
     println!("All buckets created successfully");
     Ok(())

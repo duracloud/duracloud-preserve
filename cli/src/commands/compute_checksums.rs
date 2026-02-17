@@ -1,5 +1,6 @@
+use app::perform::compute_checksums;
 use apputils::Stack;
-use awsutils::{bucket, compute_checksums};
+use awsutils::bucket;
 use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
@@ -12,7 +13,7 @@ pub struct Args {
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let bucket = args.bucket;
     let stack = Stack::from_bucket_name(&bucket)?;
-    let config = awsutils::config::config(stack).await;
+    let config = app::config::config(stack).await;
     let bucket_name = bucket::Name::new(&bucket)?;
 
     let opts = compute_checksums::PerformOptions::default();

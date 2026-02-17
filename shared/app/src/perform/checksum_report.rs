@@ -3,14 +3,14 @@ use apputils::{
     stats::VerificationStats,
 };
 use aws_sdk_s3::primitives::ByteStream;
-use bytes::Bytes;
-
-use crate::{
-    batch::{BatchResultEntry, ChecksumJobReceipt, get_manifest_if_ready},
+use awsutils::{
+    batch::{BatchResultEntry, ChecksumJobReceipt},
     checksum,
-    config::Config,
     file::{self, File},
 };
+use bytes::Bytes;
+
+use crate::{batch::get_manifest_if_ready, config::Config};
 
 #[derive(Debug, Clone, Copy)]
 pub struct PerformOptions {
@@ -78,8 +78,10 @@ async fn process_and_upload(
 ) -> Result<VerificationStats, checksum::ChecksumError> {
     let managed_bucket = config.stack().managed_bucket();
     let temp_dir = tempfile::tempdir()?;
-    let source_paths = checksum::download_manifest_files(config, source_results, &temp_dir).await?;
-    let repl_paths = checksum::download_manifest_files(config, repl_results, &temp_dir).await?;
+    let source_paths =
+        checksum::download_manifest_files(config.s3(), source_results, &temp_dir).await?;
+    let repl_paths =
+        checksum::download_manifest_files(config.s3(), repl_results, &temp_dir).await?;
 
     tracing::info!(
         source_files = source_paths.len(),
@@ -134,7 +136,8 @@ mod tests {
     use aws_smithy_types::body::SdkBody;
 
     use super::*;
-    use crate::test_client::{MockConfigBuilder, TestClientBuilder, recorded_requests};
+    use crate::test_client::MockConfigBuilder;
+    use awsutils::test_client::{TestClientBuilder, recorded_requests};
 
     fn batch_result(status: &str, bucket: &str, key: &str) -> BatchResultEntry {
         BatchResultEntry {
@@ -157,8 +160,8 @@ mod tests {
         let source_key = "checksum-report-tests/source.csv";
         let repl_key = "checksum-report-tests/repl.csv";
 
-        let source_csv = include_bytes!("../../../files/checksum-source.csv");
-        let repl_csv = include_bytes!("../../../files/checksum-replication.csv");
+        let source_csv = include_bytes!("../../../../files/checksum-source.csv");
+        let repl_csv = include_bytes!("../../../../files/checksum-replication.csv");
 
         let (client, replay) = TestClientBuilder::new()
             .success(SdkBody::from(source_csv.to_vec()), None)
@@ -256,8 +259,8 @@ mod tests {
         let repl_key = "checksum-report-tests/repl.csv";
         let skipped_key = "checksum-report-tests/skipped.csv";
 
-        let source_csv = include_bytes!("../../../files/checksum-source.csv");
-        let repl_csv = include_bytes!("../../../files/checksum-replication.csv");
+        let source_csv = include_bytes!("../../../../files/checksum-source.csv");
+        let repl_csv = include_bytes!("../../../../files/checksum-replication.csv");
 
         let (client, replay) = TestClientBuilder::new()
             .success(SdkBody::from(source_csv.to_vec()), None)

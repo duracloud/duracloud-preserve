@@ -64,6 +64,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5192cca8006f1fd4f7237516f40fa183bb07f8fbdfedaa0036de5ea9b0b45e78"
 
 [[package]]
+name = "app"
+version = "0.1.0"
+dependencies = [
+ "apputils",
+ "aws-config",
+ "aws-sdk-s3",
+ "aws-sdk-s3control",
+ "aws-smithy-types",
+ "awsutils",
+ "bytes",
+ "futures",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "apputils"
 version = "0.1.0"
 dependencies = [
@@ -951,6 +969,7 @@ dependencies = [
 name = "bucket-request"
 version = "0.1.0"
 dependencies = [
+ "app",
  "apputils",
  "aws-sdk-s3",
  "aws_lambda_events",
@@ -1060,6 +1079,7 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 name = "checksum-report"
 version = "0.1.0"
 dependencies = [
+ "app",
  "apputils",
  "aws_lambda_events",
  "awsutils",
@@ -1172,6 +1192,7 @@ dependencies = [
 name = "compute-checksums"
 version = "0.1.0"
 dependencies = [
+ "app",
  "apputils",
  "aws_lambda_events",
  "awsutils",
@@ -1437,6 +1458,7 @@ checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 name = "duracloud"
 version = "0.1.0"
 dependencies = [
+ "app",
  "apputils",
  "aws-config",
  "aws-sdk-iam",
@@ -2173,6 +2195,7 @@ dependencies = [
 name = "inventory-report"
 version = "0.1.0"
 dependencies = [
+ "app",
  "apputils",
  "aws_lambda_events",
  "awsutils",

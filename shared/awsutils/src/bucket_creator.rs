@@ -11,8 +11,9 @@ use aws_sdk_s3::types::{
     TransitionStorageClass, VersioningConfiguration,
 };
 
+use apputils::Stack;
+
 use crate::bucket::{BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, RequestError, Type};
-use crate::config::Config;
 use crate::config::get_region;
 
 const BUCKET_TAG_ORIGIN_KEY: &str = "BucketOrigin";
@@ -38,20 +39,40 @@ const STORAGE_TRANSITION_DAYS: u8 = 7;
 /// Handles bucket setup by delegating to the appropriate methods per bucket type.
 #[derive(Debug)]
 pub struct BucketCreator<'a> {
+    account_id: &'a str,
     bucket: &'a Bucket,
-    config: &'a Config,
+    client: &'a aws_sdk_s3::Client,
+    replication_role_arn: &'a str,
+    stack: &'a Stack,
     storage_tier_override: Option<TransitionStorageClass>,
+}
+
+pub struct BucketCreatorParams<'a> {
+    pub account_id: &'a str,
+    pub client: &'a aws_sdk_s3::Client,
+    pub replication_role_arn: &'a str,
+    pub stack: &'a Stack,
 }
 
 impl<'a> BucketCreator<'a> {
     pub fn new(
-        config: &'a Config,
+        params: BucketCreatorParams<'a>,
         bucket: &'a Bucket,
         storage_tier_override: Option<TransitionStorageClass>,
     ) -> Self {
+        let BucketCreatorParams {
+            account_id,
+            client,
+            replication_role_arn,
+            stack,
+        } = params;
+
         Self {
+            account_id,
             bucket,
-            config,
+            client,
+            replication_role_arn,
+            stack,
             storage_tier_override,
         }
     }
@@ -68,10 +89,10 @@ impl<'a> BucketCreator<'a> {
     }
 
     pub async fn create(&self) -> Result<(), RequestError> {
-        let region = get_region(self.config.s3())?;
+        let region = get_region(self.client)?;
         let constraint = BucketLocationConstraint::from(region.as_str());
 
-        let stack = self.config.stack().as_str();
+        let stack = self.stack.as_str();
         let bucket_name = self.bucket.name();
         let bucket_type = self.bucket.bucket_type().to_string();
 
@@ -100,8 +121,7 @@ impl<'a> BucketCreator<'a> {
             )
             .build();
 
-        self.config
-            .s3()
+        self.client
             .create_bucket()
             .create_bucket_configuration(cfg)
             .bucket(bucket_name)
@@ -117,8 +137,7 @@ impl<'a> BucketCreator<'a> {
     pub async fn rollback(&self) -> Result<(), RequestError> {
         let bucket_name = self.bucket.name();
 
-        self.config
-            .s3()
+        self.client
             .delete_bucket()
             .bucket(bucket_name)
             .send()
@@ -183,8 +202,7 @@ impl<'a> BucketCreator<'a> {
             }]
         });
 
-        self.config
-            .s3()
+        self.client
             .put_bucket_policy()
             .bucket(bucket_name)
             .policy(policy.to_string())
@@ -247,8 +265,7 @@ impl<'a> BucketCreator<'a> {
 
         let rules = vec![expiration, transition];
 
-        self.config
-            .s3()
+        self.client
             .put_bucket_lifecycle_configuration()
             .bucket(bucket_name)
             .lifecycle_configuration(
@@ -288,8 +305,7 @@ impl<'a> BucketCreator<'a> {
             }]
         });
 
-        self.config
-            .s3()
+        self.client
             .put_bucket_policy()
             .bucket(bucket_name)
             .policy(policy.to_string())
@@ -307,10 +323,9 @@ impl<'a> BucketCreator<'a> {
 
     async fn enable_bucket_logging(&self) -> Result<(), RequestError> {
         let bucket_name = self.bucket.name();
-        let dest_bucket = self.config.stack().managed_bucket();
+        let dest_bucket = self.stack.managed_bucket();
 
-        self.config
-            .s3()
+        self.client
             .put_bucket_logging()
             .bucket(bucket_name)
             .bucket_logging_status(
@@ -343,10 +358,9 @@ impl<'a> BucketCreator<'a> {
 
     async fn enable_inventory(&self) -> Result<(), RequestError> {
         let bucket_name = self.bucket.name();
-        let dest_bucket = self.config.stack().managed_bucket();
+        let dest_bucket = self.stack.managed_bucket();
 
-        self.config
-            .s3()
+        self.client
             .put_bucket_inventory_configuration()
             .bucket(bucket_name)
             .id(INVENTORY_ID)
@@ -370,7 +384,7 @@ impl<'a> BucketCreator<'a> {
                         InventoryDestination::builder()
                             .s3_bucket_destination(
                                 InventoryS3BucketDestination::builder()
-                                    .account_id(self.config.account_id())
+                                    .account_id(self.account_id)
                                     .bucket(format!("arn:aws:s3:::{}", dest_bucket))
                                     .format(INVENTORY_FORMAT)
                                     .prefix(INVENTORY_PREFIX)
@@ -411,8 +425,7 @@ impl<'a> BucketCreator<'a> {
     async fn enable_notifications(&self) -> Result<(), RequestError> {
         let bucket_name = self.bucket.name();
 
-        self.config
-            .s3()
+        self.client
             .put_bucket_notification_configuration()
             .bucket(bucket_name)
             .notification_configuration(
@@ -435,8 +448,7 @@ impl<'a> BucketCreator<'a> {
     async fn enable_public_access(&self) -> Result<(), RequestError> {
         let bucket_name = self.bucket.name();
 
-        self.config
-            .s3()
+        self.client
             .put_public_access_block()
             .bucket(bucket_name)
             .public_access_block_configuration(
@@ -463,13 +475,12 @@ impl<'a> BucketCreator<'a> {
         let src_bucket_name = self.bucket.name();
         let repl_bucket_name = replication.name();
 
-        self.config
-            .s3()
+        self.client
             .put_bucket_replication()
             .bucket(src_bucket_name)
             .replication_configuration(
                 ReplicationConfiguration::builder()
-                    .role(self.config.replication_role_arn())
+                    .role(self.replication_role_arn)
                     .rules(
                         ReplicationRule::builder()
                             .id("ReplicateAll")
@@ -550,8 +561,7 @@ impl<'a> BucketCreator<'a> {
     async fn enable_versioning(&self) -> Result<(), RequestError> {
         let bucket_name = self.bucket.name();
 
-        self.config
-            .s3()
+        self.client
             .put_bucket_versioning()
             .bucket(bucket_name)
             .versioning_configuration(
@@ -574,8 +584,7 @@ impl<'a> BucketCreator<'a> {
     async fn remove_deny_upload_policy(&self) -> Result<(), RequestError> {
         let bucket_name = self.bucket.name();
 
-        self.config
-            .s3()
+        self.client
             .delete_bucket_policy()
             .bucket(bucket_name)
             .send()
@@ -593,15 +602,26 @@ impl<'a> BucketCreator<'a> {
 
 #[cfg(test)]
 mod tests {
+    use apputils::Stack;
+
     use super::*;
-    use crate::test_client::{MockConfigBuilder, TestClientBuilder};
+    use crate::test_client::TestClientBuilder;
 
     #[tokio::test]
     async fn test_setup_unsupported_for_internal_bucket() {
         let client = TestClientBuilder::new().build();
-        let config = MockConfigBuilder::new().client(client).build();
+        let stack = Stack::new("test-stack").unwrap();
         let bucket = Bucket::new("test-internal", Type::Internal).unwrap();
-        let creator = BucketCreator::new(&config, &bucket, None);
+        let creator = BucketCreator::new(
+            BucketCreatorParams {
+                account_id: "123456789",
+                client: &client,
+                replication_role_arn: "arn:aws:iam::123456789:role/test-replication-role",
+                stack: &stack,
+            },
+            &bucket,
+            None,
+        );
 
         let result = creator.setup().await;
 

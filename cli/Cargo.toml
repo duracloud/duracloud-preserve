@@ -8,6 +8,7 @@ name = "duracloud"
 path = "src/main.rs"
 
 [dependencies]
+app = { path = "../shared/app", features = ["duckdb"] }
 apputils = { path = "../shared/apputils", features = ["duckdb"] }
 awsutils = { path = "../shared/awsutils", features = ["duckdb"] }
 aws-config = { version = "1.8", features = ["behavior-version-latest"] }

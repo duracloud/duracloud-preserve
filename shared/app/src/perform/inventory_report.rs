@@ -3,13 +3,13 @@ use apputils::stats::InventoryStats;
 use aws_sdk_s3::primitives::ByteStream;
 use bytes::Bytes;
 
-use crate::{
+use awsutils::{
     bucket_creator::INVENTORY_FORMAT,
-    config::Config,
     file::{self, File},
     inventory::{InventoryError, InventoryManifest, process},
 };
 
+use crate::config::Config;
 #[derive(Debug, Clone, Copy)]
 pub struct PerformOptions {
     pub date_ctx: DateCtx,
@@ -103,7 +103,8 @@ mod tests {
     use aws_smithy_types::body::SdkBody;
 
     use super::*;
-    use crate::test_client::{MockConfigBuilder, TestClientBuilder, recorded_requests};
+    use crate::test_client::MockConfigBuilder;
+    use awsutils::test_client::{TestClientBuilder, recorded_requests};
 
     fn manifest_json(file_format: &str, parquet_key: &str, parquet_size: usize) -> String {
         serde_json::json!({
@@ -136,7 +137,7 @@ mod tests {
         let parquet_key = "inventory-report-tests/example.parquet";
         let source_bucket = "test-stack-private";
 
-        let parquet_bytes = include_bytes!("../../../files/example.parquet");
+        let parquet_bytes = include_bytes!("../../../../files/example.parquet");
         let manifest = manifest_json(INVENTORY_FORMAT.as_str(), parquet_key, parquet_bytes.len());
 
         // StaticReplayClient responds in sequence, so key naming here is for readability/safety.

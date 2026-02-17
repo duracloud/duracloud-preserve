@@ -1,7 +1,7 @@
-use crate::{
-    batch::{BatchError, trigger_checksum_job},
+use crate::{batch::trigger_checksum_job, bucket as app_bucket, config::Config};
+use awsutils::{
+    batch::BatchError,
     bucket::{self, Bucket, Name, REPLICATION_SUFFIX},
-    config::Config,
 };
 use futures::future::BoxFuture;
 
@@ -21,7 +21,7 @@ pub async fn perform(
             let source_name = bucket_name.as_str();
             let replication_name = format!("{}{}", source_name, REPLICATION_SUFFIX);
 
-            let source = Bucket::from_name(config.s3(), source_name)
+            let source = bucket::from_name(config.s3(), source_name)
                 .await?
                 .filter(|b| {
                     matches!(
@@ -31,12 +31,13 @@ pub async fn perform(
                 })
                 .ok_or_else(|| BatchError::InvalidBucket(source_name.to_string()))?;
 
-            let replication = Bucket::new(&replication_name, bucket::Type::Replication)?;
+            let replication = Bucket::new(&replication_name, bucket::Type::Replication)
+                .map_err(bucket::RequestError::from)?;
 
             vec![(source, replication)]
         }
         None => {
-            let all_buckets = bucket::get_stack_buckets(config.s3(), config.stack()).await?;
+            let all_buckets = app_bucket::get_stack_buckets(config.s3(), config.stack()).await?;
             let (mut source_buckets, mut replication_buckets) = (Vec::new(), Vec::new());
 
             for bucket in all_buckets {
@@ -47,7 +48,8 @@ pub async fn perform(
                 }
             }
 
-            bucket::pair_buckets(source_buckets, replication_buckets)?
+            bucket::pair_buckets(source_buckets, replication_buckets)
+                .map_err(bucket::RequestError::from)?
         }
     };
 
@@ -91,10 +93,8 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use super::*;
-    use crate::{
-        bucket::RequestError,
-        test_client::{MockConfigBuilder, TestClientBuilder},
-    };
+    use crate::test_client::MockConfigBuilder;
+    use awsutils::{bucket::RequestError, test_client::TestClientBuilder};
 
     fn list_buckets_xml(names: &[&str]) -> String {
         let buckets = names
@@ -197,7 +197,7 @@ mod tests {
             .expect_err("missing replication pair should fail");
 
         match err {
-            BatchError::Request(RequestError::S3Error(msg)) => {
+            BatchError::Request(RequestError::ValidationError(msg)) => {
                 assert!(msg.contains("no replication bucket found"));
                 assert!(msg.contains("test-stack-alpha"));
             }

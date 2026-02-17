@@ -1,11 +1,12 @@
-use awsutils::bucket_creator;
 use lambda_runtime::{Error, run, service_fn, tracing};
 
 mod event_handler;
 use event_handler::function_handler;
 
+use app::perform::bucket_request;
 use apputils::Stack;
 use aws_sdk_s3::types::TransitionStorageClass;
+use awsutils::bucket_creator;
 use std::env;
 
 #[tokio::main]
@@ -15,7 +16,7 @@ async fn main() -> Result<(), Error> {
     let stack =
         Stack::new(&env::var("STACK").expect("Stack is required")).expect("Invalid stack name");
 
-    let config = awsutils::config::config(stack).await;
+    let config = app::config::config(stack).await;
 
     let standard_storage_tier = match env::var("STORAGE_TIER") {
         Ok(value) => parse_storage_tier(&value)?,
@@ -29,7 +30,7 @@ async fn main() -> Result<(), Error> {
         }
     };
 
-    let perform_opts = awsutils::bucket_request::PerformOptions {
+    let perform_opts = bucket_request::PerformOptions {
         standard_storage_tier,
     };
 

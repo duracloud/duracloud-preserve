@@ -1,7 +1,8 @@
 use std::io::{self, Write};
 
+use app::bucket as app_bucket;
 use apputils::Stack;
-use awsutils::bucket::{self, Type};
+use awsutils::bucket::{self as aws_bucket, Type};
 use awsutils::config::default_config;
 use clap::Args as ClapArgs;
 use rand::Rng;
@@ -20,7 +21,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Discovering buckets for stack: {}", stack.as_str());
 
-    let buckets = bucket::get_stack_buckets(&s3_client, &stack).await?;
+    let buckets = app_bucket::get_stack_buckets(&s3_client, &stack).await?;
 
     if buckets.is_empty() {
         println!("No buckets found for stack {}", stack.as_str());
@@ -58,7 +59,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         let name = b.name();
         print!("\nEmptying {}... ", name);
         io::stdout().flush()?;
-        bucket::empty(&s3_client, name).await?;
+        aws_bucket::empty(&s3_client, name).await?;
         println!("done");
     }
 
@@ -67,8 +68,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         let name = b.name();
         print!("\nDeleting {}... ", name);
         io::stdout().flush()?;
-        bucket::empty(&s3_client, name).await?;
-        bucket::delete(&s3_client, name).await?;
+        aws_bucket::empty(&s3_client, name).await?;
+        aws_bucket::delete(&s3_client, name).await?;
         println!("done");
     }
 

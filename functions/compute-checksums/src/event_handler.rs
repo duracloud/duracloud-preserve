@@ -1,5 +1,5 @@
+use app::{config::Config, perform::compute_checksums};
 use aws_lambda_events::event::cloudwatch_events::CloudWatchEvent;
-use awsutils::{compute_checksums, config::Config};
 use lambda_runtime::{Error, LambdaEvent, tracing};
 
 pub(crate) async fn function_handler(
@@ -23,7 +23,7 @@ pub(crate) async fn function_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use awsutils::test_client::MockConfigBuilder;
+    use app::test_client::MockConfigBuilder;
     use lambda_runtime::{Context, LambdaEvent};
 
     #[tokio::test]

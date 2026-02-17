@@ -1,5 +1,6 @@
+use app::{config::Config, perform::inventory_report};
 use aws_lambda_events::event::s3::S3Event;
-use awsutils::{config::Config, file::File, inventory_report};
+use awsutils::file::File;
 use lambda_runtime::{Error, LambdaEvent, tracing};
 
 pub(crate) async fn function_handler(
@@ -45,7 +46,7 @@ pub(crate) async fn function_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use awsutils::test_client::MockConfigBuilder;
+    use app::test_client::MockConfigBuilder;
     use lambda_runtime::{Context, LambdaEvent};
 
     #[tokio::test]

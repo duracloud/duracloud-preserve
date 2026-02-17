@@ -1,3 +1,4 @@
+pub mod bucket;
 #[cfg(feature = "duckdb")]
 pub mod checksum;
 pub mod content_type;

@@ -4,7 +4,6 @@ use thiserror::Error;
 use crate::{
     batch::BatchResultEntry,
     bucket::RequestError,
-    config::Config,
     file::{self, File},
 };
 
@@ -23,7 +22,7 @@ pub enum ChecksumError {
 }
 
 pub async fn download_manifest_files(
-    config: &Config,
+    client: &aws_sdk_s3::Client,
     results: Vec<BatchResultEntry>,
     temp_dir: &tempfile::TempDir,
 ) -> Result<Vec<String>, RequestError> {
@@ -48,8 +47,7 @@ pub async fn download_manifest_files(
         .collect::<Vec<_>>();
 
     let local_paths =
-        file::download_files_to_temp(config.s3(), &files, temp_dir, "batch manifest result")
-            .await?;
+        file::download_files_to_temp(client, &files, temp_dir, "batch manifest result").await?;
 
     Ok(local_paths
         .into_iter()

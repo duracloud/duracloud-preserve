@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+app = { path = "../../shared/app" }
 apputils = { path = "../../shared/apputils/" }
 aws_lambda_events = { version = "1.0.0", default-features = false, features = ["cloudwatch_events"] }
 awsutils = { path = "../../shared/awsutils" }

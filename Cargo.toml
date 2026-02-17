@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "shared/app",
     "cli",
     "functions/bucket-request",
     "functions/compute-checksums",

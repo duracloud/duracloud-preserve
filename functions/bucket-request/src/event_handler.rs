@@ -1,5 +1,9 @@
+use app::{
+    config::Config,
+    perform::bucket_request::{self, PerformOptions},
+};
 use aws_lambda_events::event::s3::S3Event;
-use awsutils::{bucket_request::PerformOptions, config::Config, file::File};
+use awsutils::file::File;
 use lambda_runtime::{Error, LambdaEvent, tracing};
 
 pub(crate) async fn function_handler(
@@ -27,7 +31,7 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    awsutils::bucket_request::perform(config, &File::new(bucket, object), perform_opts)
+    bucket_request::perform(config, &File::new(bucket, object), perform_opts)
         .await
         .map_err(|e| Error::from(e.to_string()))?;
 
@@ -37,7 +41,7 @@ pub(crate) async fn function_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use awsutils::test_client::MockConfigBuilder;
+    use app::test_client::MockConfigBuilder;
     use lambda_runtime::{Context, LambdaEvent};
 
     #[tokio::test]

@@ -1,7 +1,7 @@
 # inventory-report
 
-Triggered by: s3 event (manifest.json is created)
-Dependencies: None
+- Lambda triggered by: s3 event (`manifest.json` is created)
+- Dependencies: None
 
 ## Overview
 

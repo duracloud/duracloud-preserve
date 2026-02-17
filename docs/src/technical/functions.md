@@ -14,3 +14,4 @@ The cli additionally has functionality for:
 
 - computing a checksum
 - emptying content from buckets (careful!)
+- transferring data from a source bucket to a destination stack bucket

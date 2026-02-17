@@ -1,7 +1,7 @@
 # bucket-request
 
-Lambda triggered by: s3 event (user uploaded file)
-Dependencies: None
+- Lambda triggered by: s3 event (user uploaded file)
+- Dependencies: None
 
 ## Overview
 
@@ -50,3 +50,4 @@ Aside from the happy path here are variations to try:
 - Bucket names are too long or has invalid characters
 - Too many bucket names (5 max, additionals are discarded)
 - Bucket names are duplicates, the buckets already exist
+- Errors should be uploaded to a file in the managed bucket `feedback` path

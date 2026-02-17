@@ -31,14 +31,28 @@ resource "aws_iam_role_policy" "batch" {
         Resource = "arn:aws:s3:::${local.stack}*"
       },
       {
-        Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:GetObjectVersion", "s3:RestoreObject"]
-        Resource = "arn:aws:s3:::${local.stack}*/*"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:RestoreObject",
+          "s3:GetObjectAcl",
+          "s3:GetObjectTagging",
+          "s3:GetObjectVersionAcl",
+          "s3:GetObjectVersionTagging",
+        ]
+        Resource = "arn:aws:s3:::*/*"
       },
       {
-        Effect   = "Allow"
-        Action   = "s3:PutObject"
-        Resource = "${aws_s3_bucket.main["managed"].arn}/*"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:PutObjectAcl",
+          "s3:PutObjectVersionAcl",
+          "s3:PutObjectTagging",
+          "s3:PutObjectVersionTagging",
+        ]
+        Resource = "arn:aws:s3:::${local.stack}*/*"
       }
     ]
   })

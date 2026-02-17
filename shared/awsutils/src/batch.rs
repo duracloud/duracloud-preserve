@@ -6,7 +6,8 @@ use aws_sdk_s3control::{
     types::{
         ComputeObjectChecksumAlgorithm, ComputeObjectChecksumType, GeneratedManifestFormat,
         JobManifestGenerator, JobOperation, JobReport, JobReportFormat, JobReportScope,
-        S3ComputeObjectChecksumOperation, S3JobManifestGenerator, S3ManifestOutputLocation,
+        S3ComputeObjectChecksumOperation, S3CopyObjectOperation, S3JobManifestGenerator,
+        S3ManifestOutputLocation,
     },
 };
 use chrono::Utc;
@@ -136,6 +137,40 @@ pub async fn create_checksum_job(
         role_arn,
         job_type,
         description: "Compute object checksums",
+        operation,
+        manifest_generator,
+        report,
+    })
+    .await
+}
+
+pub async fn create_copy_job(
+    client: &s3control::Client,
+    account_id: &str,
+    role_arn: &str,
+    source_bucket: &str,
+    dest_bucket: &str,
+    report_bucket: &str,
+) -> Result<String, BatchError> {
+    let operation = JobOperation::builder()
+        .s3_put_object_copy(
+            S3CopyObjectOperation::builder()
+                .target_resource(format!("arn:aws:s3:::{}", dest_bucket))
+                .build(),
+        )
+        .build();
+
+    let job_type = "copy";
+    let manifest_generator = build_manifest(job_type, account_id, source_bucket, report_bucket)
+        .map_err(BatchError::S3Control)?;
+    let report = build_report(job_type, account_id, source_bucket, report_bucket);
+
+    run(JobParams {
+        client,
+        account_id,
+        role_arn,
+        job_type,
+        description: "Copy objects to destination bucket",
         operation,
         manifest_generator,
         report,

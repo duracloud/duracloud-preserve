@@ -16,7 +16,7 @@ pub struct Args {
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let bucket = args.bucket;
     let stack = Stack::from_bucket_name(&bucket)?;
-    let config = app::config::config(stack.clone()).await;
+    let config = app::config::config(stack.clone()).await?;
     let date_ctx = resolve_date_ctx(&config, &bucket).await?;
 
     if !exists(config.s3(), &bucket).await {

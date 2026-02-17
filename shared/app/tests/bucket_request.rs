@@ -24,7 +24,9 @@ fn timestamp() -> u64 {
 #[tokio::test]
 #[ignore]
 async fn test_perform() {
-    let config = integration_test_config().await;
+    let config = integration_test_config()
+        .await
+        .expect("failed to build integration test config");
     let ts = timestamp();
     let bucket_name = format!("perf-{}", ts);
 

@@ -121,32 +121,23 @@ pub struct Roles {
     pub replication: String,
 }
 
-/// Create a Config for the stack
-pub async fn config(stack: Stack) -> Config {
+/// Create a Config for the stack.
+pub async fn config(stack: Stack) -> Result<Config, RequestError> {
     let sdk_config = aws_config_utils::default_config().await;
 
-    let account_id = aws_config_utils::get_account_id(&sdk_config)
-        .await
-        .unwrap_or_else(|e| {
-            eprintln!("get_account_id failed: {e:?}");
-            panic!("failed to get account id");
-        });
+    let account_id = aws_config_utils::get_account_id(&sdk_config).await?;
 
     let (batch_role, replication_role) = tokio::try_join!(
         get_batch_role_arn(&sdk_config, &stack),
         get_replication_role_arn(&sdk_config, &stack),
-    )
-    .unwrap_or_else(|e| {
-        eprintln!("get_role_arn failed: {e:?}");
-        panic!("failed to get role ARNs");
-    });
+    )?;
 
     let roles = Roles {
         batch: batch_role,
         replication: replication_role,
     };
 
-    Config::new(sdk_config, account_id, roles, stack, false)
+    Ok(Config::new(sdk_config, account_id, roles, stack, false))
 }
 
 /// Get the S3 Batch Operations role ARN for the stack.

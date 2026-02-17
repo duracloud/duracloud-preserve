@@ -70,8 +70,13 @@ fn build_mock_config(client: aws_sdk_s3::Client, stack: Stack, debug_handler: bo
 }
 
 /// Create a Config for integration tests using TEST_STACK (defaults to "int-test").
-pub async fn integration_test_config() -> Config {
+pub async fn integration_test_config() -> Result<Config, awsutils::bucket::RequestError> {
     let stack_name = std::env::var("TEST_STACK").unwrap_or_else(|_| "int-test".to_string());
-    let stack = Stack::new(&stack_name).expect("invalid stack name");
+    let stack = Stack::new(&stack_name).map_err(|e| {
+        awsutils::bucket::RequestError::ConfigError(format!(
+            "invalid stack name '{}': {}",
+            stack_name, e
+        ))
+    })?;
     crate::config::config(stack).await
 }

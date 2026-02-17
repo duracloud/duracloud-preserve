@@ -25,7 +25,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Err("No bucket names found in file".into());
     }
 
-    let config = app::config::config(stack.clone()).await;
+    let config = app::config::config(stack.clone()).await?;
 
     let filename = args
         .names

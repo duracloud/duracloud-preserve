@@ -7,3 +7,4 @@ pub mod inventory;
 pub mod stack;
 pub mod stats;
 pub use stack::Stack;
+pub mod storage;

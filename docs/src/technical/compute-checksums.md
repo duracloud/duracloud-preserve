@@ -13,9 +13,9 @@ This function triggers S3 batch [compute checksum](#) jobs. It will do this in s
 make run-compute-checksums b=digipres-dev1-private p=default
 ```
 
-- `b=` a stack bucket to generate checksums for
+- `b=` a (standard or public) stack bucket to generate checksums for
 
-The CLI only supports targeting a single bucket at a time.
+The CLI only supports targeting a single bucket at a time. The bucket will be matched with its replication bucket. You cannot specify a replication bucket directly.
 
 ## Remote testing
 
@@ -27,14 +27,21 @@ This will trigger jobs for `ALL` stack buckets.
 
 ## Output
 
-For each bucket pair processed a job "receipt" is uploaded to these locations:
+```json
+{
+    "StatusCode": 200,
+    "ExecutedVersion": "$LATEST"
+}
+```
+
+For each bucket pair processed a single job "receipt" is uploaded to these locations:
 
 - `metadata/latest/checksums/{source_job_id}.json`
 - `metadata/latest/checksums/{repl_job_id}.json`
 - `metadata/latest/checksums/{source_bucket_name}.json`
 - `metadata/{date}/checksums/{source_bucket_name}.json`
 
-The receipt is the same content uploaded multiple times for discovery (job ids are used by the Lambda checksum report process, bucket names for the CLI checksum report and for simpler access in general).
+The receipt is the same content uploaded multiple times for discovery (job ids are used by the Lambda checksum report process, bucket names for the CLI checksum report and for easier access in general).
 
 ## QA testing
 

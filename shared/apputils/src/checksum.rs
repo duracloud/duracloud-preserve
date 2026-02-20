@@ -97,13 +97,13 @@ impl ChecksumVerifier {
 
         let sources = source_reports
             .iter()
-            .map(|p| format!("'{}'", p.as_ref()))
+            .map(|f| format!("'{}'", f.as_ref().replace('\'', "''")))
             .collect::<Vec<_>>()
             .join(", ");
 
         let repls = replication_reports
             .iter()
-            .map(|p| format!("'{}'", p.as_ref()))
+            .map(|f| format!("'{}'", f.as_ref().replace('\'', "''")))
             .collect::<Vec<_>>()
             .join(", ");
 

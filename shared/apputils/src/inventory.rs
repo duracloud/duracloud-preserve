@@ -38,7 +38,7 @@ impl InventoryProcessor {
 
         let files_list = parquet_files
             .iter()
-            .map(|f| format!("'{}'", f.as_ref()))
+            .map(|f| format!("'{}'", f.as_ref().replace('\'', "''")))
             .collect::<Vec<_>>()
             .join(", ");
 

@@ -22,13 +22,14 @@ resource "aws_iam_role_policy" "batch" {
     Version = "2012-10-17"
     Statement = [
       {
+        # Source bucket for batch copy jobs may be outside the stack prefix
         Effect = "Allow"
         Action = [
           "s3:GetBucketLocation",
           "s3:ListBucket",
-          "s3:PutInventoryConfiguration"
+          "s3:PutInventoryConfiguration",
         ]
-        Resource = "arn:aws:s3:::${local.stack}*"
+        Resource = "arn:aws:s3:::*"
       },
       {
         Effect = "Allow"
@@ -82,18 +83,30 @@ resource "aws_iam_role_policy" "replication" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = ["s3:GetReplicationConfiguration", "s3:ListBucket"]
+        Effect = "Allow"
+        Action = [
+          "s3:GetReplicationConfiguration",
+          "s3:ListBucket"
+        ]
         Resource = "arn:aws:s3:::${local.stack}*"
       },
       {
-        Effect   = "Allow"
-        Action   = ["s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionTagging"]
+        Effect = "Allow"
+        Action = [
+          "s3:GetObjectVersion",
+          "s3:GetObjectVersionAcl",
+          "s3:GetObjectVersionTagging"
+        ]
         Resource = "arn:aws:s3:::${local.stack}*/*"
       },
       {
-        Effect   = "Allow"
-        Action   = ["s3:GetObjectVersionTagging", "s3:ReplicateObject", "s3:ReplicateDelete", "s3:ReplicateTags"]
+        Effect = "Allow"
+        Action = [
+          "s3:GetObjectVersionTagging",
+          "s3:ReplicateObject",
+          "s3:ReplicateDelete",
+          "s3:ReplicateTags"
+        ]
         Resource = "arn:aws:s3:::${local.stack}*-repl/*"
       }
     ]

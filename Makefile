@@ -51,6 +51,12 @@ help:
 invoke: ## Invoke lambda function (make invoke f=function e=event)
 	@cargo lambda invoke --remote -p $(f) --data-file $(e)
 
+.PHONY: job
+job: ## Lookup job by id (make job i=id p=profile)
+	@AWS_PROFILE=$(p) aws s3control describe-job \
+	    --account-id $$(AWS_PROFILE=$(p) aws sts get-caller-identity --query 'Account' --output text) \
+	    --job-id $(i)
+
 .PHONY: reset
 reset: ## Reset (empty) stack buckets (make reset s=stack p=profile)
 	@AWS_PROFILE=$(p) cargo run -p duracloud -- reset --stack=$(s)

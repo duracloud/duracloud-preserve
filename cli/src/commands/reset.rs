@@ -5,7 +5,7 @@ use apputils::Stack;
 use awsutils::bucket::{self as aws_bucket, Type};
 use awsutils::config::default_config;
 use clap::Args as ClapArgs;
-use rand::Rng;
+use rand::RngExt;
 
 #[derive(ClapArgs)]
 pub struct Args {

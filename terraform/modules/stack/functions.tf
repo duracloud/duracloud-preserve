@@ -31,7 +31,7 @@ resource "aws_lambda_function" "main" {
 
   environment {
     variables = merge(
-      { STACK = local.stack },
+      { NAME = local.name, STACK = local.stack },
       each.value.env
     )
   }

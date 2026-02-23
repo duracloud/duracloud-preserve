@@ -8,18 +8,33 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
+
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
 provider "aws" {}
+
 provider "aws" {
   alias  = "us_east_1"
   region = "us-east-1" # for cloudfront
 }
 
+resource "random_pet" "name" {
+  count = var.name == null ? 1 : 0
+}
+
 variable "deploy" { default = false }
 variable "domain" { default = "duracloud.org" } # omit or "" for no cloudfront resources
+variable "name" { default = null }
 variable "stack" {}
+
+locals {
+  name = coalesce(var.name, one(random_pet.name[*].id))
+}
 
 # To run a one-off compute checksums job create a `.local.auto.tfvars` with content like:
 # compute_checksums_schedule = "at(2026-02-10T16:00:00)"
@@ -70,6 +85,7 @@ module "stack" {
 
   deploy_functions = var.deploy
   domain           = var.domain
+  name             = local.name
   stack            = local.stack
   functions        = local.functions
 

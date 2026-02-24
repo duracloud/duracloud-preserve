@@ -7,12 +7,12 @@ edition = "2024"
 app = { path = "../../shared/app" }
 apputils = { path = "../../shared/apputils/" }
 aws_lambda_events = { version = "1.0.3", default-features = false, features = ["s3"] }
-aws-sdk-s3 = "1.122.0"
+aws-sdk-s3 = "1.124.0"
 awsutils = { path = "../../shared/awsutils" }
 lambda_runtime = "1.0.2"
 serde_json = "1.0.149"
 tokio = { version = "1", features = ["macros"] }
 
 [dev-dependencies]
-aws-config = "1.8.13"
+aws-config = "1.8.14"
 test-support = { path = "../../shared/test-support" }

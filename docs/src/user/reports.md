@@ -98,6 +98,6 @@ Also within the `inventory` folder is a `stats` folder containing `.json` files.
 
 You may download data from any of these folders for local review and storage.
 
-> [!Tip] Cyberduck Tips
+> [!Tip]
 > - Downloaded logs and files are saved to your default **Downloads** folder. You can change this in **Edit → Preferences → Transfers** under the General tab.  
 > - Right-click (Control-click on macOS or two-finger click on a trackpad) to rename files when downloading manifests or reports. This helps prevent overwriting files with similar names and avoids overwrite warnings.

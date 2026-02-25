@@ -31,6 +31,10 @@ Checksum reports are generated on a configurable schedule. This involves determi
 
 Files can be stored in any AWS region supported by the infrastructure.
 
+## CLI available
+
+For advanced users a command line interface is available for interacting with the AWS environment and performing tasks.
+
 ## Inventory
 
 A file manifest is generated for each user-created bucket. The raw AWS inventory data is available in Parquet format and a consolidated, user friendly csv file is also made available that includes the S3 url for each file.
@@ -51,9 +55,13 @@ Other buckets can be created as publicly accessible by naming them with a `-publ
 
 Files will be stored in the intelligent storage tier and not transitioned to Glacier; however replication will still occur and the backup copies will be stored in Glacier.
 
+## Reconciliation reports
+
+The reconciliation report is used to detect drift in bucket configuration, providing reassurance that buckets are configured correctly and working as expected.
+
 ## Replication
 
-Files for all buckets are replicated to Glacier Deep Archive. These files are included in the checksum verification process to determine file integrity. We have dedicated documentation for how this works.
+Files for all buckets are replicated to Glacier Deep Archive. These files are included in the checksum verification process to determine file integrity. We have [dedicated documentation](#) for how this works.
 
 ## Storage reports
 

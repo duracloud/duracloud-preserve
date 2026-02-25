@@ -9,7 +9,7 @@ DuraCloud is open source and freely available for anyone to deploy into their ow
 - You receive S3 access credentials to interact with DuraCloud using any S3 client.
   - Credentials can provide "full" or more "limited" access per user.
 - Technical support is provided by experienced hosting staff.
-- A simple web based option for file uploads is made available to you.
+- We provide access to a [simple web application](#) for file uploads.
 
 For pricing information and other details [...](#).
 
@@ -27,11 +27,11 @@ By default we run compute checksum jobs and generate checksum reports twice a ye
 
 ### Managed files
 
-Files that are uploaded to the managed bucket are retained for 90 days. If you need to retain them for longer than that you must download them. Alternatively, you have the option of transferring files from the managed bucket to one of your user created buckets.
+Files that are uploaded to the managed bucket are retained for 90 days. If you need to retain them for longer than that you must download them, or alternatively you have the option of transferring files from the managed bucket to one of your user created buckets.
 
 ### Public access
 
-The option to create buckets using the `-public` suffix is intended for light / infrequent usage and may be disabled by us if the incoming request load spikes. We strongly recommend using the CloudFront url and bucket for all public file access other than for exceptional cases. Please open a support ticket if you'd like to discuss options and use cases with us.
+The option to create buckets using the `-public` suffix is intended for light / infrequent usage and may be disabled by us if the incoming request load spikes. We strongly recommend using the CloudFront url and bucket for all public file access other than in exceptional cases. Please open a support ticket if you'd like to discuss options and use cases with us.
 
 ### Versioning
 

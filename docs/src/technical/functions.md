@@ -1,8 +1,7 @@
 # Functions
 
-The core service functionality is ecapsulated by these
-"functions" which are deployed to AWS Lambda but can also
-be invoked via the provided cli:
+The core service functionality is encapsulated by these "functions" which
+are conventionally deployed to [AWS Lambda](#):
 
 - [bucket-request](#)
 - [inventory-report](#)
@@ -10,8 +9,4 @@ be invoked via the provided cli:
 - [checksum-report](#)
 - [storage-report](#)
 
-The cli additionally has functionality for:
-
-- computing a checksum
-- emptying content from buckets (careful!)
-- transferring data from a source bucket to a destination stack bucket
+However all functionality can also be run via the application CLI, which also provides some additional features.

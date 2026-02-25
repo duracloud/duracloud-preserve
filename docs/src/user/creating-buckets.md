@@ -13,7 +13,8 @@ To create a bucket, you must create a text file (`.txt`) containing the names of
 - Bucket names must be **no more than 63 characters total**, including:
   - The stack name prefix (`duracloud-$ID`)
   - 5 reserved characters for the `-repl` suffix
-> [!Tip] Practically, this means your names should be no more than: 63 - 5 - (length of your duracloud-$ID)
+> [!Tip]
+> Practically, this means your names should be no more than: 63 - 5 - (length of your duracloud-$ID)
 
 ### Public Bucket Naming
 To create a **publicly accessible bucket**, the name must end with `-public`.

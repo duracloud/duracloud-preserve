@@ -24,12 +24,12 @@ interact with a subset of buckets in an AWS account that are prefixed
 with that stack name. You will also see references to *stack name*
 throughout the documentation.
 
-### Before proceeding confirm you have received:
-
-- Access key (**username)** and secret (**password**) for direct s3
+> [!IMPORTANT]
+> Before proceeding confirm you have received:
+> - Access key (**username)** and secret (**password**) for direct s3
   access if requested
-- Stack prefix (`duracloud-$ID`)
-- Web client **username**, **password** and **url** if requested
+> - Stack prefix (`duracloud-$ID`)
+> - Web client **username**, **password** and **url** if requested
 
 ### Lyrasis Hosting clients permissions
 

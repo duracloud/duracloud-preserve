@@ -27,5 +27,5 @@ In order to download content from SFTPGo, navigate to the folder structure you w
 
 ![SFTPGo screenshot](images/download_move_copy_delete_sftpgo.png)
 
-> [!Tip] SFTPGo Tip
+> [!Tip]
 > You may be able to view some file types directly in SFTPGo, such as .jpg, .txt, and .pdf files, by clicking on the little eye icon to the right of the filename; the application will use your browser settings.

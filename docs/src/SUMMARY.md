@@ -30,8 +30,10 @@
   - [compute-checksums](technical/compute-checksums.md)
   - [checksum-report](technical/checksum-report.md)
   - [storage-report](technical/storage-report.md)
+  - [cli-only](technical/cli-only.md)
 - [Cleanup](technical/cleanup.md)
 - [Development](technical/development.md)
+- [Roadmap](technical/roadmap.md)
 
 ---
 

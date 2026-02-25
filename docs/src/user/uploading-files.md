@@ -54,6 +54,6 @@ Screen display showing preserved folder structure and the option to change the n
 
 **Reminder:** You will not see the replicated file structure in the SFTPGo web application, but your files are still being replicated in Glacier.
 
-> [!Tip] Troubleshooting tip
+> [!Tip]
 > We have occasionally seen a generic **“Error uploading files”** message in SFTPGo. Closing the error and attempting the upload again has so far worked successfully (sometimes requiring closing the error twice).  
 > The cause is not yet certain; it may be related to attempting uploads after a session has expired. This is an area for further investigation and feedback.

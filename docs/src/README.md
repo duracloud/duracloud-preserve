@@ -2,9 +2,9 @@
 
 This project is a set of components built using AWS services centered around digital preservation use cases. It provides configuration and features on top of AWS S3 to support long term access to and preservation of files.
 
-The goal of is to make it easy for users to choose any off the shelf S3 client and interact with S3 gaining more advanced features by default. Advanced features are described in more detail throughout the user and technical documentation but in brief: versioning, inventory, replication, logging etc. is enabled as buckets are created without a user having to do anything in AWS.
+The goal is to make it easy for users to choose any off the shelf S3 client and interact with S3 gaining more advanced features by default. Advanced features are described in more detail throughout the user and technical documentation but in brief: versioning, inventory, replication, logging etc. is enabled as buckets are created without a user having to do anything in AWS.
 
-Periodically checksum verification is performed to ensure that file integrity is maintained between the primary and replicated (backup) files. This builds on the already impressive levels of durability provided by S3 in adding a further automated guarantee that files are what they are intended to be.
+Periodically checksum verification is performed to ensure that file integrity is maintained between the primary and replicated (backup) files. This builds upon the already impressive levels of durability that S3 provides by adding an additonal, recurring guarantee that files are what they are intended to be.
 
 Additional features include generating manifest (file inventory) and storage reports and user access control via preconstructed groups that are scoped to stacks. When deployed every resource is created "within" a stack. A stack is simply a resource naming prefix and tag applied to all resources managed by the deployed components to exclusively associate them. This makes it possible to have multiple stacks within a single account and makes it so different users can belong to one or more stacks.
 

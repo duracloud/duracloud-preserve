@@ -7,11 +7,14 @@ Aside from the core functionality there are also some CLI only features:
 - running a reconciliation report (for detecting bucket configuration drift)
 - transferring data from *any* source bucket to a destination *stack* bucket
 
-## Locally computing a checksum
+## Computing a checksum
 
 TODO
 
-## Resetting all content (dangerous!)
+## Resetting all content
+
+> [!IMPORTANT]
+> This is destructive and should be done very carefully.
 
 TODO
 
@@ -19,6 +22,6 @@ TODO
 
 TODO
 
-## Transferring data into a stack bucket
+## Transfer data to stack bucket
 
 TODO

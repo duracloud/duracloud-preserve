@@ -2,7 +2,7 @@
 
 This project is built on Amazon S3, a robust and distributed file storage service. You can think of the project as being in large part an extension of S3 that handles:
 
-* Configuring more "complex" aspects of S3 to support long-term storage and preservation goals.
+* Configuring the more "complex" aspects of S3 to support long-term storage and preservation goals without a regular user needing to understand how to glue things together.
 * Preconfiguring [CloudFront](#) access for making files publicly available.
 * Providing additional value-added features via a set of scheduled tasks.
 

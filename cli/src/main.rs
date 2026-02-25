@@ -12,6 +12,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Check bucket configuration and report drift
+    BucketReconciliation(commands::bucket_reconciliation::Args),
     /// Process bucket creation requests
     BucketRequest(commands::bucket_request::Args),
     /// Checksum a file
@@ -35,6 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::BucketReconciliation(args) => commands::bucket_reconciliation::run(args).await?,
         Commands::BucketRequest(args) => commands::bucket_request::run(args).await?,
         Commands::Checksum(args) => commands::checksum::run(args).await?,
         Commands::ChecksumReport(args) => commands::checksum_report::run(args).await?,

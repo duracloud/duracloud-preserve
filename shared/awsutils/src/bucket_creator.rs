@@ -16,25 +16,30 @@ use apputils::Stack;
 use crate::bucket::{BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, RequestError, Type};
 use crate::config::get_region;
 
-const BUCKET_TAG_ORIGIN_KEY: &str = "BucketOrigin";
-const BUCKET_TAG_ORIGIN_VAL: &str = "bucket-request";
+pub const BUCKET_TAG_ORIGIN_KEY: &str = "BucketOrigin";
+pub const BUCKET_TAG_ORIGIN_VAL: &str = "bucket-request";
+pub(crate) const BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY: &str = "TransitionStorageClass";
 
-const EXPIRE_ABORTED_MULTIPART_DAYS: u8 = 3;
-const EXPIRE_NONCURRENT_VERSION_DAYS: u8 = 14;
+pub(crate) const EXPIRE_ABORTED_MULTIPART_DAYS: u8 = 3;
+pub(crate) const EXPIRE_NONCURRENT_VERSION_DAYS: u8 = 14;
 
 pub const INVENTORY_FORMAT: InventoryFormat = InventoryFormat::Parquet;
-const INVENTORY_ID: &str = "inventory";
-const INVENTORY_PREFIX: &str = "manifests";
-const LOGGING_PREFIX: &str = "audit";
+pub(crate) const INVENTORY_ID: &str = "inventory";
+pub(crate) const INVENTORY_PREFIX: &str = "manifests";
+pub(crate) const LOGGING_PREFIX: &str = "audit";
 
 pub const STORAGE_CLASS_STANDARD_DEFAULT: TransitionStorageClass =
     TransitionStorageClass::GlacierIr;
-const STORAGE_CLASS_PUBLIC_DEFAULT: TransitionStorageClass =
+pub(crate) const STORAGE_CLASS_PUBLIC_DEFAULT: TransitionStorageClass =
     TransitionStorageClass::IntelligentTiering;
-const STORAGE_CLASS_REPLICATION_DEFAULT: TransitionStorageClass =
+pub(crate) const STORAGE_CLASS_REPLICATION_DEFAULT: TransitionStorageClass =
     TransitionStorageClass::DeepArchive;
 
-const STORAGE_TRANSITION_DAYS: u8 = 7;
+pub(crate) const STORAGE_TRANSITION_DAYS: u8 = 7;
+
+pub(crate) const REPLICATION_RULE_ID: &str = "ReplicateAll";
+pub(crate) const REPLICATION_RULE_PRIORITY: i32 = 1;
+pub(crate) const REPLICATION_TIME_MINUTES: i32 = 15;
 
 /// Handles bucket setup by delegating to the appropriate methods per bucket type.
 #[derive(Debug)]
@@ -116,6 +121,13 @@ impl<'a> BucketCreator<'a> {
                 Tag::builder()
                     .key(BUCKET_TAG_TYPE_KEY)
                     .value(bucket_type)
+                    .build()
+                    .unwrap(),
+            )
+            .tags(
+                Tag::builder()
+                    .key(BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY)
+                    .value(self.storage_tier().as_str())
                     .build()
                     .unwrap(),
             )

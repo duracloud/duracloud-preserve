@@ -3,7 +3,9 @@ use aws_sdk_s3::{Client, types::TransitionStorageClass};
 
 use awsutils::{
     bucket::{self, BUCKET_TAG_STACK_KEY, Bucket, RequestError, Type},
-    bucket_creator::{BucketCreator, BucketCreatorParams},
+    bucket_creator::{
+        BUCKET_TAG_ORIGIN_KEY, BUCKET_TAG_ORIGIN_VAL, BucketCreator, BucketCreatorParams,
+    },
 };
 
 use crate::config::Config;
@@ -107,6 +109,60 @@ pub async fn create_bucket_pair(
     }
 
     Ok(())
+}
+
+/// Get stack buckets that were created via bucket-request (BucketOrigin=bucket-request).
+/// These are the buckets eligible for reconciliation.
+pub async fn get_bucket_request_buckets(
+    client: &Client,
+    stack: &Stack,
+) -> Result<Vec<Bucket>, RequestError> {
+    let prefix = format!("{}-", stack.as_str());
+    let mut buckets = Vec::new();
+
+    let response = client
+        .list_buckets()
+        .send()
+        .await
+        .map_err(|e| RequestError::S3Error(format!("failed to list buckets: {}", e)))?;
+
+    for b in response.buckets() {
+        let Some(name) = b.name() else {
+            continue;
+        };
+
+        if !name.starts_with(&prefix) {
+            continue;
+        }
+
+        let Ok(tag_response) = client.get_bucket_tagging().bucket(name).send().await else {
+            continue;
+        };
+
+        let tags = tag_response.tag_set();
+
+        let stack_matches = tags
+            .iter()
+            .any(|tag| tag.key() == BUCKET_TAG_STACK_KEY && tag.value() == stack.as_str());
+
+        if !stack_matches {
+            continue;
+        }
+
+        let origin_matches = tags
+            .iter()
+            .any(|tag| tag.key() == BUCKET_TAG_ORIGIN_KEY && tag.value() == BUCKET_TAG_ORIGIN_VAL);
+
+        if !origin_matches {
+            continue;
+        }
+
+        if let Some(bucket) = bucket::from_tags(name, tags)? {
+            buckets.push(bucket);
+        }
+    }
+
+    Ok(buckets)
 }
 
 /// Get all buckets belonging to a stack (prefix match + stack tag).
@@ -284,5 +340,105 @@ mod tests {
         assert_eq!(buckets.len(), 1);
         assert_eq!(buckets[0].name(), "test-stack-public");
         assert_eq!(buckets[0].bucket_type(), &Type::Public);
+    }
+
+    #[tokio::test]
+    async fn test_get_bucket_request_buckets_filters_by_origin_tag() {
+        let stack = Stack::new("test-stack").unwrap();
+        let list =
+            list_buckets_xml(&["test-stack-alpha", "test-stack-bravo", "test-stack-managed"]);
+
+        // alpha: bucket-request origin (included)
+        let alpha_tags = bucket_tagging_xml(&[
+            ("Stack", "test-stack"),
+            ("BucketType", "standard"),
+            ("BucketOrigin", "bucket-request"),
+        ]);
+        // bravo: terraform origin (excluded)
+        let bravo_tags = bucket_tagging_xml(&[
+            ("Stack", "test-stack"),
+            ("BucketType", "standard"),
+            ("BucketOrigin", "terraform"),
+        ]);
+        // managed: no origin tag (excluded)
+        let managed_tags =
+            bucket_tagging_xml(&[("Stack", "test-stack"), ("BucketType", "internal")]);
+
+        let client = TestClientBuilder::new()
+            .success(list, None)
+            .success(alpha_tags, None)
+            .success(bravo_tags, None)
+            .success(managed_tags, None)
+            .build();
+
+        let buckets = get_bucket_request_buckets(&client, &stack).await.unwrap();
+
+        assert_eq!(buckets.len(), 1);
+        assert_eq!(buckets[0].name(), "test-stack-alpha");
+        assert_eq!(buckets[0].bucket_type(), &Type::Standard);
+    }
+
+    #[tokio::test]
+    async fn test_get_bucket_request_buckets_includes_multiple_types() {
+        let stack = Stack::new("test-stack").unwrap();
+        let list = list_buckets_xml(&[
+            "test-stack-data",
+            "test-stack-data-public",
+            "test-stack-data-repl",
+        ]);
+
+        let data_tags = bucket_tagging_xml(&[
+            ("Stack", "test-stack"),
+            ("BucketType", "standard"),
+            ("BucketOrigin", "bucket-request"),
+        ]);
+        let public_tags = bucket_tagging_xml(&[
+            ("Stack", "test-stack"),
+            ("BucketType", "public"),
+            ("BucketOrigin", "bucket-request"),
+        ]);
+        let repl_tags = bucket_tagging_xml(&[
+            ("Stack", "test-stack"),
+            ("BucketType", "replication"),
+            ("BucketOrigin", "bucket-request"),
+        ]);
+
+        let client = TestClientBuilder::new()
+            .success(list, None)
+            .success(data_tags, None)
+            .success(public_tags, None)
+            .success(repl_tags, None)
+            .build();
+
+        let buckets = get_bucket_request_buckets(&client, &stack).await.unwrap();
+
+        assert_eq!(buckets.len(), 3);
+        let types: Vec<&Type> = buckets.iter().map(|b| b.bucket_type()).collect();
+        assert!(types.contains(&&Type::Standard));
+        assert!(types.contains(&&Type::Public));
+        assert!(types.contains(&&Type::Replication));
+    }
+
+    #[tokio::test]
+    async fn test_get_bucket_request_buckets_skips_tag_errors() {
+        let stack = Stack::new("test-stack").unwrap();
+        let list = list_buckets_xml(&["test-stack-alpha", "test-stack-bravo"]);
+
+        let bravo_tags = bucket_tagging_xml(&[
+            ("Stack", "test-stack"),
+            ("BucketType", "standard"),
+            ("BucketOrigin", "bucket-request"),
+        ]);
+
+        let client = TestClientBuilder::new()
+            .success(list, None)
+            .s3_error("AccessDenied", "tagging denied")
+            .success(bravo_tags, None)
+            .build();
+
+        let buckets = get_bucket_request_buckets(&client, &stack).await.unwrap();
+
+        assert_eq!(buckets.len(), 1);
+        assert_eq!(buckets[0].name(), "test-stack-bravo");
     }
 }

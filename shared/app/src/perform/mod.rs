@@ -1,3 +1,4 @@
+pub mod bucket_reconciliation;
 pub mod bucket_request;
 #[cfg(feature = "duckdb")]
 pub mod checksum_report;

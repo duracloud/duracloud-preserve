@@ -17,6 +17,12 @@ make run-bucket-request f=files/buckets.txt s=digipress-dev1 p=default
 
 - `f=` is the path to a local file that contains [bucket names](#).
 
+You can also specify a single bucket name using:
+
+```bash
+cargo run -p duracloud -- bucket-request --stack=digipres-dev1 --name=rare-books
+```
+
 ## Remote testing
 
 ```bash

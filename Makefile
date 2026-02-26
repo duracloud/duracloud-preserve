@@ -63,7 +63,7 @@ reset: ## Reset (empty) stack buckets (make reset s=stack p=profile)
 
 .PHONY: run-bucket-request
 run-bucket-request: ## Run run-bucket-request cli (make run-bucket-request f=file s=stack p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- bucket-request --stack=$(s) --names=$(f)
+	@AWS_PROFILE=$(p) cargo run -p duracloud -- bucket-request --stack=$(s) --file=$(f)
 
 .PHONY: run-checksum-report
 run-checksum-report: ## Run run-checksum-report cli (make run-checksum-report b=bucket p=profile)

@@ -15,13 +15,13 @@ aws-config = { version = "1.8", features = ["behavior-version-latest"] }
 aws-sdk-iam = "1"
 aws-sdk-s3 = "1.124.0"
 aws-sdk-sts = "1"
+base64 = "0.22.1"
 clap = { version = "4", default-features = false, features = ["derive", "std"] }
+chrono = "0.4.43"
+crc-fast = "1"
 rand = "0.10"
 serde_json = "1"
+shellexpand = "3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
-chrono = "0.4.43"
-crc-fast = "1"
-base64 = "0.22.1"
-shellexpand = "3"

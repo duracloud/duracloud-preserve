@@ -16,7 +16,7 @@ Here's a list of clients that have been used or tested by Lyrasis staff:
 
 -  [AWS CLI](https://aws.amazon.com/cli/)
 -  [Cyberduck](https://cyberduck.io/)
--  [S3Browser](https://s3browser.com/) **(Windows only; we are not providing additional documentation here about this option)**
+-  [S3Browser](https://s3browser.com/) **(Windows only - we are not providing additional documentation about this option)**
 -  [SFTPGo](https://sftpgo.com/)
 
 But there are many others and you are free to use any S3 compatible client that you prefer.
@@ -115,7 +115,6 @@ https://docs.cyberduck.io/cyberduck/connection/
 ![Cyberduck Setting UpConnection](images/cyberduck_setting_up_connection.png)
 
 > [!TIP]
->
 > -   Click **Go → Enclosing Folder** to navigate up the file path tree
     one level at a time, or click in the filepath dropdown to navigate
     up multiple levels after your connection is set up.

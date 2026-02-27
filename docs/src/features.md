@@ -8,8 +8,6 @@ This project is built on Amazon S3, a robust and distributed file storage servic
 
 This is a brief overview of the functionality that is explained more throughly in the [user guide](user/index.html) and [technical documentation](technical/index.html):
 
----
-
 ## Access controls
 
 Users can be standard or power users by assignment to a stack created IAM group.

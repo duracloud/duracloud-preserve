@@ -35,8 +35,6 @@
 - [Development](technical/development.md)
 - [Roadmap](technical/roadmap.md)
 
----
-
 # Hosting and support
 
 - [Lyrasis Hosting](lyrasis.md)

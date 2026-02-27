@@ -6,7 +6,7 @@
 ## Overview
 
 This function is used to create s3 buckets with [prefab configuration](#).
-To do this a text file is uploaded to `${stack}-bucket-request` then
+To do this, a text file is uploaded to `${stack}-bucket-request` then
 downloaded for processing (either locally or in Lambda).
 
 ## CLI testing
@@ -49,7 +49,7 @@ make bucket a=list p=default | grep digipres-dev1
 
 ## QA testing
 
-Aside from the happy path here are variations to try:
+Aside from the happy path, here are variations to try:
 
 - File too large
 - File invalid (rename some other file `buckets.txt` i.e a jpg)

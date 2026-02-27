@@ -7,7 +7,7 @@
 
 This function processes batch compute checksum reports (AWS batch job output) into a single checksum report csv per bucket and generates and uploads checksum verification stats (total mismatches etc.).
 
-In production this function is triggered by eventbridge events for batch job completion or failure. This happens asynchronously; each bucket (pair) job happens independently and will complete separately.
+In production, this function is triggered by eventbridge events for batch job completion or failure. This happens asynchronously; each bucket (pair) job happens independently and will complete separately.
 
 ## CLI testing
 
@@ -29,7 +29,7 @@ make trigger-compute-checksums s=digipres-dev1 p=default
 
 A compute checksum job, when completed, will automatically trigger the checksum report generation. This will happen once for each job (bucket), however, report generation cannot complete until both source and replication bucket (pair) jobs have completed, so the first time it is invoked it will exit.
 
-**Note, completion can take a long time for replication buckets whose objects are in an archival storage tier (days), so for testing it's recommended to review buckets with only recently created objects that haven't transitioned into the archival tier yet.**
+**Note, completion can take a long time for replication buckets whose objects are in an archival storage tier (days), so for testing, it's recommended to review buckets with only recently created objects that haven't transitioned into the archival tier yet.**
 
 You can track job status like this:
 
@@ -46,7 +46,7 @@ aws s3control describe-job \
     jq '{JobId: .Job.JobId, Status: .Job.Status}'
 ```
 
-If the status is "Active" then it's still running.
+If the status is "Active", then it's still running.
 
 ## Output
 

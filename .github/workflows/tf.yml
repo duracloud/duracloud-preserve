@@ -22,7 +22,7 @@ jobs:
         id: tf-version
         run: echo "TF_VERSION=$(cat .terraform-version)" >> $GITHUB_ENV
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
 

@@ -166,7 +166,11 @@ impl Name {
 
         for affix in DISALLOWED_AFFIXES {
             if name.starts_with(affix) || name.ends_with(affix) {
-                return Err("Name cannot start or end with {affix}");
+                return Err(match *affix {
+                    "." => "Name cannot start or end with '.'",
+                    "-" => "Name cannot start or end with '-'",
+                    _ => "Name cannot start or end with a disallowed character",
+                });
             }
         }
 
@@ -193,11 +197,23 @@ mod tests {
         );
         assert_eq!(Stack::new("my-stack2").unwrap().as_str(), "my-stack2");
 
-        // Invalid: affix violations
-        assert!(Stack::new(".test-stack").is_err());
-        assert!(Stack::new("test-stack.").is_err());
-        assert!(Stack::new("-test-stack").is_err());
-        assert!(Stack::new("test-stack-").is_err());
+        // Invalid: affix violations (verify message includes actual character)
+        assert_eq!(
+            Stack::new(".test-stack").unwrap_err(),
+            "Name cannot start or end with '.'"
+        );
+        assert_eq!(
+            Stack::new("test-stack.").unwrap_err(),
+            "Name cannot start or end with '.'"
+        );
+        assert_eq!(
+            Stack::new("-test-stack").unwrap_err(),
+            "Name cannot start or end with '-'"
+        );
+        assert_eq!(
+            Stack::new("test-stack-").unwrap_err(),
+            "Name cannot start or end with '-'"
+        );
 
         // Invalid: not exactly two parts
         assert!(Stack::new("test").is_err());

@@ -12,7 +12,7 @@ pub async fn perform(config: &Config, bucket: Option<&Name>) -> Result<Vec<Strin
     let bucket_pairs = match bucket {
         Some(bucket_name) => {
             let source_name = bucket_name.as_str();
-            let replication_name = format!("{}{}", source_name, REPLICATION_SUFFIX);
+            let replication_name = format!("{source_name}{REPLICATION_SUFFIX}");
 
             let source = bucket::from_name(config.s3(), source_name)
                 .await?

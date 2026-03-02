@@ -25,6 +25,12 @@ impl Default for PerformOptions {
     }
 }
 
+#[derive(Debug)]
+struct ReadyManifests {
+    source_results: Vec<BatchResultEntry>,
+    replication_results: Vec<BatchResultEntry>,
+}
+
 /// Generate a consolidated checksum report using batch compute checksum results
 pub async fn perform(
     config: &Config,
@@ -37,18 +43,24 @@ pub async fn perform(
     let receipt: ChecksumJobReceipt = serde_json::from_slice(&bytes)?;
     let source_bucket = receipt.source_bucket.clone();
 
-    let Some((source_results, repl_results)) = resolve_ready_manifests(config, &receipt).await?
-    else {
+    let Some(ready_manifests) = resolve_ready_manifests(config, &receipt).await? else {
         return Ok(checksum::empty_stats());
     };
 
-    process_and_upload(config, &source_bucket, source_results, repl_results, opts).await
+    process_and_upload(
+        config,
+        &source_bucket,
+        ready_manifests.source_results,
+        ready_manifests.replication_results,
+        opts,
+    )
+    .await
 }
 
 async fn resolve_ready_manifests(
     config: &Config,
     receipt: &ChecksumJobReceipt,
-) -> Result<Option<(Vec<BatchResultEntry>, Vec<BatchResultEntry>)>, checksum::ChecksumError> {
+) -> Result<Option<ReadyManifests>, checksum::ChecksumError> {
     let Some(source) =
         get_manifest_if_ready(config, &receipt.source_bucket, &receipt.source_job_id).await?
     else {
@@ -66,14 +78,17 @@ async fn resolve_ready_manifests(
     };
 
     tracing::info!("Replication job file found: {:?}", &repl);
-    Ok(Some((source.results, repl.results)))
+    Ok(Some(ReadyManifests {
+        source_results: source.results,
+        replication_results: repl.results,
+    }))
 }
 
 async fn process_and_upload(
     config: &Config,
     source_bucket: &str,
     source_results: Vec<BatchResultEntry>,
-    repl_results: Vec<BatchResultEntry>,
+    replication_results: Vec<BatchResultEntry>,
     opts: &PerformOptions,
 ) -> Result<VerificationStats, checksum::ChecksumError> {
     let managed_bucket = config.stack().managed_bucket();
@@ -81,7 +96,7 @@ async fn process_and_upload(
     let source_paths =
         checksum::download_manifest_files(config.s3(), source_results, &temp_dir).await?;
     let repl_paths =
-        checksum::download_manifest_files(config.s3(), repl_results, &temp_dir).await?;
+        checksum::download_manifest_files(config.s3(), replication_results, &temp_dir).await?;
 
     tracing::info!(
         source_files = source_paths.len(),

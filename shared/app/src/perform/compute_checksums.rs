@@ -5,14 +5,10 @@ use awsutils::{
 };
 use futures::future::BoxFuture;
 
-#[derive(Debug, Default)]
-pub struct PerformOptions {}
-
 /// Trigger S3 batch compute checksum jobs
 pub async fn perform(
     config: &Config,
     bucket: Option<&Name>,
-    _opts: &PerformOptions,
 ) -> Result<Vec<String>, BatchError> {
     tracing::info!("Retrieving buckets for checksum report");
 
@@ -152,9 +148,8 @@ mod tests {
             .s3_error("NoSuchBucket", "bucket not found")
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
-        let opts = PerformOptions::default();
 
-        let err = perform(&config, Some(&bucket_name), &opts)
+        let err = perform(&config, Some(&bucket_name))
             .await
             .expect_err("missing bucket should be invalid");
 
@@ -172,9 +167,8 @@ mod tests {
             .success(tagging, None)
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
-        let opts = PerformOptions::default();
 
-        let err = perform(&config, Some(&bucket_name), &opts)
+        let err = perform(&config, Some(&bucket_name))
             .await
             .expect_err("replication bucket should be invalid");
 
@@ -193,9 +187,8 @@ mod tests {
             .success(tags, None)
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
-        let opts = PerformOptions::default();
 
-        let err = perform(&config, None, &opts)
+        let err = perform(&config, None)
             .await
             .expect_err("missing replication pair should fail");
 
@@ -214,9 +207,8 @@ mod tests {
             .success(list_buckets_xml(&[]), None)
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
-        let opts = PerformOptions::default();
 
-        let receipts = perform(&config, None, &opts)
+        let receipts = perform(&config, None)
             .await
             .expect("no source buckets should return empty receipts");
 

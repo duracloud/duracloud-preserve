@@ -4,7 +4,6 @@ use lambda_runtime::{Error, LambdaEvent, tracing};
 
 pub(crate) async fn function_handler(
     config: &Config,
-    perform_opts: &compute_checksums::PerformOptions,
     event: LambdaEvent<CloudWatchEvent>,
 ) -> Result<(), Error> {
     let payload = event.payload;
@@ -15,7 +14,7 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    compute_checksums::perform(config, None, perform_opts).await?;
+    compute_checksums::perform(config, None).await?;
 
     Ok(())
 }
@@ -33,7 +32,6 @@ mod tests {
         let event = LambdaEvent::new(CloudWatchEvent::default(), Context::default());
         let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, true);
-        let opts = compute_checksums::PerformOptions::default();
-        function_handler(&config, &opts, event).await.unwrap();
+        function_handler(&config, event).await.unwrap();
     }
 }

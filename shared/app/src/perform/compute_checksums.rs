@@ -6,10 +6,7 @@ use awsutils::{
 use futures::future::BoxFuture;
 
 /// Trigger S3 batch compute checksum jobs
-pub async fn perform(
-    config: &Config,
-    bucket: Option<&Name>,
-) -> Result<Vec<String>, BatchError> {
+pub async fn perform(config: &Config, bucket: Option<&Name>) -> Result<Vec<String>, BatchError> {
     tracing::info!("Retrieving buckets for checksum report");
 
     let bucket_pairs = match bucket {

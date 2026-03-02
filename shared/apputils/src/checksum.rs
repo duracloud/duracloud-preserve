@@ -12,8 +12,7 @@ pub fn process(
 ) -> Result<(Vec<u8>, VerificationStats), ChecksumError> {
     let verifier = ChecksumVerifier::load(source_reports, replication_reports)?;
     let mut csv = Vec::new();
-    verifier.write_csv(&mut csv)?;
-    let stats = verifier.stats()?;
+    let stats = verifier.write_csv_and_stats(&mut csv)?;
     Ok((csv, stats))
 }
 
@@ -325,33 +324,7 @@ impl ChecksumVerifier {
         Ok(results)
     }
 
-    /// Get summary statistics
-    pub fn stats(&self) -> Result<VerificationStats, ChecksumError> {
-        let matches = self.find_matches()?.len();
-        let mismatches = self.find_mismatches()?.len();
-        let missing_replica = self.objects_only_in_source()?.len();
-        let missing_source = self.objects_only_in_replication()?.len();
-        let failed_source = self.failed_in_source()?.len();
-        let failed_replication = self.failed_in_replication()?.len();
-
-        Ok(VerificationStats {
-            total_objects: matches
-                + mismatches
-                + missing_replica
-                + missing_source
-                + failed_source
-                + failed_replication,
-            matches,
-            mismatches,
-            missing_replica,
-            missing_source,
-            failed_source,
-            failed_replication,
-        })
-    }
-
-    /// Write verification results to CSV
-    pub fn write_csv(&self, writer: impl Write) -> Result<&Self, ChecksumError> {
+    fn write_csv_and_stats(&self, writer: impl Write) -> Result<VerificationStats, ChecksumError> {
         let mut csv_writer = csv::Writer::from_writer(writer);
         csv_writer.write_record([
             "bucket",
@@ -363,7 +336,20 @@ impl ChecksumVerifier {
             "checksum_replication",
         ])?;
 
-        for result in self.find_matches()? {
+        let mut stats = VerificationStats {
+            total_objects: 0,
+            matches: 0,
+            mismatches: 0,
+            missing_replica: 0,
+            missing_source: 0,
+            failed_source: 0,
+            failed_replication: 0,
+        };
+
+        let matches = self.find_matches()?;
+        stats.matches = matches.len();
+        stats.total_objects += stats.matches;
+        for result in matches {
             csv_writer.write_record([
                 &result.bucket,
                 &result.key,
@@ -375,7 +361,10 @@ impl ChecksumVerifier {
             ])?;
         }
 
-        for result in self.find_mismatches()? {
+        let mismatches = self.find_mismatches()?;
+        stats.mismatches = mismatches.len();
+        stats.total_objects += stats.mismatches;
+        for result in mismatches {
             csv_writer.write_record([
                 &result.bucket,
                 &result.key,
@@ -387,7 +376,10 @@ impl ChecksumVerifier {
             ])?;
         }
 
-        for obj in self.objects_only_in_source()? {
+        let only_in_source = self.objects_only_in_source()?;
+        stats.missing_replica = only_in_source.len();
+        stats.total_objects += stats.missing_replica;
+        for obj in only_in_source {
             csv_writer.write_record([
                 &obj.bucket,
                 &obj.key,
@@ -399,7 +391,10 @@ impl ChecksumVerifier {
             ])?;
         }
 
-        for obj in self.objects_only_in_replication()? {
+        let only_in_replication = self.objects_only_in_replication()?;
+        stats.missing_source = only_in_replication.len();
+        stats.total_objects += stats.missing_source;
+        for obj in only_in_replication {
             csv_writer.write_record([
                 &obj.bucket,
                 &obj.key,
@@ -411,7 +406,10 @@ impl ChecksumVerifier {
             ])?;
         }
 
-        for task in self.failed_in_source()? {
+        let failed_source = self.failed_in_source()?;
+        stats.failed_source = failed_source.len();
+        stats.total_objects += stats.failed_source;
+        for task in failed_source {
             csv_writer.write_record([
                 &task.bucket,
                 &task.key,
@@ -423,7 +421,10 @@ impl ChecksumVerifier {
             ])?;
         }
 
-        for task in self.failed_in_replication()? {
+        let failed_replication = self.failed_in_replication()?;
+        stats.failed_replication = failed_replication.len();
+        stats.total_objects += stats.failed_replication;
+        for task in failed_replication {
             csv_writer.write_record([
                 &task.bucket,
                 &task.key,
@@ -436,7 +437,7 @@ impl ChecksumVerifier {
         }
 
         csv_writer.flush()?;
-        Ok(self)
+        Ok(stats)
     }
 }
 
@@ -570,6 +571,10 @@ mod tests {
         ChecksumVerifier { conn }
     }
 
+    fn computed_stats(verifier: &ChecksumVerifier) -> VerificationStats {
+        verifier.write_csv_and_stats(std::io::sink()).unwrap()
+    }
+
     // Tests using CSV fixtures (the fully happy path)
     #[test]
     fn test_load_valid_csv() {
@@ -635,6 +640,28 @@ mod tests {
         assert_eq!(algorithm, "SHA256");
     }
 
+    #[test]
+    fn test_process_returns_matching_csv_and_stats() {
+        let (csv, stats) = process(
+            &["../../files/checksum-source.csv"],
+            &["../../files/checksum-replication.csv"],
+        )
+        .unwrap();
+
+        assert_eq!(stats.total_objects, 4);
+        assert_eq!(stats.matches, 4);
+        assert_eq!(stats.mismatches, 0);
+        assert_eq!(stats.missing_replica, 0);
+        assert_eq!(stats.missing_source, 0);
+        assert_eq!(stats.failed_source, 0);
+        assert_eq!(stats.failed_replication, 0);
+
+        let csv = String::from_utf8(csv).unwrap();
+        let lines: Vec<&str> = csv.lines().collect();
+        assert_eq!(lines.len(), 5);
+        assert!(csv.contains(",ok,"));
+    }
+
     // Tests using in-memory data
     #[test]
     fn test_all_match() {
@@ -651,7 +678,7 @@ mod tests {
             ],
         );
 
-        let stats = verifier.stats().unwrap();
+        let stats = computed_stats(&verifier);
         assert_eq!(stats.matches, 3);
         assert_eq!(stats.mismatches, 0);
         assert_eq!(stats.missing_replica, 0);
@@ -668,7 +695,7 @@ mod tests {
             &[row("file.pdf", "v1", "BBBB")],
         );
 
-        let stats = verifier.stats().unwrap();
+        let stats = computed_stats(&verifier);
         assert_eq!(stats.mismatches, 1);
         assert_eq!(stats.matches, 0);
 
@@ -689,7 +716,7 @@ mod tests {
             &[row("file1.pdf", "v1", "AAAA")],
         );
 
-        let stats = verifier.stats().unwrap();
+        let stats = computed_stats(&verifier);
         assert_eq!(stats.matches, 1);
         assert_eq!(stats.missing_replica, 1);
 
@@ -708,7 +735,7 @@ mod tests {
             ],
         );
 
-        let stats = verifier.stats().unwrap();
+        let stats = computed_stats(&verifier);
         assert_eq!(stats.matches, 1);
         assert_eq!(stats.missing_source, 1);
 
@@ -724,7 +751,7 @@ mod tests {
             &[row("file.pdf", "v1", "AAAA")],
         );
 
-        let stats = verifier.stats().unwrap();
+        let stats = computed_stats(&verifier);
         assert_eq!(stats.failed_source, 1);
         assert_eq!(stats.matches, 0);
 
@@ -741,7 +768,7 @@ mod tests {
             &[failed_row("file.pdf", "v1")],
         );
 
-        let stats = verifier.stats().unwrap();
+        let stats = computed_stats(&verifier);
         assert_eq!(stats.failed_replication, 1);
         assert_eq!(stats.matches, 0);
 
@@ -767,7 +794,7 @@ mod tests {
             ],
         );
 
-        let stats = verifier.stats().unwrap();
+        let stats = computed_stats(&verifier);
         assert_eq!(stats.matches, 1);
         assert_eq!(stats.mismatches, 1);
         assert_eq!(stats.missing_replica, 1);
@@ -791,7 +818,7 @@ mod tests {
         );
 
         let mut output = Vec::new();
-        verifier.write_csv(&mut output).unwrap();
+        verifier.write_csv_and_stats(&mut output).unwrap();
 
         let csv = String::from_utf8(output).unwrap();
         let lines: Vec<&str> = csv.lines().collect();
@@ -809,7 +836,7 @@ mod tests {
             &[row("file.pdf", "v1", "AAAA"), row("file.pdf", "v2", "BBBB")],
         );
 
-        let stats = verifier.stats().unwrap();
+        let stats = computed_stats(&verifier);
         assert_eq!(stats.matches, 2);
         assert_eq!(stats.total_objects, 2);
     }
@@ -818,7 +845,7 @@ mod tests {
     fn test_empty_tables() {
         let verifier = create_test_verifier(&[], &[]);
 
-        let stats = verifier.stats().unwrap();
+        let stats = computed_stats(&verifier);
         assert_eq!(stats.total_objects, 0);
         assert_eq!(stats.matches, 0);
     }

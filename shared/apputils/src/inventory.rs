@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::io::Write;
 
 use duckdb::{Connection, Error as DuckDBError};
@@ -10,8 +11,7 @@ pub fn process(
 ) -> Result<(Vec<u8>, InventoryStats), InventoryError> {
     let processor = InventoryProcessor::load(parquet_files)?;
     let mut csv = Vec::new();
-    processor.write_csv(&mut csv)?;
-    let stats = processor.stats()?;
+    let stats = processor.write_csv_and_stats(&mut csv)?;
     Ok((csv, stats))
 }
 
@@ -61,17 +61,7 @@ impl InventoryProcessor {
         Ok(Self { conn })
     }
 
-    pub fn stats(&self) -> Result<InventoryStats, InventoryError> {
-        let (total_files, total_size) = self.totals()?;
-        let by_prefix = self.prefix_stats()?;
-        Ok(InventoryStats {
-            total_files,
-            total_size,
-            by_prefix,
-        })
-    }
-
-    pub fn write_csv(&self, writer: impl Write) -> Result<&Self, InventoryError> {
+    fn write_csv_and_stats(&self, writer: impl Write) -> Result<InventoryStats, InventoryError> {
         let mut stmt = self.conn.prepare(
             "SELECT bucket, key, size, last_modified_date::VARCHAR, storage_class, replication_status, url FROM inventory",
         )?;
@@ -88,68 +78,58 @@ impl InventoryProcessor {
             "url",
         ])?;
 
+        let mut total_files = 0_u64;
+        let mut total_size = 0_u64;
+        let mut prefix_totals: BTreeMap<String, (u64, u64)> = BTreeMap::new();
+
         while let Some(row) = rows.next()? {
             let bucket: String = row.get(0)?;
             let key: String = row.get(1)?;
-            let size: i64 = row.get(2)?;
-            let last_modified: String = row.get::<_, String>(3)?;
+            let size: i64 = row.get::<_, Option<i64>>(2)?.unwrap_or(0);
+            let last_modified: String = row.get(3)?;
             let storage_class: String = row.get(4)?;
             let replication_status: String = row.get(5)?;
             let url: String = row.get(6)?;
 
             csv_writer.write_record([
-                bucket,
-                key,
-                size.to_string(),
-                last_modified,
-                storage_class,
-                replication_status,
-                url,
+                &bucket,
+                &key,
+                &size.to_string(),
+                &last_modified,
+                &storage_class,
+                &replication_status,
+                &url,
             ])?;
+
+            total_files += 1;
+
+            let size_u64 = u64::try_from(size).unwrap_or(0);
+            total_size += size_u64;
+
+            let prefix = key
+                .split_once('/')
+                .map_or_else(String::new, |(p, _)| p.to_string());
+            let (files, bytes) = prefix_totals.entry(prefix).or_insert((0, 0));
+            *files += 1;
+            *bytes += size_u64;
         }
 
         csv_writer.flush()?;
-        Ok(self)
-    }
 
-    // private
-    fn prefix_stats(&self) -> Result<Vec<PrefixStats>, InventoryError> {
-        let mut stmt = self.conn.prepare(
-            r#"
-            SELECT
-                CASE WHEN key LIKE '%/%'
-                     THEN split_part(key, '/', 1)
-                     ELSE '' END as prefix,
-                COUNT(*)::UBIGINT as total_files,
-                CAST(COALESCE(SUM(size), 0) AS UBIGINT) as total_size
-            FROM inventory
-            GROUP BY prefix
-            "#,
-        )?;
+        let by_prefix = prefix_totals
+            .into_iter()
+            .map(|(prefix, (total_files, total_size))| PrefixStats {
+                prefix,
+                total_files,
+                total_size,
+            })
+            .collect();
 
-        let mut rows = stmt.query([])?;
-        let mut by_prefix = Vec::new();
-
-        while let Some(row) = rows.next()? {
-            by_prefix.push(PrefixStats {
-                prefix: row.get(0)?,
-                total_files: row.get(1)?,
-                total_size: row.get(2)?,
-            });
-        }
-
-        Ok(by_prefix)
-    }
-
-    fn totals(&self) -> Result<(u64, u64), InventoryError> {
-        let mut stmt = self.conn.prepare(
-            "SELECT COUNT(*)::UBIGINT, CAST(COALESCE(SUM(size), 0) AS UBIGINT) FROM inventory",
-        )?;
-        let mut rows = stmt.query([])?;
-        let row = rows.next()?.expect("COUNT always returns a row");
-        let total_files: u64 = row.get(0)?;
-        let total_size: u64 = row.get(1)?;
-        Ok((total_files, total_size))
+        Ok(InventoryStats {
+            total_files,
+            total_size,
+            by_prefix,
+        })
     }
 }
 
@@ -195,7 +175,12 @@ mod tests {
     #[test]
     fn test_load_valid_parquet() {
         let processor = InventoryProcessor::load(&["../../files/example.parquet"]).unwrap();
-        let (total_files, _) = processor.totals().unwrap();
+        let total_files: u64 = processor
+            .conn
+            .query_row("SELECT COUNT(*)::UBIGINT FROM inventory", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
         assert!(total_files > 0);
     }
 
@@ -300,7 +285,7 @@ mod tests {
             ("mybucket", "file2.txt", 200),
         ]);
         let mut output = Vec::new();
-        processor.write_csv(&mut output).unwrap();
+        processor.write_csv_and_stats(&mut output).unwrap();
         let csv = String::from_utf8(output).unwrap();
 
         assert!(
@@ -315,7 +300,7 @@ mod tests {
     fn test_write_csv_empty() {
         let processor = create_test_processor(&[]);
         let mut output = Vec::new();
-        processor.write_csv(&mut output).unwrap();
+        processor.write_csv_and_stats(&mut output).unwrap();
         let csv = String::from_utf8(output).unwrap();
         assert!(
             csv.contains("bucket,key,size,last_modified_date,storage_class,replication_status,url")
@@ -331,17 +316,17 @@ mod tests {
             ("bucket", "b.txt", 200),
             ("bucket", "c.txt", 300),
         ]);
-        let (total_files, total_size) = processor.totals().unwrap();
-        assert_eq!(total_files, 3);
-        assert_eq!(total_size, 600);
+        let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
+        assert_eq!(stats.total_files, 3);
+        assert_eq!(stats.total_size, 600);
     }
 
     #[test]
     fn test_totals_empty() {
         let processor = create_test_processor(&[]);
-        let (total_files, total_size) = processor.totals().unwrap();
-        assert_eq!(total_files, 0);
-        assert_eq!(total_size, 0);
+        let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
+        assert_eq!(stats.total_files, 0);
+        assert_eq!(stats.total_size, 0);
     }
 
     #[test]
@@ -362,13 +347,18 @@ mod tests {
         )
         .unwrap();
         conn.execute_batch(
-            "INSERT INTO inventory (key, size) VALUES ('a.txt', NULL), ('b.txt', NULL)",
+            r#"
+            INSERT INTO inventory (bucket, key, size, last_modified_date, storage_class, replication_status, url)
+            VALUES
+              ('bucket', 'a.txt', NULL, '2025-01-01 00:00:00+00', 'STANDARD', 'COMPLETED', 'https://bucket.s3.amazonaws.com/a.txt'),
+              ('bucket', 'b.txt', NULL, '2025-01-01 00:00:00+00', 'STANDARD', 'COMPLETED', 'https://bucket.s3.amazonaws.com/b.txt')
+            "#,
         )
         .unwrap();
         let processor = InventoryProcessor { conn };
-        let (total_files, total_size) = processor.totals().unwrap();
-        assert_eq!(total_files, 2);
-        assert_eq!(total_size, 0);
+        let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
+        assert_eq!(stats.total_files, 2);
+        assert_eq!(stats.total_size, 0);
     }
 
     // prefix_stats tests
@@ -381,17 +371,18 @@ mod tests {
             ("bucket", "root.txt", 50),
             ("bucket", "another_root.txt", 25),
         ]);
-        let stats = processor.prefix_stats().unwrap();
+        let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
+        let by_prefix = &stats.by_prefix;
 
-        let images = stats.iter().find(|s| s.prefix == "images").unwrap();
+        let images = by_prefix.iter().find(|s| s.prefix == "images").unwrap();
         assert_eq!(images.total_files, 2);
         assert_eq!(images.total_size, 300);
 
-        let docs = stats.iter().find(|s| s.prefix == "docs").unwrap();
+        let docs = by_prefix.iter().find(|s| s.prefix == "docs").unwrap();
         assert_eq!(docs.total_files, 1);
         assert_eq!(docs.total_size, 300);
 
-        let root = stats.iter().find(|s| s.prefix.is_empty()).unwrap();
+        let root = by_prefix.iter().find(|s| s.prefix.is_empty()).unwrap();
         assert_eq!(root.total_files, 2);
         assert_eq!(root.total_size, 75);
     }
@@ -399,17 +390,14 @@ mod tests {
     #[test]
     fn test_prefix_stats_empty() {
         let processor = create_test_processor(&[]);
-        let stats = processor.prefix_stats().unwrap();
-        assert!(stats.is_empty());
+        let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
+        assert!(stats.by_prefix.is_empty());
     }
 
     // integration test
     #[test]
     fn test_full_pipeline() {
-        let stats = InventoryProcessor::load(&["../../files/example.parquet"])
-            .unwrap()
-            .stats()
-            .unwrap();
+        let (_csv, stats) = process(&["../../files/example.parquet"]).unwrap();
 
         assert_eq!(stats.total_files, 13);
         assert_eq!(stats.total_size, 2191162);
@@ -435,13 +423,7 @@ mod tests {
 
     #[test]
     fn test_full_pipeline_csv_output() {
-        let mut output = Vec::new();
-        let _stats = InventoryProcessor::load(&["../../files/example.parquet"])
-            .unwrap()
-            .write_csv(&mut output)
-            .unwrap()
-            .stats()
-            .unwrap();
+        let (output, _stats) = process(&["../../files/example.parquet"]).unwrap();
 
         let csv = String::from_utf8(output).unwrap();
         let lines: Vec<&str> = csv.lines().collect();
@@ -455,5 +437,26 @@ mod tests {
         );
 
         assert!(csv.contains("https://test-stack-private.s3.amazonaws.com/"));
+    }
+
+    #[test]
+    fn test_process_returns_matching_csv_and_stats() {
+        let (csv, stats) = process(&["../../files/example.parquet"]).unwrap();
+
+        assert_eq!(stats.total_files, 13);
+        assert_eq!(stats.total_size, 2_191_162);
+
+        let csv = String::from_utf8(csv).unwrap();
+        let lines: Vec<&str> = csv.lines().collect();
+        assert_eq!(lines.len(), 14);
+        assert_eq!(
+            lines[0],
+            "bucket,key,size,last_modified_date,storage_class,replication_status,url"
+        );
+
+        let find_prefix = |name: &str| stats.by_prefix.iter().find(|p| p.prefix == name);
+        let root = find_prefix("").expect("root prefix should exist");
+        assert_eq!(root.total_files, 6);
+        assert_eq!(root.total_size, 1_355_662);
     }
 }

@@ -45,6 +45,21 @@ impl Bucket {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BucketPair {
+    pub source: Bucket,
+    pub replication: Bucket,
+}
+
+impl BucketPair {
+    pub fn new(source: Bucket, replication: Bucket) -> Self {
+        Self {
+            source,
+            replication,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Name(String);
 
@@ -129,7 +144,7 @@ impl std::fmt::Display for Type {
 pub fn pair_buckets(
     source_buckets: Vec<Bucket>,
     replication_buckets: Vec<Bucket>,
-) -> Result<Vec<(Bucket, Bucket)>, BucketValidationError> {
+) -> Result<Vec<BucketPair>, BucketValidationError> {
     let mut repl_map: HashMap<String, Bucket> = replication_buckets
         .into_iter()
         .filter_map(|b| {
@@ -145,7 +160,7 @@ pub fn pair_buckets(
             let source_name = source.name().to_string();
             repl_map
                 .remove(&source_name)
-                .map(|repl| (source, repl))
+                .map(|repl| BucketPair::new(source, repl))
                 .ok_or_else(|| {
                     BucketValidationError::ValidationError(format!(
                         "no replication bucket found for '{}'",
@@ -195,14 +210,14 @@ pub fn replication_bucket(stack: &Stack, partial: &Name) -> Result<Bucket, Bucke
 pub fn review_bucket_names(
     stack: &Stack,
     names: &[String],
-) -> Result<Vec<(Bucket, Bucket)>, BucketValidationError> {
-    let mut buckets: Vec<(Bucket, Bucket)> = Vec::new();
+) -> Result<Vec<BucketPair>, BucketValidationError> {
+    let mut buckets: Vec<BucketPair> = Vec::new();
 
     for name in names {
         let bucket = Name::new(name)?;
         let primary = primary_bucket(stack, &bucket)?;
         let replication = replication_bucket(stack, &bucket)?;
-        buckets.push((primary, replication));
+        buckets.push(BucketPair::new(primary, replication));
     }
 
     Ok(buckets)
@@ -272,10 +287,10 @@ mod tests {
         let pairs = pair_buckets(source_buckets, replication_buckets).unwrap();
 
         assert_eq!(pairs.len(), 2);
-        assert_eq!(pairs[0].0.name(), "alpha");
-        assert_eq!(pairs[0].1.name(), "alpha-repl");
-        assert_eq!(pairs[1].0.name(), "beta");
-        assert_eq!(pairs[1].1.name(), "beta-repl");
+        assert_eq!(pairs[0].source.name(), "alpha");
+        assert_eq!(pairs[0].replication.name(), "alpha-repl");
+        assert_eq!(pairs[1].source.name(), "beta");
+        assert_eq!(pairs[1].replication.name(), "beta-repl");
     }
 
     #[test]
@@ -308,16 +323,16 @@ mod tests {
         assert_eq!(result.len(), 2);
 
         // First bucket pair (standard)
-        assert_eq!(result[0].0.name(), "test-stack-example");
-        assert_eq!(result[0].0.bucket_type(), &Type::Standard);
-        assert_eq!(result[0].1.name(), "test-stack-example-repl");
-        assert_eq!(result[0].1.bucket_type(), &Type::Replication);
+        assert_eq!(result[0].source.name(), "test-stack-example");
+        assert_eq!(result[0].source.bucket_type(), &Type::Standard);
+        assert_eq!(result[0].replication.name(), "test-stack-example-repl");
+        assert_eq!(result[0].replication.bucket_type(), &Type::Replication);
 
         // Second bucket pair (public)
-        assert_eq!(result[1].0.name(), "test-stack-data-public");
-        assert_eq!(result[1].0.bucket_type(), &Type::Public);
-        assert_eq!(result[1].1.name(), "test-stack-data-public-repl");
-        assert_eq!(result[1].1.bucket_type(), &Type::Replication);
+        assert_eq!(result[1].source.name(), "test-stack-data-public");
+        assert_eq!(result[1].source.bucket_type(), &Type::Public);
+        assert_eq!(result[1].replication.name(), "test-stack-data-public-repl");
+        assert_eq!(result[1].replication.bucket_type(), &Type::Replication);
     }
 
     #[test]

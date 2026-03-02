@@ -2,7 +2,7 @@ use apputils::Stack;
 use aws_sdk_s3::{Client, types::TransitionStorageClass};
 
 use awsutils::{
-    bucket::{self, BUCKET_TAG_STACK_KEY, Bucket, RequestError, Type},
+    bucket::{self, BUCKET_TAG_STACK_KEY, Bucket, BucketPair, RequestError, Type},
     bucket_creator::{
         BUCKET_TAG_ORIGIN_KEY, BUCKET_TAG_ORIGIN_VAL, BucketCreator, BucketCreatorParams,
     },
@@ -43,12 +43,16 @@ async fn create<'a>(
 /// Create primary and replication buckets.
 pub async fn create_buckets(
     config: &Config,
-    buckets: &[(Bucket, Bucket)],
+    buckets: &[BucketPair],
     standard_storage_tier: TransitionStorageClass,
 ) -> Vec<String> {
     let mut issues = Vec::new();
 
-    for (primary, replication) in buckets {
+    for BucketPair {
+        source: primary,
+        replication,
+    } in buckets
+    {
         // For now we only allow storage-tier override on standard buckets.
         let primary_storage_tier_override = match primary.bucket_type() {
             Type::Standard => Some(standard_storage_tier.clone()),

@@ -1,7 +1,7 @@
 use crate::{batch::trigger_checksum_job, bucket as app_bucket, config::Config};
 use awsutils::{
     batch::BatchError,
-    bucket::{self, Bucket, Name, REPLICATION_SUFFIX},
+    bucket::{self, Bucket, BucketPair, Name, REPLICATION_SUFFIX},
 };
 use futures::future::BoxFuture;
 
@@ -27,7 +27,7 @@ pub async fn perform(config: &Config, bucket: Option<&Name>) -> Result<Vec<Strin
             let replication = Bucket::new(&replication_name, bucket::Type::Replication)
                 .map_err(bucket::RequestError::from)?;
 
-            vec![(source, replication)]
+            vec![BucketPair::new(source, replication)]
         }
         None => {
             let all_buckets = app_bucket::get_stack_buckets(config.s3(), config.stack()).await?;
@@ -54,7 +54,7 @@ pub async fn perform(config: &Config, bucket: Option<&Name>) -> Result<Vec<Strin
 
 async fn dispatch_checksum_jobs<F>(
     config: &Config,
-    bucket_pairs: &[(Bucket, Bucket)],
+    bucket_pairs: &[BucketPair],
     trigger: F,
 ) -> Result<Vec<String>, BatchError>
 where
@@ -67,7 +67,11 @@ where
     let mut receipts = vec![];
     let mut issues = vec![];
 
-    for (source, replication) in bucket_pairs {
+    for BucketPair {
+        source,
+        replication,
+    } in bucket_pairs
+    {
         match trigger(config, source, replication).await {
             Ok(urls) => receipts.extend(urls),
             Err(e) => issues.push(e.to_string()),
@@ -128,14 +132,14 @@ mod tests {
         )
     }
 
-    fn bucket_pair(name: &str, bucket_type: bucket::Type) -> (Bucket, Bucket) {
+    fn bucket_pair(name: &str, bucket_type: bucket::Type) -> BucketPair {
         let source = Bucket::new(name, bucket_type).expect("source should be valid");
         let replication = Bucket::new(
             format!("{name}{REPLICATION_SUFFIX}").as_str(),
             bucket::Type::Replication,
         )
         .expect("replication should be valid");
-        (source, replication)
+        BucketPair::new(source, replication)
     }
 
     #[tokio::test]

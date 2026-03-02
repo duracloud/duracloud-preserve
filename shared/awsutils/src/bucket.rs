@@ -4,7 +4,7 @@ use apputils::bucket::{
 };
 
 pub use apputils::bucket::{
-    BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, Name, REPLICATION_SUFFIX, Type,
+    BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, BucketPair, Name, REPLICATION_SUFFIX, Type,
     pair_buckets, primary_bucket, replication_bucket, review_bucket_names,
 };
 use aws_sdk_s3::Client;

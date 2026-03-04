@@ -118,10 +118,12 @@ pub async fn config(stack: Stack) -> Result<Config, RequestError> {
     let sdk_config = aws_config_utils::default_config().await;
 
     let account_id = aws_config_utils::get_account_id(&sdk_config).await?;
+    let batch_role_name = stack.batch_role_name();
+    let replication_role_name = stack.replication_role_name();
 
     let (batch_role, replication_role) = tokio::try_join!(
-        get_batch_role_arn(&sdk_config, &stack),
-        get_replication_role_arn(&sdk_config, &stack),
+        aws_config_utils::get_role_arn(&sdk_config, &batch_role_name),
+        aws_config_utils::get_role_arn(&sdk_config, &replication_role_name),
     )?;
 
     let roles = Roles {
@@ -130,17 +132,4 @@ pub async fn config(stack: Stack) -> Result<Config, RequestError> {
     };
 
     Ok(Config::new(sdk_config, account_id, roles, stack, false))
-}
-
-/// Get the S3 Batch Operations role ARN for the stack.
-pub async fn get_batch_role_arn(config: &SdkConfig, stack: &Stack) -> Result<String, RequestError> {
-    aws_config_utils::get_role_arn(config, &stack.batch_role_name()).await
-}
-
-/// Get the S3 replication role ARN for the stack.
-pub async fn get_replication_role_arn(
-    config: &SdkConfig,
-    stack: &Stack,
-) -> Result<String, RequestError> {
-    aws_config_utils::get_role_arn(config, &stack.replication_role_name()).await
 }

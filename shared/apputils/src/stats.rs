@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 /// Per-bucket stats — wraps InventoryStats with a bucket name
@@ -13,13 +15,12 @@ pub struct BucketStats {
 pub struct InventoryStats {
     pub total_files: u64,
     pub total_size: u64,
-    pub by_prefix: Vec<PrefixStats>,
+    pub by_prefix: BTreeMap<String, PrefixStats>,
 }
 
-/// Inventory stats by (top level) prefix
+/// File and size counts for a single (top level) prefix
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PrefixStats {
-    pub prefix: String,
     pub total_files: u64,
     pub total_size: u64,
 }
@@ -55,11 +56,13 @@ mod tests {
         let stats = InventoryStats {
             total_files: 42,
             total_size: 123456,
-            by_prefix: vec![PrefixStats {
-                prefix: "data".to_string(),
-                total_files: 42,
-                total_size: 123456,
-            }],
+            by_prefix: BTreeMap::from([(
+                "data".to_string(),
+                PrefixStats {
+                    total_files: 42,
+                    total_size: 123456,
+                },
+            )]),
         };
 
         let json = serde_json::to_string(&stats).unwrap();
@@ -68,12 +71,12 @@ mod tests {
         assert_eq!(deserialized.total_files, 42);
         assert_eq!(deserialized.total_size, 123456);
         assert_eq!(deserialized.by_prefix.len(), 1);
-        assert_eq!(deserialized.by_prefix[0].prefix, "data");
+        assert!(deserialized.by_prefix.contains_key("data"));
     }
 
     #[test]
     fn test_bucket_stats_flattened_deserialization() {
-        let json = r#"{"bucket":"my-bucket","total_files":5,"total_size":500,"by_prefix":[]}"#;
+        let json = r#"{"bucket":"my-bucket","total_files":5,"total_size":500,"by_prefix":{}}"#;
         let bucket_stats: BucketStats = serde_json::from_str(json).unwrap();
 
         assert_eq!(bucket_stats.bucket, "my-bucket");
@@ -89,7 +92,7 @@ mod tests {
             stats: InventoryStats {
                 total_files: 5,
                 total_size: 500,
-                by_prefix: vec![],
+                by_prefix: BTreeMap::new(),
             },
         };
 

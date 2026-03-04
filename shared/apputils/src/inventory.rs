@@ -118,10 +118,14 @@ impl InventoryProcessor {
 
         let by_prefix = prefix_totals
             .into_iter()
-            .map(|(prefix, (total_files, total_size))| PrefixStats {
-                prefix,
-                total_files,
-                total_size,
+            .map(|(prefix, (total_files, total_size))| {
+                (
+                    prefix,
+                    PrefixStats {
+                        total_files,
+                        total_size,
+                    },
+                )
             })
             .collect();
 
@@ -374,15 +378,15 @@ mod tests {
         let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
         let by_prefix = &stats.by_prefix;
 
-        let images = by_prefix.iter().find(|s| s.prefix == "images").unwrap();
+        let images = by_prefix.get("images").unwrap();
         assert_eq!(images.total_files, 2);
         assert_eq!(images.total_size, 300);
 
-        let docs = by_prefix.iter().find(|s| s.prefix == "docs").unwrap();
+        let docs = by_prefix.get("docs").unwrap();
         assert_eq!(docs.total_files, 1);
         assert_eq!(docs.total_size, 300);
 
-        let root = by_prefix.iter().find(|s| s.prefix.is_empty()).unwrap();
+        let root = by_prefix.get("").unwrap();
         assert_eq!(root.total_files, 2);
         assert_eq!(root.total_size, 75);
     }
@@ -402,21 +406,25 @@ mod tests {
         assert_eq!(stats.total_files, 13);
         assert_eq!(stats.total_size, 2191162);
 
-        let find_prefix = |name: &str| stats.by_prefix.iter().find(|p| p.prefix == name);
+        let by_prefix = &stats.by_prefix;
 
-        let root = find_prefix("").expect("root prefix should exist");
+        let root = by_prefix.get("").expect("root prefix should exist");
         assert_eq!(root.total_files, 6);
         assert_eq!(root.total_size, 1355662);
 
-        let images = find_prefix("images").expect("images prefix should exist");
+        let images = by_prefix.get("images").expect("images prefix should exist");
         assert_eq!(images.total_files, 3);
         assert_eq!(images.total_size, 129000);
 
-        let documents = find_prefix("documents").expect("documents prefix should exist");
+        let documents = by_prefix
+            .get("documents")
+            .expect("documents prefix should exist");
         assert_eq!(documents.total_files, 3);
         assert_eq!(documents.total_size, 206500);
 
-        let archive = find_prefix("archive").expect("archive prefix should exist");
+        let archive = by_prefix
+            .get("archive")
+            .expect("archive prefix should exist");
         assert_eq!(archive.total_files, 1);
         assert_eq!(archive.total_size, 500000);
     }
@@ -454,8 +462,7 @@ mod tests {
             "bucket,key,size,last_modified_date,storage_class,replication_status,url"
         );
 
-        let find_prefix = |name: &str| stats.by_prefix.iter().find(|p| p.prefix == name);
-        let root = find_prefix("").expect("root prefix should exist");
+        let root = stats.by_prefix.get("").expect("root prefix should exist");
         assert_eq!(root.total_files, 6);
         assert_eq!(root.total_size, 1_355_662);
     }

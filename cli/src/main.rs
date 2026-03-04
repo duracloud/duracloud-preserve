@@ -26,6 +26,8 @@ enum Commands {
     InventoryReport(commands::inventory_report::Args),
     /// Reset stack (empty buckets, optionally destroy resources)
     Reset(commands::reset::Args),
+    /// Generate storage report
+    StorageReport(commands::storage_report::Args),
     /// Transfer files from source to stack destination bucket
     Transfer(commands::transfer::Args),
 }
@@ -44,6 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::ComputeChecksums(args) => commands::compute_checksums::run(args).await?,
         Commands::InventoryReport(args) => commands::inventory_report::run(args).await?,
         Commands::Reset(args) => commands::reset::run(args).await?,
+        Commands::StorageReport(args) => commands::storage_report::run(args).await?,
         Commands::Transfer(args) => commands::transfer::run(args).await?,
     }
 

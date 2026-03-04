@@ -58,7 +58,7 @@ impl Stack {
                 || !part.chars().all(|c| c.is_ascii_alphanumeric())
             {
                 return Err(
-                    "Each part must start with a letter and contain only lowercase alphanumeric characters",
+                    "Stack name parts must start with a letter and contain only lowercase alphanumeric characters",
                 );
             }
         }

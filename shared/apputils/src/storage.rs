@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::stats::{BucketStats, InventoryStats};
@@ -11,18 +13,13 @@ pub struct StorageReport {
 }
 
 impl StorageReport {
-    pub fn from_inventory(mut bucket_stats: Vec<(String, InventoryStats)>) -> Self {
-        bucket_stats.sort_by(|(a, _), (b, _)| a.cmp(b));
-
-        let total_files: u64 = bucket_stats.iter().map(|(_, s)| s.total_files).sum();
-        let total_size: u64 = bucket_stats.iter().map(|(_, s)| s.total_size).sum();
+    pub fn from_inventory(bucket_stats: BTreeMap<String, InventoryStats>) -> Self {
+        let total_files: u64 = bucket_stats.values().map(|s| s.total_files).sum();
+        let total_size: u64 = bucket_stats.values().map(|s| s.total_size).sum();
 
         let buckets = bucket_stats
             .into_iter()
-            .map(|(bucket, mut stats)| {
-                stats.by_prefix.sort_by(|a, b| a.prefix.cmp(&b.prefix));
-                BucketStats { bucket, stats }
-            })
+            .map(|(bucket, stats)| BucketStats { bucket, stats })
             .collect();
 
         Self {
@@ -39,13 +36,12 @@ impl StorageReport {
 
 #[cfg(test)]
 mod tests {
-    use crate::stats::PrefixStats;
-
     use super::*;
+    use crate::stats::PrefixStats;
 
     #[test]
     fn test_from_inventory_empty() {
-        let report = StorageReport::from_inventory(vec![]);
+        let report = StorageReport::from_inventory(BTreeMap::new());
         assert_eq!(report.total_files, 0);
         assert_eq!(report.total_size, 0);
         assert!(report.buckets.is_empty());
@@ -56,30 +52,36 @@ mod tests {
         let stats = InventoryStats {
             total_files: 10,
             total_size: 5000,
-            by_prefix: vec![
-                PrefixStats {
-                    prefix: "images".to_string(),
-                    total_files: 7,
-                    total_size: 3500,
-                },
-                PrefixStats {
-                    prefix: "docs".to_string(),
-                    total_files: 3,
-                    total_size: 1500,
-                },
-            ],
+            by_prefix: BTreeMap::from([
+                (
+                    "images".to_string(),
+                    PrefixStats {
+                        total_files: 7,
+                        total_size: 3500,
+                    },
+                ),
+                (
+                    "docs".to_string(),
+                    PrefixStats {
+                        total_files: 3,
+                        total_size: 1500,
+                    },
+                ),
+            ]),
         };
 
-        let report = StorageReport::from_inventory(vec![("my-bucket".to_string(), stats)]);
+        let report =
+            StorageReport::from_inventory(BTreeMap::from([("my-bucket".to_string(), stats)]));
 
         assert_eq!(report.total_files, 10);
         assert_eq!(report.total_size, 5000);
         assert_eq!(report.buckets.len(), 1);
         assert_eq!(report.buckets[0].bucket, "my-bucket");
         assert_eq!(report.buckets[0].stats.total_files, 10);
-        // prefixes should be sorted
-        assert_eq!(report.buckets[0].stats.by_prefix[0].prefix, "docs");
-        assert_eq!(report.buckets[0].stats.by_prefix[1].prefix, "images");
+
+        let mut prefixes = report.buckets[0].stats.by_prefix.keys();
+        assert_eq!(prefixes.next().unwrap(), "docs");
+        assert_eq!(prefixes.next().unwrap(), "images");
     }
 
     #[test]
@@ -87,36 +89,35 @@ mod tests {
         let stats_a = InventoryStats {
             total_files: 10,
             total_size: 5000,
-            by_prefix: vec![],
+            by_prefix: BTreeMap::new(),
         };
         let stats_b = InventoryStats {
             total_files: 20,
             total_size: 8000,
-            by_prefix: vec![],
+            by_prefix: BTreeMap::new(),
         };
 
-        let report = StorageReport::from_inventory(vec![
+        let report = StorageReport::from_inventory(BTreeMap::from([
             ("zebra-bucket".to_string(), stats_a),
             ("alpha-bucket".to_string(), stats_b),
-        ]);
+        ]));
 
         assert_eq!(report.total_files, 30);
         assert_eq!(report.total_size, 13000);
-        // buckets should be sorted by name
         assert_eq!(report.buckets[0].bucket, "alpha-bucket");
         assert_eq!(report.buckets[1].bucket, "zebra-bucket");
     }
 
     #[test]
     fn test_from_inventory_sums_totals() {
-        let buckets: Vec<(String, InventoryStats)> = (0..5)
+        let buckets: BTreeMap<String, InventoryStats> = (0..5)
             .map(|i| {
                 (
                     format!("bucket-{}", i),
                     InventoryStats {
                         total_files: 100,
                         total_size: 1000,
-                        by_prefix: vec![],
+                        by_prefix: BTreeMap::new(),
                     },
                 )
             })

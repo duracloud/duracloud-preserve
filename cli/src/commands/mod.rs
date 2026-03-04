@@ -5,4 +5,5 @@ pub mod checksum_report;
 pub mod compute_checksums;
 pub mod inventory_report;
 pub mod reset;
+pub mod storage_report;
 pub mod transfer;

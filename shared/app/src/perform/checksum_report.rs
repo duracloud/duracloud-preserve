@@ -1,4 +1,5 @@
 use apputils::{
+    content_type::{APPLICATION_JSON, TEXT_CSV},
     stack::{self, DateCtx},
     stats::VerificationStats,
 };
@@ -128,7 +129,7 @@ async fn process_and_upload(
             config.s3(),
             &csv_file,
             ByteStream::from(csv_bytes.clone()),
-            "text/csv",
+            TEXT_CSV,
         )
         .await?;
 
@@ -145,7 +146,7 @@ async fn process_and_upload(
             config.s3(),
             &stats_file,
             ByteStream::from(stats_bytes.clone()),
-            "application/json",
+            APPLICATION_JSON,
         )
         .await?;
     }

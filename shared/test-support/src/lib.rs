@@ -1,4 +1,4 @@
-use apputils::Stack;
+use apputils::{Stack, content_type::TEXT_XML};
 use aws_config::{BehaviorVersion, SdkConfig};
 use aws_sdk_s3::{Client, primitives::SdkBody};
 use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
@@ -241,7 +241,7 @@ pub fn replay_xml_event(status: u16, body: impl Into<String>) -> ReplayEvent {
         DEFAULT_TEST_URI,
         status,
         SdkBody::from(body.into()),
-        Some("text/xml"),
+        Some(TEXT_XML),
     )
 }
 

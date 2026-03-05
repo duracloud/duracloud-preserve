@@ -158,6 +158,7 @@ pub fn from_tags(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use apputils::content_type::{APPLICATION_JSON, TEXT_PLAIN};
     use test_support::TestClientBuilder;
 
     #[test]
@@ -192,7 +193,7 @@ mod tests {
         let content = "123\n456\n789\n234\n567\n890";
         let file = File::new("test-bucket", "buckets.txt");
         let client = TestClientBuilder::new()
-            .success(content, Some("text/plain".to_string()))
+            .success(content, Some(TEXT_PLAIN.to_string()))
             .build();
 
         let names = get_bucket_names(&client, &file).await.unwrap();
@@ -209,7 +210,7 @@ mod tests {
         let content = "bucket1\nbucket2";
         let file = File::new("test-bucket", "buckets.txt");
         let client = TestClientBuilder::new()
-            .success(content, Some("text/plain; charset=utf-8".to_string()))
+            .success(content, Some(TEXT_PLAIN.to_string()))
             .build();
 
         let names = get_bucket_names(&client, &file).await.unwrap();
@@ -224,7 +225,7 @@ mod tests {
         let content = "a".repeat((MAX_REQUEST_FILE_SIZE + 1) as usize);
         let file = File::new("test-bucket", "buckets.txt");
         let client = TestClientBuilder::new()
-            .success(content, Some("text/plain".to_string()))
+            .success(content, Some(TEXT_PLAIN.to_string()))
             .build();
 
         let result = get_bucket_names(&client, &file).await;
@@ -244,7 +245,7 @@ mod tests {
         let content = "bucket1\nbucket2";
         let file = File::new("test-bucket", "buckets.txt");
         let client = TestClientBuilder::new()
-            .success(content, Some("application/json".to_string()))
+            .success(content, Some(APPLICATION_JSON.to_string()))
             .build();
 
         let result = get_bucket_names(&client, &file).await;
@@ -258,7 +259,7 @@ mod tests {
         let content = "a\nb\nc\nd\ne\nf\ng";
         let file = File::new("test-bucket", "buckets.txt");
         let client = TestClientBuilder::new()
-            .success(content, Some("text/plain".to_string()))
+            .success(content, Some(TEXT_PLAIN.to_string()))
             .build();
 
         let names = get_bucket_names(&client, &file).await.unwrap();

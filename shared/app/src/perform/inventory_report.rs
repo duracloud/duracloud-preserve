@@ -1,3 +1,4 @@
+use apputils::content_type::{APPLICATION_JSON, TEXT_CSV};
 use apputils::stack::{self, DateCtx};
 use apputils::stats::InventoryStats;
 use aws_sdk_s3::primitives::ByteStream;
@@ -74,7 +75,7 @@ pub async fn perform(
             config.s3(),
             &csv_file,
             ByteStream::from(csv_bytes.clone()),
-            "text/csv",
+            TEXT_CSV,
         )
         .await?;
 
@@ -88,7 +89,7 @@ pub async fn perform(
             config.s3(),
             &stats_file,
             ByteStream::from(stats_bytes.clone()),
-            "application/json",
+            APPLICATION_JSON,
         )
         .await?;
     }
@@ -175,7 +176,7 @@ mod tests {
 
         let csv_puts: Vec<_> = requests
             .iter()
-            .filter(|r| r.method == "PUT" && r.content_type.as_deref() == Some("text/csv"))
+            .filter(|r| r.method == "PUT" && r.content_type.as_deref() == Some(TEXT_CSV))
             .collect();
         assert_eq!(csv_puts.len(), 2);
 

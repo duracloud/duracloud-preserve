@@ -57,10 +57,14 @@ pub enum StorageReportError {
         #[source]
         source: RequestError,
     },
+    #[error("JSON parse error: {0}")]
+    Json(#[from] serde_json::Error),
     #[error("failed to parse inventory stats for bucket '{bucket}': {source}")]
     ParseStats {
         bucket: String,
         #[source]
         source: serde_json::Error,
     },
+    #[error("failed to upload file: {0}")]
+    UploadError(#[source] RequestError),
 }

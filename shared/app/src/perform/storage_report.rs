@@ -1,17 +1,17 @@
 use std::collections::BTreeMap;
 
 use apputils::{bucket::Type, stack, stats::InventoryStats, storage::StorageReport};
-use awsutils::{
-    bucket::RequestError,
-    file::{File, download_bytes},
+use awsutils::file::{File, download_bytes};
+
+use crate::{
+    bucket::get_stack_buckets_by_type, config::Config, perform::errors::StorageReportError,
 };
 
-use crate::{bucket::get_stack_buckets_by_type, config::Config};
-
-pub async fn perform(config: &Config) -> Result<(), RequestError> {
+pub async fn perform(config: &Config) -> Result<(), StorageReportError> {
     let buckets =
         get_stack_buckets_by_type(config.s3(), config.stack(), &[Type::Public, Type::Standard])
-            .await?;
+            .await
+            .map_err(StorageReportError::BucketDiscovery)?;
     let mut bucket_stats = BTreeMap::new();
 
     for bucket in buckets {
@@ -28,10 +28,17 @@ pub async fn perform(config: &Config) -> Result<(), RequestError> {
             config.s3(),
             &File::new(config.stack().managed_bucket(), stats_path),
         )
-        .await?;
+        .await
+        .map_err(|source| StorageReportError::DownloadStats {
+            bucket: bucket_name.clone(),
+            source,
+        })?;
 
-        let stats: InventoryStats = serde_json::from_slice(&stats)
-            .map_err(|e| RequestError::S3Error(format!("failed to parse stats: {e}")))?;
+        let stats: InventoryStats =
+            serde_json::from_slice(&stats).map_err(|source| StorageReportError::ParseStats {
+                bucket: bucket_name.clone(),
+                source,
+            })?;
 
         bucket_stats.insert(bucket_name, stats);
     }

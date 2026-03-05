@@ -1,4 +1,7 @@
-use crate::{batch::trigger_checksum_job, bucket as app_bucket, config::Config};
+use crate::{
+    batch::trigger_checksum_job, bucket as app_bucket, config::Config,
+    perform::errors::ComputeChecksumsError,
+};
 use awsutils::{
     batch::BatchError,
     bucket::{self, Bucket, BucketPair, Name, REPLICATION_SUFFIX},
@@ -6,7 +9,10 @@ use awsutils::{
 use futures::future::BoxFuture;
 
 /// Trigger S3 batch compute checksum jobs
-pub async fn perform(config: &Config, bucket: Option<&Name>) -> Result<Vec<String>, BatchError> {
+pub async fn perform(
+    config: &Config,
+    bucket: Option<&Name>,
+) -> Result<Vec<String>, ComputeChecksumsError> {
     tracing::info!("Retrieving buckets for checksum report");
 
     let bucket_pairs = match bucket {
@@ -15,23 +21,30 @@ pub async fn perform(config: &Config, bucket: Option<&Name>) -> Result<Vec<Strin
             let replication_name = format!("{source_name}{REPLICATION_SUFFIX}");
 
             let source = bucket::from_name(config.s3(), source_name)
-                .await?
+                .await
+                .map_err(ComputeChecksumsError::BucketDiscovery)?
                 .filter(|b| {
                     matches!(
                         b.bucket_type(),
                         bucket::Type::Public | bucket::Type::Standard
                     )
                 })
-                .ok_or_else(|| BatchError::InvalidBucket(source_name.to_string()))?;
+                .ok_or_else(|| ComputeChecksumsError::InvalidBucket(source_name.to_string()))?;
 
-            let replication = Bucket::new(&replication_name, bucket::Type::Replication)
-                .map_err(bucket::RequestError::from)?;
+            let replication =
+                Bucket::new(&replication_name, bucket::Type::Replication).map_err(|source| {
+                    ComputeChecksumsError::ReplicationBucket {
+                        bucket: replication_name.clone(),
+                        source,
+                    }
+                })?;
 
             vec![BucketPair::new(source, replication)]
         }
         None => {
-            let all_buckets =
-                app_bucket::get_stack_buckets(config.s3(), config.stack(), None).await?;
+            let all_buckets = app_bucket::get_stack_buckets(config.s3(), config.stack(), None)
+                .await
+                .map_err(ComputeChecksumsError::BucketDiscovery)?;
             let (mut source_buckets, mut replication_buckets) = (Vec::new(), Vec::new());
 
             for bucket in all_buckets {
@@ -43,7 +56,7 @@ pub async fn perform(config: &Config, bucket: Option<&Name>) -> Result<Vec<Strin
             }
 
             bucket::pair_buckets(source_buckets, replication_buckets)
-                .map_err(bucket::RequestError::from)?
+                .map_err(ComputeChecksumsError::PairBuckets)?
         }
     };
 
@@ -57,7 +70,7 @@ async fn dispatch_checksum_jobs<F>(
     config: &Config,
     bucket_pairs: &[BucketPair],
     trigger: F,
-) -> Result<Vec<String>, BatchError>
+) -> Result<Vec<String>, ComputeChecksumsError>
 where
     F: for<'a> Fn(
         &'a Config,
@@ -75,12 +88,12 @@ where
     {
         match trigger(config, source, replication).await {
             Ok(urls) => receipts.extend(urls),
-            Err(e) => issues.push(e.to_string()),
+            Err(e) => issues.push(format!("{}: {e}", source.name())),
         }
     }
 
     if !issues.is_empty() {
-        return Err(BatchError::PartialFailure(issues));
+        return Err(ComputeChecksumsError::PartialFailure(issues));
     }
 
     Ok(receipts)
@@ -92,6 +105,7 @@ mod tests {
 
     use super::*;
     use crate::config as app_config;
+    use apputils::bucket::BucketValidationError;
     use awsutils::bucket::RequestError;
     use test_support::TestClientBuilder;
 
@@ -156,7 +170,7 @@ mod tests {
             .expect_err("missing bucket should be invalid");
 
         match err {
-            BatchError::InvalidBucket(name) => assert_eq!(name, "test-stack-missing"),
+            ComputeChecksumsError::InvalidBucket(name) => assert_eq!(name, "test-stack-missing"),
             other => panic!("unexpected error: {other:?}"),
         }
     }
@@ -175,7 +189,9 @@ mod tests {
             .expect_err("replication bucket should be invalid");
 
         match err {
-            BatchError::InvalidBucket(name) => assert_eq!(name, "test-stack-alpha-repl"),
+            ComputeChecksumsError::InvalidBucket(name) => {
+                assert_eq!(name, "test-stack-alpha-repl")
+            }
             other => panic!("unexpected error: {other:?}"),
         }
     }
@@ -195,7 +211,7 @@ mod tests {
             .expect_err("missing replication pair should fail");
 
         match err {
-            BatchError::Request(RequestError::ValidationError(msg)) => {
+            ComputeChecksumsError::PairBuckets(BucketValidationError::ValidationError(msg)) => {
                 assert!(msg.contains("no replication bucket found"));
                 assert!(msg.contains("test-stack-alpha"));
             }
@@ -263,7 +279,9 @@ mod tests {
             let source_name = source.name().to_string();
             Box::pin(async move {
                 if source_name == "test-stack-bravo-public" || source_name == "test-stack-charlie" {
-                    Err(BatchError::InvalidBucket(source_name))
+                    Err(BatchError::Request(RequestError::ValidationError(
+                        source_name,
+                    )))
                 } else {
                     Ok(vec![format!("https://example.local/{source_name}/latest")])
                 }
@@ -273,7 +291,7 @@ mod tests {
         .expect_err("dispatch should return partial failure");
 
         match err {
-            BatchError::PartialFailure(issues) => {
+            ComputeChecksumsError::PartialFailure(issues) => {
                 assert_eq!(issues.len(), 2);
                 assert!(issues.iter().any(|m| m.contains("test-stack-bravo-public")));
                 assert!(issues.iter().any(|m| m.contains("test-stack-charlie")));
@@ -301,7 +319,9 @@ mod tests {
                 Box::pin(async move {
                     calls.lock().unwrap().push(source_name.clone());
                     if source_name == "test-stack-alpha" {
-                        Err(BatchError::InvalidBucket(source_name))
+                        Err(BatchError::Request(RequestError::ValidationError(
+                            source_name,
+                        )))
                     } else {
                         Ok(vec![format!("https://example.local/{source_name}/latest")])
                     }
@@ -312,7 +332,7 @@ mod tests {
         .expect_err("dispatch should fail due to first bucket");
 
         match err {
-            BatchError::PartialFailure(issues) => {
+            ComputeChecksumsError::PartialFailure(issues) => {
                 assert_eq!(issues.len(), 1);
                 assert!(issues[0].contains("test-stack-alpha"));
             }

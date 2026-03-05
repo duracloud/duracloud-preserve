@@ -5,6 +5,7 @@ pub mod bucket_reconciliator;
 #[cfg(feature = "duckdb")]
 pub mod checksum;
 pub mod config;
+pub mod errors;
 pub mod file;
 #[cfg(feature = "duckdb")]
 pub mod inventory;

@@ -27,20 +27,10 @@ const REPORT_PREFIX: &str = "batch/reports";
 
 #[derive(Debug, Error)]
 pub enum BatchError {
-    #[error("Invalid bucket: {0} (must be a standard or public bucket in the stack)")]
-    InvalidBucket(String),
-    #[error("Job matching id not found: {0}")]
-    JobNotFound(String),
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
-    #[error("Manifest not found: {0}")]
-    ManifestNotFound(String),
-    #[error("Job status matching id not found: {0}")]
-    MissingStatus(String),
     #[error("{0}")]
     Request(#[from] RequestError),
-    #[error("Partial failure: {}", .0.join("; "))]
-    PartialFailure(Vec<String>),
     #[error("S3 Control error: {0:#}")]
     S3Control(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

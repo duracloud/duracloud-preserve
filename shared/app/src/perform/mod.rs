@@ -3,6 +3,7 @@ pub mod bucket_request;
 #[cfg(feature = "duckdb")]
 pub mod checksum_report;
 pub mod compute_checksums;
+pub mod errors;
 #[cfg(feature = "duckdb")]
 pub mod inventory_report;
 pub mod storage_report;

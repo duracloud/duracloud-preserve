@@ -4,21 +4,36 @@ use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3control::types::JobStatus;
 use bytes::Bytes;
 use futures::future::try_join_all;
+use thiserror::Error;
 
 use awsutils::{
-    batch::{self as aws_batch, BatchError, BatchManifest, ChecksumJobReceipt},
-    bucket::{Bucket, RequestError},
+    batch::{self as aws_batch, BatchManifest, ChecksumJobReceipt},
+    bucket::Bucket,
     file::{self, File},
 };
 
 use crate::config::Config;
+
+#[derive(Debug, Error)]
+pub enum BatchStatusError {
+    #[error("Manifest not found: {0}")]
+    ManifestNotFound(String),
+    #[error("Batch job failed: {0}")]
+    JobFailed(String),
+    #[error("Job matching id not found: {0}")]
+    JobNotFound(String),
+    #[error("Job status matching id not found: {0}")]
+    MissingStatus(String),
+    #[error("{0}")]
+    Batch(#[from] aws_batch::BatchError),
+}
 
 /// Download a batch manifest
 pub async fn get_batch_manifest(
     config: &Config,
     bucket: &str,
     job_id: &str,
-) -> Result<BatchManifest, BatchError> {
+) -> Result<BatchManifest, BatchStatusError> {
     let managed_bucket = config.stack().managed_bucket();
     let manifest = &File::new(
         &managed_bucket,
@@ -29,14 +44,16 @@ pub async fn get_batch_manifest(
 
     if !file::exists(config.s3(), manifest).await {
         tracing::info!("Manifest not found: {}", manifest.s3_url());
-        return Err(BatchError::ManifestNotFound(manifest.s3_url()));
+        return Err(BatchStatusError::ManifestNotFound(manifest.s3_url()));
     }
 
-    BatchManifest::fetch(config.s3(), manifest).await
+    BatchManifest::fetch(config.s3(), manifest)
+        .await
+        .map_err(BatchStatusError::from)
 }
 
 /// Get a batch job's current status
-pub async fn get_job_status(config: &Config, job_id: &str) -> Result<JobStatus, BatchError> {
+pub async fn get_job_status(config: &Config, job_id: &str) -> Result<JobStatus, BatchStatusError> {
     let resp = config
         .s3control()
         .describe_job()
@@ -45,16 +62,18 @@ pub async fn get_job_status(config: &Config, job_id: &str) -> Result<JobStatus, 
         .send()
         .await
         .map_err(|e| {
-            BatchError::S3Control(Box::new(aws_batch::s3control_error("DescribeJob", &e)))
+            BatchStatusError::Batch(aws_batch::BatchError::S3Control(Box::new(
+                aws_batch::s3control_error("DescribeJob", &e),
+            )))
         })?;
 
     let job = resp
         .job
-        .ok_or(BatchError::JobNotFound(job_id.to_string()))?;
+        .ok_or(BatchStatusError::JobNotFound(job_id.to_string()))?;
 
     let status = job
         .status
-        .ok_or(BatchError::MissingStatus(job_id.to_string()))?;
+        .ok_or(BatchStatusError::MissingStatus(job_id.to_string()))?;
 
     Ok(status)
 }
@@ -64,17 +83,12 @@ pub async fn get_manifest_if_ready(
     config: &Config,
     bucket: &str,
     job_id: &str,
-) -> Result<Option<BatchManifest>, RequestError> {
-    let status = get_job_status(config, job_id)
-        .await
-        .map_err(|e| RequestError::S3Error(format!("failed to get job status: {}", e)))?;
+) -> Result<Option<BatchManifest>, BatchStatusError> {
+    let status = get_job_status(config, job_id).await?;
 
     match status {
-        JobStatus::Complete => match get_batch_manifest(config, bucket, job_id).await {
-            Ok(manifest) => Ok(Some(manifest)),
-            Err(e) => Err(RequestError::S3Error(e.to_string())),
-        },
-        JobStatus::Failed => Err(RequestError::S3Error(format!("job {} failed", job_id))),
+        JobStatus::Complete => get_batch_manifest(config, bucket, job_id).await.map(Some),
+        JobStatus::Failed => Err(BatchStatusError::JobFailed(job_id.to_string())),
         status => {
             tracing::info!("Job {} not in continuable status: {}", job_id, status);
             Ok(None)
@@ -87,7 +101,7 @@ pub async fn trigger_checksum_job(
     config: &Config,
     source: &Bucket,
     replication: &Bucket,
-) -> Result<Vec<String>, BatchError> {
+) -> Result<Vec<String>, aws_batch::BatchError> {
     tracing::info!(
         "Processing bucket pair: {} -> {}",
         source.name(),
@@ -162,7 +176,7 @@ pub async fn upload_receipt(
     bucket: &str,
     receipt: &ChecksumJobReceipt,
     paths: &[String],
-) -> Result<Vec<String>, BatchError> {
+) -> Result<Vec<String>, aws_batch::BatchError> {
     let bytes = Bytes::from(serde_json::to_vec(receipt)?);
 
     let uploads = paths.iter().map(|path| {
@@ -170,7 +184,7 @@ pub async fn upload_receipt(
         let stream = ByteStream::from(bytes.clone());
         async move {
             file::upload(client, &file, stream, "application/json").await?;
-            Ok::<_, BatchError>(file.http_url())
+            Ok::<_, aws_batch::BatchError>(file.http_url())
         }
     });
 

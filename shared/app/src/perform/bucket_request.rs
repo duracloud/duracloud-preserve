@@ -3,12 +3,11 @@ use aws_sdk_s3::types::TransitionStorageClass;
 use aws_smithy_types::body::SdkBody;
 
 use awsutils::{
-    bucket::RequestError,
     bucket_creator,
     file::{self, File},
 };
 
-use crate::{bucket, config::Config};
+use crate::{bucket, config::Config, perform::errors::BucketRequestError};
 
 #[derive(Debug, Clone)]
 pub struct PerformOptions {
@@ -28,22 +27,25 @@ pub async fn perform(
     config: &Config,
     file: &File,
     opts: &PerformOptions,
-) -> Result<(), RequestError> {
+) -> Result<(), BucketRequestError> {
     tracing::info!("Retrieving request file from S3: {}", file.s3_url());
 
     let names = match awsutils::bucket::get_bucket_names(config.s3(), file).await {
         Ok(names) => names,
         Err(e) => {
             tracing::error!("Error getting bucket names: {}", e);
-            file::feedback(
+            if let Err(fb_err) = file::feedback(
                 config.s3(),
                 config.stack(),
                 file.key(),
                 SdkBody::from(e.to_string()),
                 TEXT_PLAIN,
             )
-            .await?;
-            return Err(e);
+            .await
+            {
+                tracing::error!("Failed to upload feedback: {fb_err}");
+            }
+            return Err(BucketRequestError::RequestFile(e));
         }
     };
 
@@ -54,15 +56,18 @@ pub async fn perform(
         Ok(buckets) => buckets,
         Err(e) => {
             tracing::error!("Error parsing bucket names: {}", e);
-            file::feedback(
+            if let Err(fb_err) = file::feedback(
                 config.s3(),
                 config.stack(),
                 file.key(),
                 SdkBody::from(e.to_string()),
                 TEXT_PLAIN,
             )
-            .await?;
-            return Err(e.into());
+            .await
+            {
+                tracing::error!("Failed to upload feedback: {fb_err}");
+            }
+            return Err(BucketRequestError::Validation(e));
         }
     };
 
@@ -72,21 +77,23 @@ pub async fn perform(
     let issues = bucket::create_buckets(config, &buckets, opts.standard_storage_tier.clone()).await;
     if !issues.is_empty() {
         tracing::error!("{:?}", issues);
-        file::feedback(
+        if let Err(fb_err) = file::feedback(
             config.s3(),
             config.stack(),
             file.key(),
             SdkBody::from(issues.join("\n")),
             TEXT_PLAIN,
         )
-        .await?;
-        return Err(RequestError::S3Error(format!(
-            "Failed to create one or more buckets: {}",
-            issues.join("; ")
-        )));
+        .await
+        {
+            tracing::error!("Failed to upload feedback: {fb_err}");
+        }
+        return Err(BucketRequestError::CreateBuckets(issues));
     }
 
     tracing::info!("Perform complete");
-    file::delete(config.s3(), file).await?;
+    file::delete(config.s3(), file)
+        .await
+        .map_err(BucketRequestError::Cleanup)?;
     Ok(())
 }

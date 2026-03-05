@@ -10,7 +10,7 @@ use awsutils::{
 };
 use bytes::Bytes;
 
-use crate::{batch::get_manifest_if_ready, config::Config};
+use crate::{batch::get_manifest_if_ready, config::Config, perform::errors::ChecksumReportError};
 
 #[derive(Debug, Clone, Copy)]
 pub struct PerformOptions {
@@ -36,11 +36,14 @@ pub async fn perform(
     config: &Config,
     job_file: &File,
     opts: &PerformOptions,
-) -> Result<VerificationStats, checksum::ChecksumError> {
+) -> Result<VerificationStats, ChecksumReportError> {
     tracing::info!("Retrieving job receipt from S3: {}", job_file.s3_url());
 
-    let bytes = file::download_bytes(config.s3(), job_file).await?;
-    let receipt: ChecksumJobReceipt = serde_json::from_slice(&bytes)?;
+    let bytes = file::download_bytes(config.s3(), job_file)
+        .await
+        .map_err(ChecksumReportError::ReceiptDownload)?;
+    let receipt: ChecksumJobReceipt =
+        serde_json::from_slice(&bytes).map_err(ChecksumReportError::ReceiptParse)?;
     let source_bucket = receipt.source_bucket.clone();
 
     let Some(ready_manifests) = resolve_ready_manifests(config, &receipt).await? else {
@@ -55,14 +58,17 @@ pub async fn perform(
         opts,
     )
     .await
+    .map_err(ChecksumReportError::Processing)
 }
 
 async fn resolve_ready_manifests(
     config: &Config,
     receipt: &ChecksumJobReceipt,
-) -> Result<Option<ReadyManifests>, checksum::ChecksumError> {
+) -> Result<Option<ReadyManifests>, ChecksumReportError> {
     let Some(source) =
-        get_manifest_if_ready(config, &receipt.source_bucket, &receipt.source_job_id).await?
+        get_manifest_if_ready(config, &receipt.source_bucket, &receipt.source_job_id)
+            .await
+            .map_err(ChecksumReportError::BatchStatus)?
     else {
         tracing::info!("Source job {} not ready yet", receipt.source_job_id);
         return Ok(None);
@@ -70,8 +76,9 @@ async fn resolve_ready_manifests(
 
     tracing::info!("Source job file found: {:?}", &source);
 
-    let Some(repl) =
-        get_manifest_if_ready(config, &receipt.repl_bucket, &receipt.repl_job_id).await?
+    let Some(repl) = get_manifest_if_ready(config, &receipt.repl_bucket, &receipt.repl_job_id)
+        .await
+        .map_err(ChecksumReportError::BatchStatus)?
     else {
         tracing::info!("Replication job {} not ready yet", receipt.repl_job_id);
         return Ok(None);
@@ -151,7 +158,7 @@ mod tests {
     use aws_smithy_types::body::SdkBody;
 
     use super::*;
-    use crate::config as app_config;
+    use crate::{config as app_config, perform::errors::ChecksumReportError};
     use test_support::{TestClientBuilder, recorded_requests};
 
     fn batch_result(status: &str, bucket: &str, key: &str) -> BatchResultEntry {
@@ -318,6 +325,44 @@ mod tests {
             !requests
                 .iter()
                 .any(|r| r.method == "GET" && uri_has_key(&r.uri, skipped_key))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_perform_maps_receipt_download_failure() {
+        let sdk_config = TestClientBuilder::new()
+            .s3_error("NoSuchKey", "not found")
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+        let job_file = File::new(config.stack().managed_bucket(), "receipts/missing.json");
+        let opts = PerformOptions::default();
+
+        let err = perform(&config, &job_file, &opts)
+            .await
+            .expect_err("perform should fail when receipt download fails");
+
+        assert!(
+            matches!(err, ChecksumReportError::ReceiptDownload(_)),
+            "expected ReceiptDownload, got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_perform_maps_receipt_parse_failure() {
+        let sdk_config = TestClientBuilder::new()
+            .success("not valid json", None)
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+        let job_file = File::new(config.stack().managed_bucket(), "receipts/bad.json");
+        let opts = PerformOptions::default();
+
+        let err = perform(&config, &job_file, &opts)
+            .await
+            .expect_err("perform should fail when receipt is invalid json");
+
+        assert!(
+            matches!(err, ChecksumReportError::ReceiptParse(_)),
+            "expected ReceiptParse, got: {err:?}"
         );
     }
 }

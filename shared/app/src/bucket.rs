@@ -1,14 +1,27 @@
 use apputils::Stack;
-use aws_sdk_s3::{Client, types::TransitionStorageClass};
+use aws_sdk_s3::{
+    Client,
+    types::{Tag, TransitionStorageClass},
+};
 
 use awsutils::{
-    bucket::{self, BUCKET_TAG_STACK_KEY, Bucket, BucketPair, RequestError, Type},
+    bucket::{
+        self, BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, BucketPair, RequestError, Type,
+    },
     bucket_creator::{
         BUCKET_TAG_ORIGIN_KEY, BUCKET_TAG_ORIGIN_VAL, BucketCreator, BucketCreatorParams,
     },
 };
 
 use crate::config::Config;
+
+type TagFilter<'a> = Option<&'a dyn Fn(&[Tag]) -> bool>;
+
+fn bucket_type_from_tags(tags: &[Tag]) -> Option<Type> {
+    tags.iter()
+        .find(|tag| tag.key() == BUCKET_TAG_TYPE_KEY)
+        .and_then(|tag| Type::from_tag_value(tag.value()))
+}
 
 /// Create and setup an S3 bucket. If setup fails, attempt rollback.
 /// Returns the BucketCreator for follow-up operations (e.g., enable_replication).
@@ -121,58 +134,23 @@ pub async fn get_bucket_request_buckets(
     client: &Client,
     stack: &Stack,
 ) -> Result<Vec<Bucket>, RequestError> {
-    let prefix = format!("{}-", stack.as_str());
-    let mut buckets = Vec::new();
-
-    let response = client
-        .list_buckets()
-        .send()
-        .await
-        .map_err(|e| RequestError::S3Error(format!("failed to list buckets: {}", e)))?;
-
-    for b in response.buckets() {
-        let Some(name) = b.name() else {
-            continue;
-        };
-
-        if !name.starts_with(&prefix) {
-            continue;
-        }
-
-        let Ok(tag_response) = client.get_bucket_tagging().bucket(name).send().await else {
-            continue;
-        };
-
-        let tags = tag_response.tag_set();
-
-        let stack_matches = tags
-            .iter()
-            .any(|tag| tag.key() == BUCKET_TAG_STACK_KEY && tag.value() == stack.as_str());
-
-        if !stack_matches {
-            continue;
-        }
-
-        let origin_matches = tags
-            .iter()
-            .any(|tag| tag.key() == BUCKET_TAG_ORIGIN_KEY && tag.value() == BUCKET_TAG_ORIGIN_VAL);
-
-        if !origin_matches {
-            continue;
-        }
-
-        if let Some(bucket) = bucket::from_tags(name, tags)? {
-            buckets.push(bucket);
-        }
-    }
-
-    Ok(buckets)
+    get_stack_buckets(
+        client,
+        stack,
+        Some(&|tags: &[Tag]| {
+            tags.iter().any(|tag| {
+                tag.key() == BUCKET_TAG_ORIGIN_KEY && tag.value() == BUCKET_TAG_ORIGIN_VAL
+            })
+        }),
+    )
+    .await
 }
 
-/// Get all buckets belonging to a stack (prefix match + stack tag).
+/// Get buckets belonging to a stack (prefix match + stack tag) with optional filter.
 pub async fn get_stack_buckets(
     client: &Client,
     stack: &Stack,
+    filter: TagFilter<'_>,
 ) -> Result<Vec<Bucket>, RequestError> {
     let prefix = format!("{}-", stack.as_str());
     let mut buckets = Vec::new();
@@ -205,6 +183,12 @@ pub async fn get_stack_buckets(
             continue;
         }
 
+        if let Some(found) = filter
+            && !found(tags)
+        {
+            continue;
+        }
+
         if let Some(bucket) = bucket::from_tags(name, tags)? {
             buckets.push(bucket);
         }
@@ -219,17 +203,22 @@ pub async fn get_stack_buckets_by_type(
     stack: &Stack,
     types: &[Type],
 ) -> Result<Vec<Bucket>, RequestError> {
-    let all_buckets = get_stack_buckets(client, stack).await?;
-    Ok(all_buckets
-        .into_iter()
-        .filter(|b| types.contains(b.bucket_type()))
-        .collect())
+    if types.is_empty() {
+        return Ok(vec![]);
+    }
+
+    get_stack_buckets(
+        client,
+        stack,
+        Some(&|tags: &[Tag]| bucket_type_from_tags(tags).is_some_and(|t| types.contains(&t))),
+    )
+    .await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_support::TestClientBuilder;
+    use test_support::{TestClientBuilder, recorded_requests};
 
     fn list_buckets_xml(names: &[&str]) -> String {
         let buckets = names
@@ -281,7 +270,7 @@ mod tests {
             .success(bravo_tags, None)
             .build();
 
-        let buckets = get_stack_buckets(&client, &stack).await.unwrap();
+        let buckets = get_stack_buckets(&client, &stack, None).await.unwrap();
 
         assert_eq!(buckets.len(), 1);
         assert_eq!(buckets[0].name(), "test-stack-bravo");
@@ -299,7 +288,7 @@ mod tests {
             .success(tags, None)
             .build();
 
-        let buckets = get_stack_buckets(&client, &stack).await.unwrap();
+        let buckets = get_stack_buckets(&client, &stack, None).await.unwrap();
         assert!(buckets.is_empty());
     }
 
@@ -319,7 +308,7 @@ mod tests {
             .success(invalid_type_tags, None)
             .build();
 
-        let buckets = get_stack_buckets(&client, &stack).await.unwrap();
+        let buckets = get_stack_buckets(&client, &stack, None).await.unwrap();
         assert!(buckets.is_empty());
     }
 
@@ -344,6 +333,23 @@ mod tests {
         assert_eq!(buckets.len(), 1);
         assert_eq!(buckets[0].name(), "test-stack-public");
         assert_eq!(buckets[0].bucket_type(), &Type::Public);
+    }
+
+    #[tokio::test]
+    async fn test_get_stack_buckets_by_type_empty_types_short_circuits() {
+        let stack = Stack::new("test-stack").unwrap();
+        let list = list_buckets_xml(&["test-stack-public", "test-stack-repl"]);
+
+        let (client, replay) = TestClientBuilder::new()
+            .success(list, None)
+            .build_with_replay();
+
+        let buckets = get_stack_buckets_by_type(&client, &stack, &[])
+            .await
+            .unwrap();
+
+        assert!(buckets.is_empty());
+        assert!(recorded_requests(&replay).is_empty());
     }
 
     #[tokio::test]

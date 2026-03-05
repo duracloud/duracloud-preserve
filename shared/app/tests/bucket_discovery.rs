@@ -55,7 +55,7 @@ async fn test_get_stack_buckets_finds_tagged_stack_buckets() {
         .await
         .expect("bucket creation failed");
 
-    let discovered = get_stack_buckets(config.s3(), config.stack()).await;
+    let discovered = get_stack_buckets(config.s3(), config.stack(), None).await;
     cleanup_buckets(config.s3(), &bucket_names).await;
     let discovered = discovered.expect("bucket discovery failed");
 

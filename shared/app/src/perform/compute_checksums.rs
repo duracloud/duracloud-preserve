@@ -30,7 +30,8 @@ pub async fn perform(config: &Config, bucket: Option<&Name>) -> Result<Vec<Strin
             vec![BucketPair::new(source, replication)]
         }
         None => {
-            let all_buckets = app_bucket::get_stack_buckets(config.s3(), config.stack()).await?;
+            let all_buckets =
+                app_bucket::get_stack_buckets(config.s3(), config.stack(), None).await?;
             let (mut source_buckets, mut replication_buckets) = (Vec::new(), Vec::new());
 
             for bucket in all_buckets {

@@ -576,25 +576,92 @@ mod tests {
     }
 
     // Tests using CSV fixtures (the fully happy path)
+
     #[test]
-    fn test_load_valid_csv() {
+    fn test_all_match() {
+        let verifier = create_test_verifier(
+            &[
+                row("file1.pdf", "v1", "AAAA"),
+                row("file2.pdf", "v1", "BBBB"),
+                row("file3.pdf", "v1", "CCCC"),
+            ],
+            &[
+                row("file1.pdf", "v1", "AAAA"),
+                row("file2.pdf", "v1", "BBBB"),
+                row("file3.pdf", "v1", "CCCC"),
+            ],
+        );
+
+        let stats = computed_stats(&verifier);
+        assert_eq!(stats.matches, 3);
+        assert_eq!(stats.mismatches, 0);
+        assert_eq!(stats.missing_replica, 0);
+        assert_eq!(stats.missing_source, 0);
+        assert_eq!(stats.failed_source, 0);
+        assert_eq!(stats.failed_replication, 0);
+        assert_eq!(stats.total_objects, 3);
+    }
+
+    #[test]
+    fn test_empty_tables() {
+        let verifier = create_test_verifier(&[], &[]);
+
+        let stats = computed_stats(&verifier);
+        assert_eq!(stats.total_objects, 0);
+        assert_eq!(stats.matches, 0);
+    }
+
+    #[test]
+    fn test_failed_replication() {
+        let verifier = create_test_verifier(
+            &[row("file.pdf", "v1", "AAAA")],
+            &[failed_row("file.pdf", "v1")],
+        );
+
+        let stats = computed_stats(&verifier);
+        assert_eq!(stats.failed_replication, 1);
+        assert_eq!(stats.matches, 0);
+
+        let failed = verifier.failed_in_replication().unwrap();
+        assert_eq!(failed.len(), 1);
+        assert_eq!(failed[0].key, "file.pdf");
+    }
+
+    #[test]
+    fn test_failed_source() {
+        let verifier = create_test_verifier(
+            &[failed_row("file.pdf", "v1")],
+            &[row("file.pdf", "v1", "AAAA")],
+        );
+
+        let stats = computed_stats(&verifier);
+        assert_eq!(stats.failed_source, 1);
+        assert_eq!(stats.matches, 0);
+
+        let failed = verifier.failed_in_source().unwrap();
+        assert_eq!(failed.len(), 1);
+        assert_eq!(failed[0].key, "file.pdf");
+        assert_eq!(failed[0].error_code, "InternalError");
+    }
+
+    #[test]
+    fn test_load_extracts_algorithm() {
         let verifier = ChecksumVerifier::load(
             &["../../files/checksum-source.csv"],
             &["../../files/checksum-replication.csv"],
         )
         .unwrap();
 
-        let source_count: i64 = verifier
+        let algorithm: String = verifier
             .conn
-            .query_row("SELECT COUNT(*) FROM source", [], |row| row.get(0))
-            .unwrap();
-        let replication_count: i64 = verifier
-            .conn
-            .query_row("SELECT COUNT(*) FROM replication", [], |row| row.get(0))
+            .query_row(
+                "SELECT checksum_algorithm FROM source WHERE key = 'wasteland01elio.pdf'",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
 
-        assert_eq!(source_count, 4);
-        assert_eq!(replication_count, 4);
+        assert_eq!(algorithm, "SHA256");
     }
 
     #[test]
@@ -621,71 +688,24 @@ mod tests {
     }
 
     #[test]
-    fn test_load_extracts_algorithm() {
+    fn test_load_valid_csv() {
         let verifier = ChecksumVerifier::load(
             &["../../files/checksum-source.csv"],
             &["../../files/checksum-replication.csv"],
         )
         .unwrap();
 
-        let algorithm: String = verifier
+        let source_count: i64 = verifier
             .conn
-            .query_row(
-                "SELECT checksum_algorithm FROM source WHERE key = 'wasteland01elio.pdf'",
-                [],
-                |row| row.get(0),
-            )
+            .query_row("SELECT COUNT(*) FROM source", [], |row| row.get(0))
+            .unwrap();
+        let replication_count: i64 = verifier
+            .conn
+            .query_row("SELECT COUNT(*) FROM replication", [], |row| row.get(0))
             .unwrap();
 
-        assert_eq!(algorithm, "SHA256");
-    }
-
-    #[test]
-    fn test_process_returns_matching_csv_and_stats() {
-        let (csv, stats) = process(
-            &["../../files/checksum-source.csv"],
-            &["../../files/checksum-replication.csv"],
-        )
-        .unwrap();
-
-        assert_eq!(stats.total_objects, 4);
-        assert_eq!(stats.matches, 4);
-        assert_eq!(stats.mismatches, 0);
-        assert_eq!(stats.missing_replica, 0);
-        assert_eq!(stats.missing_source, 0);
-        assert_eq!(stats.failed_source, 0);
-        assert_eq!(stats.failed_replication, 0);
-
-        let csv = String::from_utf8(csv).unwrap();
-        let lines: Vec<&str> = csv.lines().collect();
-        assert_eq!(lines.len(), 5);
-        assert!(csv.contains(",ok,"));
-    }
-
-    // Tests using in-memory data
-    #[test]
-    fn test_all_match() {
-        let verifier = create_test_verifier(
-            &[
-                row("file1.pdf", "v1", "AAAA"),
-                row("file2.pdf", "v1", "BBBB"),
-                row("file3.pdf", "v1", "CCCC"),
-            ],
-            &[
-                row("file1.pdf", "v1", "AAAA"),
-                row("file2.pdf", "v1", "BBBB"),
-                row("file3.pdf", "v1", "CCCC"),
-            ],
-        );
-
-        let stats = computed_stats(&verifier);
-        assert_eq!(stats.matches, 3);
-        assert_eq!(stats.mismatches, 0);
-        assert_eq!(stats.missing_replica, 0);
-        assert_eq!(stats.missing_source, 0);
-        assert_eq!(stats.failed_source, 0);
-        assert_eq!(stats.failed_replication, 0);
-        assert_eq!(stats.total_objects, 3);
+        assert_eq!(source_count, 4);
+        assert_eq!(replication_count, 4);
     }
 
     #[test]
@@ -745,39 +765,6 @@ mod tests {
     }
 
     #[test]
-    fn test_failed_source() {
-        let verifier = create_test_verifier(
-            &[failed_row("file.pdf", "v1")],
-            &[row("file.pdf", "v1", "AAAA")],
-        );
-
-        let stats = computed_stats(&verifier);
-        assert_eq!(stats.failed_source, 1);
-        assert_eq!(stats.matches, 0);
-
-        let failed = verifier.failed_in_source().unwrap();
-        assert_eq!(failed.len(), 1);
-        assert_eq!(failed[0].key, "file.pdf");
-        assert_eq!(failed[0].error_code, "InternalError");
-    }
-
-    #[test]
-    fn test_failed_replication() {
-        let verifier = create_test_verifier(
-            &[row("file.pdf", "v1", "AAAA")],
-            &[failed_row("file.pdf", "v1")],
-        );
-
-        let stats = computed_stats(&verifier);
-        assert_eq!(stats.failed_replication, 1);
-        assert_eq!(stats.matches, 0);
-
-        let failed = verifier.failed_in_replication().unwrap();
-        assert_eq!(failed.len(), 1);
-        assert_eq!(failed[0].key, "file.pdf");
-    }
-
-    #[test]
     fn test_mixed_scenarios() {
         let verifier = create_test_verifier(
             &[
@@ -805,6 +792,43 @@ mod tests {
     }
 
     #[test]
+    fn test_process_returns_matching_csv_and_stats() {
+        let (csv, stats) = process(
+            &["../../files/checksum-source.csv"],
+            &["../../files/checksum-replication.csv"],
+        )
+        .unwrap();
+
+        assert_eq!(stats.total_objects, 4);
+        assert_eq!(stats.matches, 4);
+        assert_eq!(stats.mismatches, 0);
+        assert_eq!(stats.missing_replica, 0);
+        assert_eq!(stats.missing_source, 0);
+        assert_eq!(stats.failed_source, 0);
+        assert_eq!(stats.failed_replication, 0);
+
+        let csv = String::from_utf8(csv).unwrap();
+        let lines: Vec<&str> = csv.lines().collect();
+        assert_eq!(lines.len(), 5);
+        assert!(csv.contains(",ok,"));
+    }
+
+    // Tests using in-memory data
+
+    #[test]
+    fn test_version_id_distinction() {
+        // Same key but different versions should be treated as different objects
+        let verifier = create_test_verifier(
+            &[row("file.pdf", "v1", "AAAA"), row("file.pdf", "v2", "BBBB")],
+            &[row("file.pdf", "v1", "AAAA"), row("file.pdf", "v2", "BBBB")],
+        );
+
+        let stats = computed_stats(&verifier);
+        assert_eq!(stats.matches, 2);
+        assert_eq!(stats.total_objects, 2);
+    }
+
+    #[test]
     fn test_write_csv_mixed() {
         let verifier = create_test_verifier(
             &[
@@ -826,27 +850,5 @@ mod tests {
         assert_eq!(lines.len(), 3); // header + 2 rows
         assert!(csv.contains(",ok,"));
         assert!(csv.contains(",mismatch,"));
-    }
-
-    #[test]
-    fn test_version_id_distinction() {
-        // Same key but different versions should be treated as different objects
-        let verifier = create_test_verifier(
-            &[row("file.pdf", "v1", "AAAA"), row("file.pdf", "v2", "BBBB")],
-            &[row("file.pdf", "v1", "AAAA"), row("file.pdf", "v2", "BBBB")],
-        );
-
-        let stats = computed_stats(&verifier);
-        assert_eq!(stats.matches, 2);
-        assert_eq!(stats.total_objects, 2);
-    }
-
-    #[test]
-    fn test_empty_tables() {
-        let verifier = create_test_verifier(&[], &[]);
-
-        let stats = computed_stats(&verifier);
-        assert_eq!(stats.total_objects, 0);
-        assert_eq!(stats.matches, 0);
     }
 }

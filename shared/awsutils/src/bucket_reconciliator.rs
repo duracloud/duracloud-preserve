@@ -708,24 +708,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_transition_storage_class() {
-        assert!(matches!(
-            parse_transition_storage_class("GLACIER_IR"),
-            Some(TransitionStorageClass::GlacierIr)
-        ));
-        assert!(matches!(
-            parse_transition_storage_class("DEEP_ARCHIVE"),
-            Some(TransitionStorageClass::DeepArchive)
-        ));
-        assert!(matches!(
-            parse_transition_storage_class("INTELLIGENT_TIERING"),
-            Some(TransitionStorageClass::IntelligentTiering)
-        ));
-        assert!(parse_transition_storage_class("not-a-class").is_none());
-        assert!(parse_transition_storage_class("").is_none());
-    }
-
-    #[test]
     fn test_default_storage_class() {
         assert_eq!(
             default_storage_class(&Type::Standard).as_str(),
@@ -746,43 +728,281 @@ mod tests {
     }
 
     #[test]
-    fn test_reconcile_report_has_errors() {
-        let report = ReconcileReport {
-            bucket_name: "test".to_string(),
-            bucket_type: Type::Standard,
-            steps: vec![
-                StepResult {
-                    name: "versioning",
-                    status: StepStatus::Ok,
-                },
-                StepResult {
-                    name: "lifecycle",
-                    status: StepStatus::Error("fail".to_string()),
-                },
-            ],
+    fn test_parse_transition_storage_class() {
+        assert!(matches!(
+            parse_transition_storage_class("GLACIER_IR"),
+            Some(TransitionStorageClass::GlacierIr)
+        ));
+        assert!(matches!(
+            parse_transition_storage_class("DEEP_ARCHIVE"),
+            Some(TransitionStorageClass::DeepArchive)
+        ));
+        assert!(matches!(
+            parse_transition_storage_class("INTELLIGENT_TIERING"),
+            Some(TransitionStorageClass::IntelligentTiering)
+        ));
+        assert!(parse_transition_storage_class("not-a-class").is_none());
+        assert!(parse_transition_storage_class("").is_none());
+    }
+
+    #[tokio::test]
+    async fn test_reconcile_internal_bucket_unsupported() {
+        let client = TestClientBuilder::new().build();
+        let stack = test_stack();
+        let params = BucketCreatorParams {
+            account_id: TEST_ACCOUNT_ID,
+            client: &client,
+            replication_role_arn: TEST_REPL_ROLE_ARN,
+            stack: &stack,
         };
+
+        let bucket = Bucket::new("test-stack-internal", Type::Internal).unwrap();
+        let reconciliator = BucketReconciliator::new(&params, &bucket, None);
+        let report = reconciliator.reconcile().await;
+
         assert!(report.has_errors());
+        assert_eq!(report.steps.len(), 1);
+        assert_eq!(report.steps[0].name, "setup");
+        assert!(matches!(report.steps[0].status, StepStatus::Error(_)));
+    }
+
+    #[tokio::test]
+    async fn test_reconcile_public_access_blocked() {
+        let stack = test_stack();
+        let bucket_name = "test-stack-data-public";
+        let repl_name = "test-stack-data-public-repl";
+        let class = STORAGE_CLASS_PUBLIC_DEFAULT.as_str();
+
+        let blocked_pab = r#"<?xml version="1.0" encoding="UTF-8"?>
+<PublicAccessBlockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <BlockPublicAcls>true</BlockPublicAcls>
+  <IgnorePublicAcls>true</IgnorePublicAcls>
+  <BlockPublicPolicy>true</BlockPublicPolicy>
+  <RestrictPublicBuckets>true</RestrictPublicBuckets>
+</PublicAccessBlockConfiguration>"#;
+
+        let client = TestClientBuilder::new()
+            // 1. get_bucket_tagging
+            .success(
+                tagging_xml(&[(BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, class)]),
+                None,
+            )
+            // 2. get_bucket_versioning
+            .success(versioning_xml("Enabled"), None)
+            // 3. get_bucket_lifecycle_configuration
+            .success(lifecycle_xml_full(class), None)
+            // 4. get_bucket_replication
+            .success(replication_xml(repl_name, TEST_REPL_ROLE_ARN), None)
+            // 5. get_bucket_notification_configuration
+            .success(notification_xml_with_eventbridge(), None)
+            // 6. get_bucket_logging
+            .success(
+                logging_xml(
+                    &stack.managed_bucket(),
+                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                ),
+                None,
+            )
+            // 7. get_bucket_inventory_configuration
+            .success(
+                inventory_xml(
+                    &format!("arn:aws:s3:::{}", stack.managed_bucket()),
+                    TEST_ACCOUNT_ID,
+                ),
+                None,
+            )
+            // 8. get_public_access_block (all blocked → drift)
+            .success(blocked_pab, None)
+            // 9. get_bucket_policy
+            .success(bucket_policy_json_public_read(bucket_name), None)
+            .build();
+
+        let params = BucketCreatorParams {
+            account_id: TEST_ACCOUNT_ID,
+            client: &client,
+            replication_role_arn: TEST_REPL_ROLE_ARN,
+            stack: &stack,
+        };
+
+        let bucket = Bucket::new(bucket_name, Type::Public).unwrap();
+        let repl_bucket = Bucket::new(repl_name, Type::Replication).unwrap();
+        let reconciliator = BucketReconciliator::new(&params, &bucket, Some(&repl_bucket));
+        let report = reconciliator.reconcile().await;
+
+        assert!(report.has_drift());
+        let pab = report
+            .steps
+            .iter()
+            .find(|s| s.name == "public-access")
+            .unwrap();
+        assert!(matches!(pab.status, StepStatus::Drift));
+    }
+
+    #[tokio::test]
+    async fn test_reconcile_public_all_ok() {
+        let stack = test_stack();
+        let bucket_name = "test-stack-data-public";
+        let repl_name = "test-stack-data-public-repl";
+        let class = STORAGE_CLASS_PUBLIC_DEFAULT.as_str();
+
+        let client = TestClientBuilder::new()
+            // 1. get_bucket_tagging
+            .success(
+                tagging_xml(&[(BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, class)]),
+                None,
+            )
+            // 2. get_bucket_versioning
+            .success(versioning_xml("Enabled"), None)
+            // 3. get_bucket_lifecycle_configuration
+            .success(lifecycle_xml_full(class), None)
+            // 4. get_bucket_replication
+            .success(replication_xml(repl_name, TEST_REPL_ROLE_ARN), None)
+            // 5. get_bucket_notification_configuration
+            .success(notification_xml_with_eventbridge(), None)
+            // 6. get_bucket_logging
+            .success(
+                logging_xml(
+                    &stack.managed_bucket(),
+                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                ),
+                None,
+            )
+            // 7. get_bucket_inventory_configuration
+            .success(
+                inventory_xml(
+                    &format!("arn:aws:s3:::{}", stack.managed_bucket()),
+                    TEST_ACCOUNT_ID,
+                ),
+                None,
+            )
+            // 8. get_public_access_block
+            .success(public_access_block_xml_open(), None)
+            // 9. get_bucket_policy
+            .success(bucket_policy_json_public_read(bucket_name), None)
+            .build();
+
+        let params = BucketCreatorParams {
+            account_id: TEST_ACCOUNT_ID,
+            client: &client,
+            replication_role_arn: TEST_REPL_ROLE_ARN,
+            stack: &stack,
+        };
+
+        let bucket = Bucket::new(bucket_name, Type::Public).unwrap();
+        let repl_bucket = Bucket::new(repl_name, Type::Replication).unwrap();
+        let reconciliator = BucketReconciliator::new(&params, &bucket, Some(&repl_bucket));
+        let report = reconciliator.reconcile().await;
+
+        assert_eq!(report.steps.len(), 9);
+        assert!(!report.has_errors());
         assert!(!report.has_drift());
     }
 
-    #[test]
-    fn test_reconcile_report_has_drift() {
-        let report = ReconcileReport {
-            bucket_name: "test".to_string(),
-            bucket_type: Type::Standard,
-            steps: vec![
-                StepResult {
-                    name: "versioning",
-                    status: StepStatus::Ok,
-                },
-                StepResult {
-                    name: "lifecycle",
-                    status: StepStatus::Drift,
-                },
-            ],
+    #[tokio::test]
+    async fn test_reconcile_public_missing_policy() {
+        let stack = test_stack();
+        let bucket_name = "test-stack-data-public";
+        let repl_name = "test-stack-data-public-repl";
+        let class = STORAGE_CLASS_PUBLIC_DEFAULT.as_str();
+
+        let client = TestClientBuilder::new()
+            // 1. get_bucket_tagging
+            .success(
+                tagging_xml(&[(BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, class)]),
+                None,
+            )
+            // 2. get_bucket_versioning
+            .success(versioning_xml("Enabled"), None)
+            // 3. get_bucket_lifecycle_configuration
+            .success(lifecycle_xml_full(class), None)
+            // 4. get_bucket_replication
+            .success(replication_xml(repl_name, TEST_REPL_ROLE_ARN), None)
+            // 5. get_bucket_notification_configuration
+            .success(notification_xml_with_eventbridge(), None)
+            // 6. get_bucket_logging
+            .success(
+                logging_xml(
+                    &stack.managed_bucket(),
+                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                ),
+                None,
+            )
+            // 7. get_bucket_inventory_configuration
+            .success(
+                inventory_xml(
+                    &format!("arn:aws:s3:::{}", stack.managed_bucket()),
+                    TEST_ACCOUNT_ID,
+                ),
+                None,
+            )
+            // 8. get_public_access_block
+            .success(public_access_block_xml_open(), None)
+            // 9. get_bucket_policy (error → drift)
+            .error(
+                404,
+                "NoSuchBucketPolicy",
+                "The bucket policy does not exist",
+            )
+            .build();
+
+        let params = BucketCreatorParams {
+            account_id: TEST_ACCOUNT_ID,
+            client: &client,
+            replication_role_arn: TEST_REPL_ROLE_ARN,
+            stack: &stack,
         };
-        assert!(!report.has_errors());
+
+        let bucket = Bucket::new(bucket_name, Type::Public).unwrap();
+        let repl_bucket = Bucket::new(repl_name, Type::Replication).unwrap();
+        let reconciliator = BucketReconciliator::new(&params, &bucket, Some(&repl_bucket));
+        let report = reconciliator.reconcile().await;
+
         assert!(report.has_drift());
+        let policy = report
+            .steps
+            .iter()
+            .find(|s| s.name == "bucket-policy")
+            .unwrap();
+        assert!(matches!(policy.status, StepStatus::Drift));
+    }
+
+    #[tokio::test]
+    async fn test_reconcile_replication_bucket() {
+        let class = STORAGE_CLASS_REPLICATION_DEFAULT.as_str();
+
+        let client = TestClientBuilder::new()
+            // 1. get_bucket_tagging
+            .success(
+                tagging_xml(&[(BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, class)]),
+                None,
+            )
+            // 2. get_bucket_versioning
+            .success(versioning_xml("Enabled"), None)
+            // 3. get_bucket_lifecycle_configuration
+            .success(lifecycle_xml_full(class), None)
+            .build();
+
+        let stack = test_stack();
+        let params = BucketCreatorParams {
+            account_id: TEST_ACCOUNT_ID,
+            client: &client,
+            replication_role_arn: TEST_REPL_ROLE_ARN,
+            stack: &stack,
+        };
+
+        let bucket = Bucket::new("test-stack-example-repl", Type::Replication).unwrap();
+        let reconciliator = BucketReconciliator::new(&params, &bucket, None);
+        let report = reconciliator.reconcile().await;
+
+        assert_eq!(report.steps.len(), 3);
+        assert!(!report.has_errors());
+        assert!(!report.has_drift());
+
+        let step_names: Vec<&str> = report.steps.iter().map(|s| s.name).collect();
+        assert_eq!(
+            step_names,
+            vec!["transition-tag", "versioning", "lifecycle"]
+        );
     }
 
     #[test]
@@ -1007,6 +1227,46 @@ mod tests {
             .build()
     }
 
+    #[test]
+    fn test_reconcile_report_has_drift() {
+        let report = ReconcileReport {
+            bucket_name: "test".to_string(),
+            bucket_type: Type::Standard,
+            steps: vec![
+                StepResult {
+                    name: "versioning",
+                    status: StepStatus::Ok,
+                },
+                StepResult {
+                    name: "lifecycle",
+                    status: StepStatus::Drift,
+                },
+            ],
+        };
+        assert!(!report.has_errors());
+        assert!(report.has_drift());
+    }
+
+    #[test]
+    fn test_reconcile_report_has_errors() {
+        let report = ReconcileReport {
+            bucket_name: "test".to_string(),
+            bucket_type: Type::Standard,
+            steps: vec![
+                StepResult {
+                    name: "versioning",
+                    status: StepStatus::Ok,
+                },
+                StepResult {
+                    name: "lifecycle",
+                    status: StepStatus::Error("fail".to_string()),
+                },
+            ],
+        };
+        assert!(report.has_errors());
+        assert!(!report.has_drift());
+    }
+
     #[tokio::test]
     async fn test_reconcile_standard_all_ok() {
         let stack = test_stack();
@@ -1042,22 +1302,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_reconcile_standard_versioning_suspended() {
+    async fn test_reconcile_standard_lifecycle_drift_missing_config() {
         let stack = test_stack();
         let bucket_name = "test-stack-example";
         let repl_name = "test-stack-example-repl";
         let class = STORAGE_CLASS_STANDARD_DEFAULT.as_str();
 
         let client = TestClientBuilder::new()
-            // 1. get_bucket_tagging (with valid tag)
+            // 1. get_bucket_tagging
             .success(
                 tagging_xml(&[(BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, class)]),
                 None,
             )
-            // 2. get_bucket_versioning (suspended)
-            .success(versioning_xml("Suspended"), None)
-            // 3. get_bucket_lifecycle_configuration
-            .success(lifecycle_xml_full(class), None)
+            // 2. get_bucket_versioning
+            .success(versioning_xml("Enabled"), None)
+            // 3. get_bucket_lifecycle_configuration (error → drift)
+            .error(
+                404,
+                "NoSuchLifecycleConfiguration",
+                "The lifecycle configuration does not exist",
+            )
             // 4. get_bucket_replication
             .success(replication_xml(repl_name, TEST_REPL_ROLE_ARN), None)
             // 5. get_bucket_notification_configuration
@@ -1093,26 +1357,61 @@ mod tests {
         let report = reconciliator.reconcile().await;
 
         assert!(report.has_drift());
-        assert!(!report.has_errors());
+        let lifecycle = report.steps.iter().find(|s| s.name == "lifecycle").unwrap();
+        assert!(matches!(lifecycle.status, StepStatus::Drift));
+    }
 
-        let versioning = report
-            .steps
-            .iter()
-            .find(|s| s.name == "versioning")
-            .unwrap();
-        assert!(matches!(versioning.status, StepStatus::Drift));
+    #[tokio::test]
+    async fn test_reconcile_standard_logging_wrong_target() {
+        let stack = test_stack();
+        let bucket_name = "test-stack-example";
+        let repl_name = "test-stack-example-repl";
+        let class = STORAGE_CLASS_STANDARD_DEFAULT.as_str();
 
-        // All other steps should be Ok.
-        for step in &report.steps {
-            if step.name != "versioning" {
-                assert!(
-                    matches!(step.status, StepStatus::Ok),
-                    "step '{}' expected Ok, got {:?}",
-                    step.name,
-                    step.status,
-                );
-            }
-        }
+        let client = TestClientBuilder::new()
+            // 1. get_bucket_tagging
+            .success(
+                tagging_xml(&[(BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, class)]),
+                None,
+            )
+            // 2. get_bucket_versioning
+            .success(versioning_xml("Enabled"), None)
+            // 3. get_bucket_lifecycle_configuration
+            .success(lifecycle_xml_full(class), None)
+            // 4. get_bucket_replication
+            .success(replication_xml(repl_name, TEST_REPL_ROLE_ARN), None)
+            // 5. get_bucket_notification_configuration
+            .success(notification_xml_with_eventbridge(), None)
+            // 6. get_bucket_logging (wrong target bucket)
+            .success(
+                logging_xml("wrong-bucket", &format!("{LOGGING_PREFIX}/{bucket_name}/")),
+                None,
+            )
+            // 7. get_bucket_inventory_configuration
+            .success(
+                inventory_xml(
+                    &format!("arn:aws:s3:::{}", stack.managed_bucket()),
+                    TEST_ACCOUNT_ID,
+                ),
+                None,
+            )
+            .build();
+
+        let params = BucketCreatorParams {
+            account_id: TEST_ACCOUNT_ID,
+            client: &client,
+            replication_role_arn: TEST_REPL_ROLE_ARN,
+            stack: &stack,
+        };
+
+        let bucket = Bucket::new(bucket_name, Type::Standard).unwrap();
+        let repl_bucket = Bucket::new(repl_name, Type::Replication).unwrap();
+        let reconciliator = BucketReconciliator::new(&params, &bucket, Some(&repl_bucket));
+        let report = reconciliator.reconcile().await;
+
+        assert!(report.has_drift());
+        let logging = report.steps.iter().find(|s| s.name == "logging").unwrap();
+        assert!(matches!(logging.status, StepStatus::Drift));
     }
 
     #[tokio::test]
@@ -1306,389 +1605,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_reconcile_standard_replication_drift_wrong_role() {
-        let stack = test_stack();
-        let bucket_name = "test-stack-example";
-        let repl_name = "test-stack-example-repl";
-        let class = STORAGE_CLASS_STANDARD_DEFAULT.as_str();
-
-        let client = TestClientBuilder::new()
-            // 1. get_bucket_tagging
-            .success(
-                tagging_xml(&[(BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, class)]),
-                None,
-            )
-            // 2. get_bucket_versioning
-            .success(versioning_xml("Enabled"), None)
-            // 3. get_bucket_lifecycle_configuration
-            .success(lifecycle_xml_full(class), None)
-            // 4. get_bucket_replication (wrong role ARN)
-            .success(
-                replication_xml(repl_name, "arn:aws:iam::999999999999:role/wrong-role"),
-                None,
-            )
-            // 5. get_bucket_notification_configuration
-            .success(notification_xml_with_eventbridge(), None)
-            // 6. get_bucket_logging
-            .success(
-                logging_xml(
-                    &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
-                ),
-                None,
-            )
-            // 7. get_bucket_inventory_configuration
-            .success(
-                inventory_xml(
-                    &format!("arn:aws:s3:::{}", stack.managed_bucket()),
-                    TEST_ACCOUNT_ID,
-                ),
-                None,
-            )
-            .build();
-
-        let params = BucketCreatorParams {
-            account_id: TEST_ACCOUNT_ID,
-            client: &client,
-            replication_role_arn: TEST_REPL_ROLE_ARN,
-            stack: &stack,
-        };
-
-        let bucket = Bucket::new(bucket_name, Type::Standard).unwrap();
-        let repl_bucket = Bucket::new(repl_name, Type::Replication).unwrap();
-        let reconciliator = BucketReconciliator::new(&params, &bucket, Some(&repl_bucket));
-        let report = reconciliator.reconcile().await;
-
-        assert!(report.has_drift());
-        let repl_step = report
-            .steps
-            .iter()
-            .find(|s| s.name == "replication")
-            .unwrap();
-        assert!(matches!(repl_step.status, StepStatus::Drift));
-    }
-
-    #[tokio::test]
-    async fn test_reconcile_replication_bucket() {
-        let class = STORAGE_CLASS_REPLICATION_DEFAULT.as_str();
-
-        let client = TestClientBuilder::new()
-            // 1. get_bucket_tagging
-            .success(
-                tagging_xml(&[(BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, class)]),
-                None,
-            )
-            // 2. get_bucket_versioning
-            .success(versioning_xml("Enabled"), None)
-            // 3. get_bucket_lifecycle_configuration
-            .success(lifecycle_xml_full(class), None)
-            .build();
-
-        let stack = test_stack();
-        let params = BucketCreatorParams {
-            account_id: TEST_ACCOUNT_ID,
-            client: &client,
-            replication_role_arn: TEST_REPL_ROLE_ARN,
-            stack: &stack,
-        };
-
-        let bucket = Bucket::new("test-stack-example-repl", Type::Replication).unwrap();
-        let reconciliator = BucketReconciliator::new(&params, &bucket, None);
-        let report = reconciliator.reconcile().await;
-
-        assert_eq!(report.steps.len(), 3);
-        assert!(!report.has_errors());
-        assert!(!report.has_drift());
-
-        let step_names: Vec<&str> = report.steps.iter().map(|s| s.name).collect();
-        assert_eq!(
-            step_names,
-            vec!["transition-tag", "versioning", "lifecycle"]
-        );
-    }
-
-    #[tokio::test]
-    async fn test_reconcile_public_all_ok() {
-        let stack = test_stack();
-        let bucket_name = "test-stack-data-public";
-        let repl_name = "test-stack-data-public-repl";
-        let class = STORAGE_CLASS_PUBLIC_DEFAULT.as_str();
-
-        let client = TestClientBuilder::new()
-            // 1. get_bucket_tagging
-            .success(
-                tagging_xml(&[(BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, class)]),
-                None,
-            )
-            // 2. get_bucket_versioning
-            .success(versioning_xml("Enabled"), None)
-            // 3. get_bucket_lifecycle_configuration
-            .success(lifecycle_xml_full(class), None)
-            // 4. get_bucket_replication
-            .success(replication_xml(repl_name, TEST_REPL_ROLE_ARN), None)
-            // 5. get_bucket_notification_configuration
-            .success(notification_xml_with_eventbridge(), None)
-            // 6. get_bucket_logging
-            .success(
-                logging_xml(
-                    &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
-                ),
-                None,
-            )
-            // 7. get_bucket_inventory_configuration
-            .success(
-                inventory_xml(
-                    &format!("arn:aws:s3:::{}", stack.managed_bucket()),
-                    TEST_ACCOUNT_ID,
-                ),
-                None,
-            )
-            // 8. get_public_access_block
-            .success(public_access_block_xml_open(), None)
-            // 9. get_bucket_policy
-            .success(bucket_policy_json_public_read(bucket_name), None)
-            .build();
-
-        let params = BucketCreatorParams {
-            account_id: TEST_ACCOUNT_ID,
-            client: &client,
-            replication_role_arn: TEST_REPL_ROLE_ARN,
-            stack: &stack,
-        };
-
-        let bucket = Bucket::new(bucket_name, Type::Public).unwrap();
-        let repl_bucket = Bucket::new(repl_name, Type::Replication).unwrap();
-        let reconciliator = BucketReconciliator::new(&params, &bucket, Some(&repl_bucket));
-        let report = reconciliator.reconcile().await;
-
-        assert_eq!(report.steps.len(), 9);
-        assert!(!report.has_errors());
-        assert!(!report.has_drift());
-    }
-
-    #[tokio::test]
-    async fn test_reconcile_public_missing_policy() {
-        let stack = test_stack();
-        let bucket_name = "test-stack-data-public";
-        let repl_name = "test-stack-data-public-repl";
-        let class = STORAGE_CLASS_PUBLIC_DEFAULT.as_str();
-
-        let client = TestClientBuilder::new()
-            // 1. get_bucket_tagging
-            .success(
-                tagging_xml(&[(BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, class)]),
-                None,
-            )
-            // 2. get_bucket_versioning
-            .success(versioning_xml("Enabled"), None)
-            // 3. get_bucket_lifecycle_configuration
-            .success(lifecycle_xml_full(class), None)
-            // 4. get_bucket_replication
-            .success(replication_xml(repl_name, TEST_REPL_ROLE_ARN), None)
-            // 5. get_bucket_notification_configuration
-            .success(notification_xml_with_eventbridge(), None)
-            // 6. get_bucket_logging
-            .success(
-                logging_xml(
-                    &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
-                ),
-                None,
-            )
-            // 7. get_bucket_inventory_configuration
-            .success(
-                inventory_xml(
-                    &format!("arn:aws:s3:::{}", stack.managed_bucket()),
-                    TEST_ACCOUNT_ID,
-                ),
-                None,
-            )
-            // 8. get_public_access_block
-            .success(public_access_block_xml_open(), None)
-            // 9. get_bucket_policy (error → drift)
-            .error(
-                404,
-                "NoSuchBucketPolicy",
-                "The bucket policy does not exist",
-            )
-            .build();
-
-        let params = BucketCreatorParams {
-            account_id: TEST_ACCOUNT_ID,
-            client: &client,
-            replication_role_arn: TEST_REPL_ROLE_ARN,
-            stack: &stack,
-        };
-
-        let bucket = Bucket::new(bucket_name, Type::Public).unwrap();
-        let repl_bucket = Bucket::new(repl_name, Type::Replication).unwrap();
-        let reconciliator = BucketReconciliator::new(&params, &bucket, Some(&repl_bucket));
-        let report = reconciliator.reconcile().await;
-
-        assert!(report.has_drift());
-        let policy = report
-            .steps
-            .iter()
-            .find(|s| s.name == "bucket-policy")
-            .unwrap();
-        assert!(matches!(policy.status, StepStatus::Drift));
-    }
-
-    #[tokio::test]
-    async fn test_reconcile_public_access_blocked() {
-        let stack = test_stack();
-        let bucket_name = "test-stack-data-public";
-        let repl_name = "test-stack-data-public-repl";
-        let class = STORAGE_CLASS_PUBLIC_DEFAULT.as_str();
-
-        let blocked_pab = r#"<?xml version="1.0" encoding="UTF-8"?>
-<PublicAccessBlockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-  <BlockPublicAcls>true</BlockPublicAcls>
-  <IgnorePublicAcls>true</IgnorePublicAcls>
-  <BlockPublicPolicy>true</BlockPublicPolicy>
-  <RestrictPublicBuckets>true</RestrictPublicBuckets>
-</PublicAccessBlockConfiguration>"#;
-
-        let client = TestClientBuilder::new()
-            // 1. get_bucket_tagging
-            .success(
-                tagging_xml(&[(BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, class)]),
-                None,
-            )
-            // 2. get_bucket_versioning
-            .success(versioning_xml("Enabled"), None)
-            // 3. get_bucket_lifecycle_configuration
-            .success(lifecycle_xml_full(class), None)
-            // 4. get_bucket_replication
-            .success(replication_xml(repl_name, TEST_REPL_ROLE_ARN), None)
-            // 5. get_bucket_notification_configuration
-            .success(notification_xml_with_eventbridge(), None)
-            // 6. get_bucket_logging
-            .success(
-                logging_xml(
-                    &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
-                ),
-                None,
-            )
-            // 7. get_bucket_inventory_configuration
-            .success(
-                inventory_xml(
-                    &format!("arn:aws:s3:::{}", stack.managed_bucket()),
-                    TEST_ACCOUNT_ID,
-                ),
-                None,
-            )
-            // 8. get_public_access_block (all blocked → drift)
-            .success(blocked_pab, None)
-            // 9. get_bucket_policy
-            .success(bucket_policy_json_public_read(bucket_name), None)
-            .build();
-
-        let params = BucketCreatorParams {
-            account_id: TEST_ACCOUNT_ID,
-            client: &client,
-            replication_role_arn: TEST_REPL_ROLE_ARN,
-            stack: &stack,
-        };
-
-        let bucket = Bucket::new(bucket_name, Type::Public).unwrap();
-        let repl_bucket = Bucket::new(repl_name, Type::Replication).unwrap();
-        let reconciliator = BucketReconciliator::new(&params, &bucket, Some(&repl_bucket));
-        let report = reconciliator.reconcile().await;
-
-        assert!(report.has_drift());
-        let pab = report
-            .steps
-            .iter()
-            .find(|s| s.name == "public-access")
-            .unwrap();
-        assert!(matches!(pab.status, StepStatus::Drift));
-    }
-
-    #[tokio::test]
-    async fn test_reconcile_internal_bucket_unsupported() {
-        let client = TestClientBuilder::new().build();
-        let stack = test_stack();
-        let params = BucketCreatorParams {
-            account_id: TEST_ACCOUNT_ID,
-            client: &client,
-            replication_role_arn: TEST_REPL_ROLE_ARN,
-            stack: &stack,
-        };
-
-        let bucket = Bucket::new("test-stack-internal", Type::Internal).unwrap();
-        let reconciliator = BucketReconciliator::new(&params, &bucket, None);
-        let report = reconciliator.reconcile().await;
-
-        assert!(report.has_errors());
-        assert_eq!(report.steps.len(), 1);
-        assert_eq!(report.steps[0].name, "setup");
-        assert!(matches!(report.steps[0].status, StepStatus::Error(_)));
-    }
-
-    #[tokio::test]
-    async fn test_reconcile_standard_lifecycle_drift_missing_config() {
-        let stack = test_stack();
-        let bucket_name = "test-stack-example";
-        let repl_name = "test-stack-example-repl";
-        let class = STORAGE_CLASS_STANDARD_DEFAULT.as_str();
-
-        let client = TestClientBuilder::new()
-            // 1. get_bucket_tagging
-            .success(
-                tagging_xml(&[(BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, class)]),
-                None,
-            )
-            // 2. get_bucket_versioning
-            .success(versioning_xml("Enabled"), None)
-            // 3. get_bucket_lifecycle_configuration (error → drift)
-            .error(
-                404,
-                "NoSuchLifecycleConfiguration",
-                "The lifecycle configuration does not exist",
-            )
-            // 4. get_bucket_replication
-            .success(replication_xml(repl_name, TEST_REPL_ROLE_ARN), None)
-            // 5. get_bucket_notification_configuration
-            .success(notification_xml_with_eventbridge(), None)
-            // 6. get_bucket_logging
-            .success(
-                logging_xml(
-                    &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
-                ),
-                None,
-            )
-            // 7. get_bucket_inventory_configuration
-            .success(
-                inventory_xml(
-                    &format!("arn:aws:s3:::{}", stack.managed_bucket()),
-                    TEST_ACCOUNT_ID,
-                ),
-                None,
-            )
-            .build();
-
-        let params = BucketCreatorParams {
-            account_id: TEST_ACCOUNT_ID,
-            client: &client,
-            replication_role_arn: TEST_REPL_ROLE_ARN,
-            stack: &stack,
-        };
-
-        let bucket = Bucket::new(bucket_name, Type::Standard).unwrap();
-        let repl_bucket = Bucket::new(repl_name, Type::Replication).unwrap();
-        let reconciliator = BucketReconciliator::new(&params, &bucket, Some(&repl_bucket));
-        let report = reconciliator.reconcile().await;
-
-        assert!(report.has_drift());
-        let lifecycle = report.steps.iter().find(|s| s.name == "lifecycle").unwrap();
-        assert!(matches!(lifecycle.status, StepStatus::Drift));
-    }
-
-    #[tokio::test]
     async fn test_reconcile_standard_notifications_missing_eventbridge() {
         let stack = test_stack();
         let bucket_name = "test-stack-example";
@@ -1753,7 +1669,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_reconcile_standard_logging_wrong_target() {
+    async fn test_reconcile_standard_replication_drift_wrong_role() {
         let stack = test_stack();
         let bucket_name = "test-stack-example";
         let repl_name = "test-stack-example-repl";
@@ -1769,13 +1685,19 @@ mod tests {
             .success(versioning_xml("Enabled"), None)
             // 3. get_bucket_lifecycle_configuration
             .success(lifecycle_xml_full(class), None)
-            // 4. get_bucket_replication
-            .success(replication_xml(repl_name, TEST_REPL_ROLE_ARN), None)
+            // 4. get_bucket_replication (wrong role ARN)
+            .success(
+                replication_xml(repl_name, "arn:aws:iam::999999999999:role/wrong-role"),
+                None,
+            )
             // 5. get_bucket_notification_configuration
             .success(notification_xml_with_eventbridge(), None)
-            // 6. get_bucket_logging (wrong target bucket)
+            // 6. get_bucket_logging
             .success(
-                logging_xml("wrong-bucket", &format!("{LOGGING_PREFIX}/{bucket_name}/")),
+                logging_xml(
+                    &stack.managed_bucket(),
+                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                ),
                 None,
             )
             // 7. get_bucket_inventory_configuration
@@ -1801,7 +1723,85 @@ mod tests {
         let report = reconciliator.reconcile().await;
 
         assert!(report.has_drift());
-        let logging = report.steps.iter().find(|s| s.name == "logging").unwrap();
-        assert!(matches!(logging.status, StepStatus::Drift));
+        let repl_step = report
+            .steps
+            .iter()
+            .find(|s| s.name == "replication")
+            .unwrap();
+        assert!(matches!(repl_step.status, StepStatus::Drift));
+    }
+
+    #[tokio::test]
+    async fn test_reconcile_standard_versioning_suspended() {
+        let stack = test_stack();
+        let bucket_name = "test-stack-example";
+        let repl_name = "test-stack-example-repl";
+        let class = STORAGE_CLASS_STANDARD_DEFAULT.as_str();
+
+        let client = TestClientBuilder::new()
+            // 1. get_bucket_tagging (with valid tag)
+            .success(
+                tagging_xml(&[(BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, class)]),
+                None,
+            )
+            // 2. get_bucket_versioning (suspended)
+            .success(versioning_xml("Suspended"), None)
+            // 3. get_bucket_lifecycle_configuration
+            .success(lifecycle_xml_full(class), None)
+            // 4. get_bucket_replication
+            .success(replication_xml(repl_name, TEST_REPL_ROLE_ARN), None)
+            // 5. get_bucket_notification_configuration
+            .success(notification_xml_with_eventbridge(), None)
+            // 6. get_bucket_logging
+            .success(
+                logging_xml(
+                    &stack.managed_bucket(),
+                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                ),
+                None,
+            )
+            // 7. get_bucket_inventory_configuration
+            .success(
+                inventory_xml(
+                    &format!("arn:aws:s3:::{}", stack.managed_bucket()),
+                    TEST_ACCOUNT_ID,
+                ),
+                None,
+            )
+            .build();
+
+        let params = BucketCreatorParams {
+            account_id: TEST_ACCOUNT_ID,
+            client: &client,
+            replication_role_arn: TEST_REPL_ROLE_ARN,
+            stack: &stack,
+        };
+
+        let bucket = Bucket::new(bucket_name, Type::Standard).unwrap();
+        let repl_bucket = Bucket::new(repl_name, Type::Replication).unwrap();
+        let reconciliator = BucketReconciliator::new(&params, &bucket, Some(&repl_bucket));
+        let report = reconciliator.reconcile().await;
+
+        assert!(report.has_drift());
+        assert!(!report.has_errors());
+
+        let versioning = report
+            .steps
+            .iter()
+            .find(|s| s.name == "versioning")
+            .unwrap();
+        assert!(matches!(versioning.status, StepStatus::Drift));
+
+        // All other steps should be Ok.
+        for step in &report.steps {
+            if step.name != "versioning" {
+                assert!(
+                    matches!(step.status, StepStatus::Ok),
+                    "step '{}' expected Ok, got {:?}",
+                    step.name,
+                    step.status,
+                );
+            }
+        }
     }
 }

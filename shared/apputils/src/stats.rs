@@ -52,29 +52,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_inventory_stats_json_roundtrip() {
-        let stats = InventoryStats {
-            total_files: 42,
-            total_size: 123456,
-            by_prefix: BTreeMap::from([(
-                "data".to_string(),
-                PrefixStats {
-                    total_files: 42,
-                    total_size: 123456,
-                },
-            )]),
-        };
-
-        let json = serde_json::to_string(&stats).unwrap();
-        let deserialized: InventoryStats = serde_json::from_str(&json).unwrap();
-
-        assert_eq!(deserialized.total_files, 42);
-        assert_eq!(deserialized.total_size, 123456);
-        assert_eq!(deserialized.by_prefix.len(), 1);
-        assert!(deserialized.by_prefix.contains_key("data"));
-    }
-
-    #[test]
     fn test_bucket_stats_flattened_deserialization() {
         let json = r#"{"bucket":"my-bucket","total_files":5,"total_size":500,"by_prefix":{}}"#;
         let bucket_stats: BucketStats = serde_json::from_str(json).unwrap();
@@ -104,18 +81,26 @@ mod tests {
     }
 
     #[test]
-    fn test_verification_stats_is_ok() {
-        let stats = VerificationStats {
-            total_objects: 100,
-            matches: 95,
-            mismatches: 0,
-            missing_replica: 5,
-            missing_source: 0,
-            failed_source: 0,
-            failed_replication: 0,
+    fn test_inventory_stats_json_roundtrip() {
+        let stats = InventoryStats {
+            total_files: 42,
+            total_size: 123456,
+            by_prefix: BTreeMap::from([(
+                "data".to_string(),
+                PrefixStats {
+                    total_files: 42,
+                    total_size: 123456,
+                },
+            )]),
         };
-        // missing_replica alone should not cause failure
-        assert!(stats.is_ok());
+
+        let json = serde_json::to_string(&stats).unwrap();
+        let deserialized: InventoryStats = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.total_files, 42);
+        assert_eq!(deserialized.total_size, 123456);
+        assert_eq!(deserialized.by_prefix.len(), 1);
+        assert!(deserialized.by_prefix.contains_key("data"));
     }
 
     #[test]
@@ -152,5 +137,20 @@ mod tests {
         for stats in &cases {
             assert!(!stats.is_ok());
         }
+    }
+
+    #[test]
+    fn test_verification_stats_is_ok() {
+        let stats = VerificationStats {
+            total_objects: 100,
+            matches: 95,
+            mismatches: 0,
+            missing_replica: 5,
+            missing_source: 0,
+            failed_source: 0,
+            failed_replication: 0,
+        };
+        // missing_replica alone should not cause failure
+        assert!(stats.is_ok());
     }
 }

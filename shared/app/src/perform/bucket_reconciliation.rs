@@ -356,26 +356,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_perform_empty_stack_returns_empty_report() {
-        let sdk_config = TestClientBuilder::new()
-            .success(list_buckets_xml(&[]), None)
-            .build_sdk_config();
-        let config = app_config::Config::for_tests(sdk_config, false);
-
-        let report = perform(&config, &test_opts())
-            .await
-            .expect("empty stack should not error");
-
-        assert_eq!(report.processed, 0);
-        assert_eq!(report.ok, 0);
-        assert_eq!(report.drift, 0);
-        assert_eq!(report.errors, 0);
-        assert!(report.bucket_reports.is_empty());
-        assert!(!report.has_drift());
-        assert!(!report.has_errors());
-    }
-
-    #[tokio::test]
     async fn test_perform_aggregates_ok_drift_and_error_counts() {
         let alpha = "test-stack-alpha";
         let alpha_repl = "test-stack-alpha-repl";
@@ -425,6 +405,64 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_perform_best_effort_pairing_missing_replication_does_not_crash() {
+        let source = "test-stack-alpha";
+
+        let builder = TestClientBuilder::new()
+            .success(list_buckets_xml(&[source]), None)
+            .success(bucket_request_tags("standard"), None);
+
+        let managed_bucket = format!("{TEST_STACK}-managed");
+        let builder =
+            add_standard_reconcile_responses(builder, source, None, "Enabled", &managed_bucket);
+
+        let sdk_config = builder.build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+
+        let report = perform(&config, &test_opts())
+            .await
+            .expect("missing replication pair should be reported, not crash perform()");
+
+        assert_eq!(report.processed, 1);
+        assert_eq!(report.ok, 0);
+        assert_eq!(report.drift, 0);
+        assert_eq!(report.errors, 1);
+        assert!(report.has_errors());
+
+        let bucket_report = &report.bucket_reports[0];
+        assert_eq!(bucket_report.bucket_name, source);
+        let repl_step = bucket_report
+            .steps
+            .iter()
+            .find(|s| s.name == "replication")
+            .expect("replication step should exist for source bucket");
+        assert!(matches!(
+            repl_step.status,
+            awsutils::bucket_reconciliator::StepStatus::Error(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_perform_empty_stack_returns_empty_report() {
+        let sdk_config = TestClientBuilder::new()
+            .success(list_buckets_xml(&[]), None)
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+
+        let report = perform(&config, &test_opts())
+            .await
+            .expect("empty stack should not error");
+
+        assert_eq!(report.processed, 0);
+        assert_eq!(report.ok, 0);
+        assert_eq!(report.drift, 0);
+        assert_eq!(report.errors, 0);
+        assert!(report.bucket_reports.is_empty());
+        assert!(!report.has_drift());
+        assert!(!report.has_errors());
+    }
+
+    #[tokio::test]
     async fn test_perform_fail_on_drift_returns_error() {
         let source = "test-stack-alpha";
         let repl = "test-stack-alpha-repl";
@@ -461,43 +499,5 @@ mod tests {
             }
             other => panic!("unexpected error: {other:?}"),
         }
-    }
-
-    #[tokio::test]
-    async fn test_perform_best_effort_pairing_missing_replication_does_not_crash() {
-        let source = "test-stack-alpha";
-
-        let builder = TestClientBuilder::new()
-            .success(list_buckets_xml(&[source]), None)
-            .success(bucket_request_tags("standard"), None);
-
-        let managed_bucket = format!("{TEST_STACK}-managed");
-        let builder =
-            add_standard_reconcile_responses(builder, source, None, "Enabled", &managed_bucket);
-
-        let sdk_config = builder.build_sdk_config();
-        let config = app_config::Config::for_tests(sdk_config, false);
-
-        let report = perform(&config, &test_opts())
-            .await
-            .expect("missing replication pair should be reported, not crash perform()");
-
-        assert_eq!(report.processed, 1);
-        assert_eq!(report.ok, 0);
-        assert_eq!(report.drift, 0);
-        assert_eq!(report.errors, 1);
-        assert!(report.has_errors());
-
-        let bucket_report = &report.bucket_reports[0];
-        assert_eq!(bucket_report.bucket_name, source);
-        let repl_step = bucket_report
-            .steps
-            .iter()
-            .find(|s| s.name == "replication")
-            .expect("replication step should exist for source bucket");
-        assert!(matches!(
-            repl_step.status,
-            awsutils::bucket_reconciliator::StepStatus::Error(_)
-        ));
     }
 }

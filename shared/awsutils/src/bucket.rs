@@ -205,6 +205,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_get_bucket_names_content_type_with_charset() {
+        let content = "bucket1\nbucket2";
+        let file = File::new("test-bucket", "buckets.txt");
+        let client = TestClientBuilder::new()
+            .success(content, Some("text/plain; charset=utf-8".to_string()))
+            .build();
+
+        let names = get_bucket_names(&client, &file).await.unwrap();
+
+        assert_eq!(names.len(), 2);
+        assert_eq!(names[0], "bucket1");
+        assert_eq!(names[1], "bucket2");
+    }
+
+    #[tokio::test]
     async fn test_get_bucket_names_exceeds_size_limit() {
         let content = "a".repeat((MAX_REQUEST_FILE_SIZE + 1) as usize);
         let file = File::new("test-bucket", "buckets.txt");
@@ -222,21 +237,6 @@ mod tests {
             }
             _ => panic!("Expected FileTooLarge error"),
         }
-    }
-
-    #[tokio::test]
-    async fn test_get_bucket_names_content_type_with_charset() {
-        let content = "bucket1\nbucket2";
-        let file = File::new("test-bucket", "buckets.txt");
-        let client = TestClientBuilder::new()
-            .success(content, Some("text/plain; charset=utf-8".to_string()))
-            .build();
-
-        let names = get_bucket_names(&client, &file).await.unwrap();
-
-        assert_eq!(names.len(), 2);
-        assert_eq!(names[0], "bucket1");
-        assert_eq!(names[1], "bucket2");
     }
 
     #[tokio::test]

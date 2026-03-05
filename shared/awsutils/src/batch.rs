@@ -256,42 +256,6 @@ mod tests {
     use test_support::{mock_sdk_config, recorded_requests, replay_xml_event};
 
     #[tokio::test]
-    async fn test_create_copy_job_serializes_copy_operation_and_prefixes() {
-        let (sdk_config, replay) = mock_sdk_config(replay_xml_event(
-            200,
-            r#"<?xml version="1.0" encoding="UTF-8"?>
-<CreateJobResult xmlns="http://awss3control.amazonaws.com/doc/2018-08-20/">
-  <JobId>copy-job-1</JobId>
-</CreateJobResult>"#,
-        ));
-        let client = s3control::Client::new(&sdk_config);
-
-        let job_id = create_copy_job(
-            &client,
-            "123456789012",
-            "arn:aws:iam::123456789012:role/test-batch-role",
-            "source-bucket",
-            "dest-bucket",
-            "report-bucket",
-        )
-        .await
-        .expect("create_copy_job should succeed");
-
-        assert_eq!(job_id, "copy-job-1");
-
-        let requests = recorded_requests(&replay);
-        assert_eq!(requests.len(), 1, "expected one CreateJob request");
-        let body = String::from_utf8(requests[0].body.clone())
-            .expect("request body should be valid utf-8");
-
-        assert!(body.contains("<S3PutObjectCopy>"));
-        assert!(body.contains("<TargetResource>arn:aws:s3:::dest-bucket</TargetResource>"));
-        assert!(body.contains("<ManifestPrefix>batch/manifests/copy</ManifestPrefix>"));
-        assert!(body.contains("<Prefix>batch/reports/copy/source-bucket</Prefix>"));
-        assert!(!body.contains("<S3ComputeObjectChecksum>"));
-    }
-
-    #[tokio::test]
     async fn test_create_checksum_job_serializes_checksum_operation_and_prefixes() {
         let (sdk_config, replay) = mock_sdk_config(replay_xml_event(
             200,
@@ -356,5 +320,41 @@ mod tests {
             }
             other => panic!("expected S3Control error, got: {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn test_create_copy_job_serializes_copy_operation_and_prefixes() {
+        let (sdk_config, replay) = mock_sdk_config(replay_xml_event(
+            200,
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<CreateJobResult xmlns="http://awss3control.amazonaws.com/doc/2018-08-20/">
+  <JobId>copy-job-1</JobId>
+</CreateJobResult>"#,
+        ));
+        let client = s3control::Client::new(&sdk_config);
+
+        let job_id = create_copy_job(
+            &client,
+            "123456789012",
+            "arn:aws:iam::123456789012:role/test-batch-role",
+            "source-bucket",
+            "dest-bucket",
+            "report-bucket",
+        )
+        .await
+        .expect("create_copy_job should succeed");
+
+        assert_eq!(job_id, "copy-job-1");
+
+        let requests = recorded_requests(&replay);
+        assert_eq!(requests.len(), 1, "expected one CreateJob request");
+        let body = String::from_utf8(requests[0].body.clone())
+            .expect("request body should be valid utf-8");
+
+        assert!(body.contains("<S3PutObjectCopy>"));
+        assert!(body.contains("<TargetResource>arn:aws:s3:::dest-bucket</TargetResource>"));
+        assert!(body.contains("<ManifestPrefix>batch/manifests/copy</ManifestPrefix>"));
+        assert!(body.contains("<Prefix>batch/reports/copy/source-bucket</Prefix>"));
+        assert!(!body.contains("<S3ComputeObjectChecksum>"));
     }
 }

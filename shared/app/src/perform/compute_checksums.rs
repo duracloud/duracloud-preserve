@@ -158,114 +158,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_perform_specific_bucket_returns_invalid_bucket_when_tag_lookup_non_success() {
-        let bucket_name = Name::new("test-stack-missing").unwrap();
-        let sdk_config = TestClientBuilder::new()
-            .s3_error("NoSuchBucket", "bucket not found")
-            .build_sdk_config();
-        let config = app_config::Config::for_tests(sdk_config, false);
-
-        let err = perform(&config, Some(&bucket_name))
-            .await
-            .expect_err("missing bucket should be invalid");
-
-        match err {
-            ComputeChecksumsError::InvalidBucket(name) => assert_eq!(name, "test-stack-missing"),
-            other => panic!("unexpected error: {other:?}"),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_perform_specific_bucket_rejects_non_source_bucket_type() {
-        let bucket_name = Name::new("test-stack-alpha-repl").unwrap();
-        let tagging = bucket_tagging_xml(&[("BucketType", "replication")]);
-        let sdk_config = TestClientBuilder::new()
-            .success(tagging, None)
-            .build_sdk_config();
-        let config = app_config::Config::for_tests(sdk_config, false);
-
-        let err = perform(&config, Some(&bucket_name))
-            .await
-            .expect_err("replication bucket should be invalid");
-
-        match err {
-            ComputeChecksumsError::InvalidBucket(name) => {
-                assert_eq!(name, "test-stack-alpha-repl")
-            }
-            other => panic!("unexpected error: {other:?}"),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_perform_stack_mode_errors_when_replication_pair_missing() {
-        let buckets = list_buckets_xml(&["test-stack-alpha"]);
-        let tags = bucket_tagging_xml(&[("Stack", "test-stack"), ("BucketType", "standard")]);
-        let sdk_config = TestClientBuilder::new()
-            .success(buckets, None)
-            .success(tags, None)
-            .build_sdk_config();
-        let config = app_config::Config::for_tests(sdk_config, false);
-
-        let err = perform(&config, None)
-            .await
-            .expect_err("missing replication pair should fail");
-
-        match err {
-            ComputeChecksumsError::PairBuckets(BucketValidationError::ValidationError(msg)) => {
-                assert!(msg.contains("no replication bucket found"));
-                assert!(msg.contains("test-stack-alpha"));
-            }
-            other => panic!("unexpected error: {other:?}"),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_perform_stack_mode_returns_empty_when_no_source_buckets() {
-        let sdk_config = TestClientBuilder::new()
-            .success(list_buckets_xml(&[]), None)
-            .build_sdk_config();
-        let config = app_config::Config::for_tests(sdk_config, false);
-
-        let receipts = perform(&config, None)
-            .await
-            .expect("no source buckets should return empty receipts");
-
-        assert!(receipts.is_empty());
-    }
-
-    #[tokio::test]
-    async fn test_dispatch_checksum_jobs_flattens_receipts_in_pair_order() {
-        let bucket_pairs = vec![
-            bucket_pair("test-stack-alpha", bucket::Type::Standard),
-            bucket_pair("test-stack-bravo-public", bucket::Type::Public),
-        ];
-        let sdk_config = TestClientBuilder::new().build_sdk_config();
-        let config = app_config::Config::for_tests(sdk_config, false);
-
-        let receipts = dispatch_checksum_jobs(&config, &bucket_pairs, |_cfg, source, _repl| {
-            let source_name = source.name().to_string();
-            Box::pin(async move {
-                Ok(vec![
-                    format!("https://example.local/{source_name}/latest"),
-                    format!("https://example.local/{source_name}/today"),
-                ])
-            })
-        })
-        .await
-        .expect("dispatch should succeed");
-
-        assert_eq!(
-            receipts,
-            vec![
-                "https://example.local/test-stack-alpha/latest".to_string(),
-                "https://example.local/test-stack-alpha/today".to_string(),
-                "https://example.local/test-stack-bravo-public/latest".to_string(),
-                "https://example.local/test-stack-bravo-public/today".to_string(),
-            ]
-        );
-    }
-
-    #[tokio::test]
     async fn test_dispatch_checksum_jobs_aggregates_partial_failures() {
         let bucket_pairs = vec![
             bucket_pair("test-stack-alpha", bucket::Type::Standard),
@@ -348,5 +240,113 @@ mod tests {
                 "test-stack-charlie".to_string(),
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_checksum_jobs_flattens_receipts_in_pair_order() {
+        let bucket_pairs = vec![
+            bucket_pair("test-stack-alpha", bucket::Type::Standard),
+            bucket_pair("test-stack-bravo-public", bucket::Type::Public),
+        ];
+        let sdk_config = TestClientBuilder::new().build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+
+        let receipts = dispatch_checksum_jobs(&config, &bucket_pairs, |_cfg, source, _repl| {
+            let source_name = source.name().to_string();
+            Box::pin(async move {
+                Ok(vec![
+                    format!("https://example.local/{source_name}/latest"),
+                    format!("https://example.local/{source_name}/today"),
+                ])
+            })
+        })
+        .await
+        .expect("dispatch should succeed");
+
+        assert_eq!(
+            receipts,
+            vec![
+                "https://example.local/test-stack-alpha/latest".to_string(),
+                "https://example.local/test-stack-alpha/today".to_string(),
+                "https://example.local/test-stack-bravo-public/latest".to_string(),
+                "https://example.local/test-stack-bravo-public/today".to_string(),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_perform_specific_bucket_rejects_non_source_bucket_type() {
+        let bucket_name = Name::new("test-stack-alpha-repl").unwrap();
+        let tagging = bucket_tagging_xml(&[("BucketType", "replication")]);
+        let sdk_config = TestClientBuilder::new()
+            .success(tagging, None)
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+
+        let err = perform(&config, Some(&bucket_name))
+            .await
+            .expect_err("replication bucket should be invalid");
+
+        match err {
+            ComputeChecksumsError::InvalidBucket(name) => {
+                assert_eq!(name, "test-stack-alpha-repl")
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_perform_specific_bucket_returns_invalid_bucket_when_tag_lookup_non_success() {
+        let bucket_name = Name::new("test-stack-missing").unwrap();
+        let sdk_config = TestClientBuilder::new()
+            .s3_error("NoSuchBucket", "bucket not found")
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+
+        let err = perform(&config, Some(&bucket_name))
+            .await
+            .expect_err("missing bucket should be invalid");
+
+        match err {
+            ComputeChecksumsError::InvalidBucket(name) => assert_eq!(name, "test-stack-missing"),
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_perform_stack_mode_errors_when_replication_pair_missing() {
+        let buckets = list_buckets_xml(&["test-stack-alpha"]);
+        let tags = bucket_tagging_xml(&[("Stack", "test-stack"), ("BucketType", "standard")]);
+        let sdk_config = TestClientBuilder::new()
+            .success(buckets, None)
+            .success(tags, None)
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+
+        let err = perform(&config, None)
+            .await
+            .expect_err("missing replication pair should fail");
+
+        match err {
+            ComputeChecksumsError::PairBuckets(BucketValidationError::ValidationError(msg)) => {
+                assert!(msg.contains("no replication bucket found"));
+                assert!(msg.contains("test-stack-alpha"));
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_perform_stack_mode_returns_empty_when_no_source_buckets() {
+        let sdk_config = TestClientBuilder::new()
+            .success(list_buckets_xml(&[]), None)
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+
+        let receipts = perform(&config, None)
+            .await
+            .expect("no source buckets should return empty receipts");
+
+        assert!(receipts.is_empty());
     }
 }

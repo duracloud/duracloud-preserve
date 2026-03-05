@@ -177,6 +177,98 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_perform_maps_receipt_download_failure() {
+        let sdk_config = TestClientBuilder::new()
+            .s3_error("NoSuchKey", "not found")
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+        let job_file = File::new(config.stack().managed_bucket(), "receipts/missing.json");
+        let opts = PerformOptions::default();
+
+        let err = perform(&config, &job_file, &opts)
+            .await
+            .expect_err("perform should fail when receipt download fails");
+
+        assert!(
+            matches!(err, ChecksumReportError::ReceiptDownload(_)),
+            "expected ReceiptDownload, got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_perform_maps_receipt_parse_failure() {
+        let sdk_config = TestClientBuilder::new()
+            .success("not valid json", None)
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+        let job_file = File::new(config.stack().managed_bucket(), "receipts/bad.json");
+        let opts = PerformOptions::default();
+
+        let err = perform(&config, &job_file, &opts)
+            .await
+            .expect_err("perform should fail when receipt is invalid json");
+
+        assert!(
+            matches!(err, ChecksumReportError::ReceiptParse(_)),
+            "expected ReceiptParse, got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_process_and_upload_skips_non_succeeded_manifest_entries() {
+        let source_bucket = "test-stack-private";
+        let source_key = "checksum-report-tests/source.csv";
+        let repl_key = "checksum-report-tests/repl.csv";
+        let skipped_key = "checksum-report-tests/skipped.csv";
+
+        let source_csv = include_bytes!("../../../../files/checksum-source.csv");
+        let repl_csv = include_bytes!("../../../../files/checksum-replication.csv");
+
+        let (sdk_config, replay) = TestClientBuilder::new()
+            .success(SdkBody::from(source_csv.to_vec()), None)
+            .success(SdkBody::from(repl_csv.to_vec()), None)
+            .ok()
+            .ok()
+            .ok()
+            .ok()
+            .build_sdk_config_with_replay();
+        let config = app_config::Config::for_tests(sdk_config, false);
+        let managed_bucket = config.stack().managed_bucket();
+        let opts = PerformOptions::default();
+
+        process_and_upload(
+            &config,
+            source_bucket,
+            vec![
+                batch_result("failed", &managed_bucket, skipped_key),
+                batch_result("succeeded", &managed_bucket, source_key),
+            ],
+            vec![batch_result("succeeded", &managed_bucket, repl_key)],
+            &opts,
+        )
+        .await
+        .expect("process_and_upload should succeed when failed entries are skipped");
+
+        let requests = recorded_requests(&replay);
+
+        assert!(
+            requests
+                .iter()
+                .any(|r| r.method == "GET" && uri_has_key(&r.uri, source_key))
+        );
+        assert!(
+            requests
+                .iter()
+                .any(|r| r.method == "GET" && uri_has_key(&r.uri, repl_key))
+        );
+        assert!(
+            !requests
+                .iter()
+                .any(|r| r.method == "GET" && uri_has_key(&r.uri, skipped_key))
+        );
+    }
+
+    #[tokio::test]
     async fn test_process_and_upload_writes_latest_and_dated_outputs() {
         let source_bucket = "test-stack-private";
         let source_key = "checksum-report-tests/source.csv";
@@ -272,97 +364,5 @@ mod tests {
         let expected_stats_json =
             serde_json::to_value(&stats).expect("stats should serialize to json");
         assert_eq!(uploaded_stats_json, expected_stats_json);
-    }
-
-    #[tokio::test]
-    async fn test_process_and_upload_skips_non_succeeded_manifest_entries() {
-        let source_bucket = "test-stack-private";
-        let source_key = "checksum-report-tests/source.csv";
-        let repl_key = "checksum-report-tests/repl.csv";
-        let skipped_key = "checksum-report-tests/skipped.csv";
-
-        let source_csv = include_bytes!("../../../../files/checksum-source.csv");
-        let repl_csv = include_bytes!("../../../../files/checksum-replication.csv");
-
-        let (sdk_config, replay) = TestClientBuilder::new()
-            .success(SdkBody::from(source_csv.to_vec()), None)
-            .success(SdkBody::from(repl_csv.to_vec()), None)
-            .ok()
-            .ok()
-            .ok()
-            .ok()
-            .build_sdk_config_with_replay();
-        let config = app_config::Config::for_tests(sdk_config, false);
-        let managed_bucket = config.stack().managed_bucket();
-        let opts = PerformOptions::default();
-
-        process_and_upload(
-            &config,
-            source_bucket,
-            vec![
-                batch_result("failed", &managed_bucket, skipped_key),
-                batch_result("succeeded", &managed_bucket, source_key),
-            ],
-            vec![batch_result("succeeded", &managed_bucket, repl_key)],
-            &opts,
-        )
-        .await
-        .expect("process_and_upload should succeed when failed entries are skipped");
-
-        let requests = recorded_requests(&replay);
-
-        assert!(
-            requests
-                .iter()
-                .any(|r| r.method == "GET" && uri_has_key(&r.uri, source_key))
-        );
-        assert!(
-            requests
-                .iter()
-                .any(|r| r.method == "GET" && uri_has_key(&r.uri, repl_key))
-        );
-        assert!(
-            !requests
-                .iter()
-                .any(|r| r.method == "GET" && uri_has_key(&r.uri, skipped_key))
-        );
-    }
-
-    #[tokio::test]
-    async fn test_perform_maps_receipt_download_failure() {
-        let sdk_config = TestClientBuilder::new()
-            .s3_error("NoSuchKey", "not found")
-            .build_sdk_config();
-        let config = app_config::Config::for_tests(sdk_config, false);
-        let job_file = File::new(config.stack().managed_bucket(), "receipts/missing.json");
-        let opts = PerformOptions::default();
-
-        let err = perform(&config, &job_file, &opts)
-            .await
-            .expect_err("perform should fail when receipt download fails");
-
-        assert!(
-            matches!(err, ChecksumReportError::ReceiptDownload(_)),
-            "expected ReceiptDownload, got: {err:?}"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_perform_maps_receipt_parse_failure() {
-        let sdk_config = TestClientBuilder::new()
-            .success("not valid json", None)
-            .build_sdk_config();
-        let config = app_config::Config::for_tests(sdk_config, false);
-        let job_file = File::new(config.stack().managed_bucket(), "receipts/bad.json");
-        let opts = PerformOptions::default();
-
-        let err = perform(&config, &job_file, &opts)
-            .await
-            .expect_err("perform should fail when receipt is invalid json");
-
-        assert!(
-            matches!(err, ChecksumReportError::ReceiptParse(_)),
-            "expected ReceiptParse, got: {err:?}"
-        );
     }
 }

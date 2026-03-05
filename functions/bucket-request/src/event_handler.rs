@@ -46,10 +46,13 @@ mod tests {
     use test_support::TestClientBuilder;
 
     #[tokio::test]
-    async fn test_valid_event_handler() {
-        // json contains bucket name == starts with stack name
+    #[should_panic(expected = "Not the request bucket for this stack")]
+    async fn test_invalid_event_handler() {
         let json = include_str!("../events/sample.json");
-        let s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
+        let mut s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
+
+        // make it so bucket name != the expected request bucket name
+        s3_event.records[0].s3.bucket.name = Some("test-other-bucket-request".to_string());
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
@@ -59,13 +62,10 @@ mod tests {
     }
 
     #[tokio::test]
-    #[should_panic(expected = "Not the request bucket for this stack")]
-    async fn test_invalid_event_handler() {
+    async fn test_valid_event_handler() {
+        // json contains bucket name == starts with stack name
         let json = include_str!("../events/sample.json");
-        let mut s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
-
-        // make it so bucket name != the expected request bucket name
-        s3_event.records[0].s3.bucket.name = Some("test-other-bucket-request".to_string());
+        let s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let sdk_config = TestClientBuilder::new().ok().build_sdk_config();

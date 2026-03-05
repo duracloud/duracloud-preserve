@@ -175,29 +175,52 @@ mod tests {
         InventoryProcessor { conn }
     }
 
-    // load tests
     #[test]
-    fn test_load_valid_parquet() {
-        let processor = InventoryProcessor::load(&["../../files/example.parquet"]).unwrap();
-        let total_files: u64 = processor
-            .conn
-            .query_row("SELECT COUNT(*)::UBIGINT FROM inventory", [], |row| {
-                row.get(0)
-            })
-            .unwrap();
-        assert!(total_files > 0);
+    fn test_full_pipeline() {
+        let (_csv, stats) = process(&["../../files/example.parquet"]).unwrap();
+
+        assert_eq!(stats.total_files, 13);
+        assert_eq!(stats.total_size, 2191162);
+
+        let by_prefix = &stats.by_prefix;
+
+        let root = by_prefix.get("").expect("root prefix should exist");
+        assert_eq!(root.total_files, 6);
+        assert_eq!(root.total_size, 1355662);
+
+        let images = by_prefix.get("images").expect("images prefix should exist");
+        assert_eq!(images.total_files, 3);
+        assert_eq!(images.total_size, 129000);
+
+        let documents = by_prefix
+            .get("documents")
+            .expect("documents prefix should exist");
+        assert_eq!(documents.total_files, 3);
+        assert_eq!(documents.total_size, 206500);
+
+        let archive = by_prefix
+            .get("archive")
+            .expect("archive prefix should exist");
+        assert_eq!(archive.total_files, 1);
+        assert_eq!(archive.total_size, 500000);
     }
 
     #[test]
-    fn test_load_filters_directories() {
-        let processor = InventoryProcessor::load(&["../../files/example.parquet"]).unwrap();
-        let mut stmt = processor.conn.prepare("SELECT key FROM inventory").unwrap();
-        let mut rows = stmt.query([]).unwrap();
+    fn test_full_pipeline_csv_output() {
+        let (output, _stats) = process(&["../../files/example.parquet"]).unwrap();
 
-        while let Some(row) = rows.next().unwrap() {
-            let key: String = row.get(0).unwrap();
-            assert!(!key.ends_with('/'), "Found directory entry: {}", key);
-        }
+        let csv = String::from_utf8(output).unwrap();
+        let lines: Vec<&str> = csv.lines().collect();
+
+        // Header + 13 data rows
+        assert_eq!(lines.len(), 14);
+
+        assert_eq!(
+            lines[0],
+            "bucket,key,size,last_modified_date,storage_class,replication_status,url"
+        );
+
+        assert!(csv.contains("https://test-stack-private.s3.amazonaws.com/"));
     }
 
     #[test]
@@ -233,86 +256,87 @@ mod tests {
     }
 
     #[test]
+    fn test_load_filters_directories() {
+        let processor = InventoryProcessor::load(&["../../files/example.parquet"]).unwrap();
+        let mut stmt = processor.conn.prepare("SELECT key FROM inventory").unwrap();
+        let mut rows = stmt.query([]).unwrap();
+
+        while let Some(row) = rows.next().unwrap() {
+            let key: String = row.get(0).unwrap();
+            assert!(!key.ends_with('/'), "Found directory entry: {}", key);
+        }
+    }
+
+    #[test]
     fn test_load_missing_file() {
         let result = InventoryProcessor::load(&["nonexistent.parquet"]);
         assert!(result.is_err());
     }
 
-    // url_decode tests
     #[test]
-    fn test_url_decode_space() {
-        let conn = Connection::open_in_memory().unwrap();
-        let result: String = conn
-            .query_row("SELECT url_decode('my%20file.txt')", [], |row| row.get(0))
-            .unwrap();
-        assert_eq!(result, "my file.txt");
-    }
-
-    #[test]
-    fn test_url_decode_slash() {
-        let conn = Connection::open_in_memory().unwrap();
-        let result: String = conn
-            .query_row("SELECT url_decode('path%2Fto%2Ffile.txt')", [], |row| {
+    fn test_load_valid_parquet() {
+        let processor = InventoryProcessor::load(&["../../files/example.parquet"]).unwrap();
+        let total_files: u64 = processor
+            .conn
+            .query_row("SELECT COUNT(*)::UBIGINT FROM inventory", [], |row| {
                 row.get(0)
             })
             .unwrap();
-        assert_eq!(result, "path/to/file.txt");
+        assert!(total_files > 0);
     }
 
     #[test]
-    fn test_url_decode_already_decoded() {
-        let conn = Connection::open_in_memory().unwrap();
-        let result: String = conn
-            .query_row("SELECT url_decode('normal/path/file.txt')", [], |row| {
-                row.get(0)
-            })
-            .unwrap();
-        assert_eq!(result, "normal/path/file.txt");
-    }
-
-    #[test]
-    fn test_url_decode_special_chars() {
-        let conn = Connection::open_in_memory().unwrap();
-        let result: String = conn
-            .query_row("SELECT url_decode('file%26name%3Dvalue.txt')", [], |row| {
-                row.get(0)
-            })
-            .unwrap();
-        assert_eq!(result, "file&name=value.txt");
-    }
-
-    // write_csv tests
-    #[test]
-    fn test_write_csv_output() {
-        let processor = create_test_processor(&[
-            ("mybucket", "file1.txt", 100),
-            ("mybucket", "file2.txt", 200),
-        ]);
-        let mut output = Vec::new();
-        processor.write_csv_and_stats(&mut output).unwrap();
-        let csv = String::from_utf8(output).unwrap();
-
-        assert!(
-            csv.contains("bucket,key,size,last_modified_date,storage_class,replication_status,url")
-        );
-        assert!(csv.contains("mybucket,file1.txt,100,"));
-        assert!(csv.contains("mybucket,file2.txt,200,"));
-        assert!(csv.contains("https://mybucket.s3.amazonaws.com/file1.txt"));
-    }
-
-    #[test]
-    fn test_write_csv_empty() {
+    fn test_prefix_stats_empty() {
         let processor = create_test_processor(&[]);
-        let mut output = Vec::new();
-        processor.write_csv_and_stats(&mut output).unwrap();
-        let csv = String::from_utf8(output).unwrap();
-        assert!(
-            csv.contains("bucket,key,size,last_modified_date,storage_class,replication_status,url")
-        );
-        assert_eq!(csv.lines().count(), 1); // header only
+        let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
+        assert!(stats.by_prefix.is_empty());
     }
 
-    // totals tests
+    #[test]
+    fn test_prefix_stats_groups_correctly() {
+        let processor = create_test_processor(&[
+            ("bucket", "images/a.jpg", 100),
+            ("bucket", "images/b.jpg", 200),
+            ("bucket", "docs/report.pdf", 300),
+            ("bucket", "root.txt", 50),
+            ("bucket", "another_root.txt", 25),
+        ]);
+        let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
+        let by_prefix = &stats.by_prefix;
+
+        let images = by_prefix.get("images").unwrap();
+        assert_eq!(images.total_files, 2);
+        assert_eq!(images.total_size, 300);
+
+        let docs = by_prefix.get("docs").unwrap();
+        assert_eq!(docs.total_files, 1);
+        assert_eq!(docs.total_size, 300);
+
+        let root = by_prefix.get("").unwrap();
+        assert_eq!(root.total_files, 2);
+        assert_eq!(root.total_size, 75);
+    }
+
+    #[test]
+    fn test_process_returns_matching_csv_and_stats() {
+        let (csv, stats) = process(&["../../files/example.parquet"]).unwrap();
+
+        assert_eq!(stats.total_files, 13);
+        assert_eq!(stats.total_size, 2_191_162);
+
+        let csv = String::from_utf8(csv).unwrap();
+        let lines: Vec<&str> = csv.lines().collect();
+        assert_eq!(lines.len(), 14);
+        assert_eq!(
+            lines[0],
+            "bucket,key,size,last_modified_date,storage_class,replication_status,url"
+        );
+
+        let root = stats.by_prefix.get("").expect("root prefix should exist");
+        assert_eq!(root.total_files, 6);
+        assert_eq!(root.total_size, 1_355_662);
+    }
+
     #[test]
     fn test_totals_counts_rows() {
         let processor = create_test_processor(&[
@@ -365,105 +389,75 @@ mod tests {
         assert_eq!(stats.total_size, 0);
     }
 
-    // prefix_stats tests
     #[test]
-    fn test_prefix_stats_groups_correctly() {
-        let processor = create_test_processor(&[
-            ("bucket", "images/a.jpg", 100),
-            ("bucket", "images/b.jpg", 200),
-            ("bucket", "docs/report.pdf", 300),
-            ("bucket", "root.txt", 50),
-            ("bucket", "another_root.txt", 25),
-        ]);
-        let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
-        let by_prefix = &stats.by_prefix;
-
-        let images = by_prefix.get("images").unwrap();
-        assert_eq!(images.total_files, 2);
-        assert_eq!(images.total_size, 300);
-
-        let docs = by_prefix.get("docs").unwrap();
-        assert_eq!(docs.total_files, 1);
-        assert_eq!(docs.total_size, 300);
-
-        let root = by_prefix.get("").unwrap();
-        assert_eq!(root.total_files, 2);
-        assert_eq!(root.total_size, 75);
+    fn test_url_decode_already_decoded() {
+        let conn = Connection::open_in_memory().unwrap();
+        let result: String = conn
+            .query_row("SELECT url_decode('normal/path/file.txt')", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(result, "normal/path/file.txt");
     }
 
     #[test]
-    fn test_prefix_stats_empty() {
+    fn test_url_decode_slash() {
+        let conn = Connection::open_in_memory().unwrap();
+        let result: String = conn
+            .query_row("SELECT url_decode('path%2Fto%2Ffile.txt')", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(result, "path/to/file.txt");
+    }
+
+    #[test]
+    fn test_url_decode_space() {
+        let conn = Connection::open_in_memory().unwrap();
+        let result: String = conn
+            .query_row("SELECT url_decode('my%20file.txt')", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(result, "my file.txt");
+    }
+
+    #[test]
+    fn test_url_decode_special_chars() {
+        let conn = Connection::open_in_memory().unwrap();
+        let result: String = conn
+            .query_row("SELECT url_decode('file%26name%3Dvalue.txt')", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(result, "file&name=value.txt");
+    }
+
+    #[test]
+    fn test_write_csv_empty() {
         let processor = create_test_processor(&[]);
-        let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
-        assert!(stats.by_prefix.is_empty());
-    }
-
-    // integration test
-    #[test]
-    fn test_full_pipeline() {
-        let (_csv, stats) = process(&["../../files/example.parquet"]).unwrap();
-
-        assert_eq!(stats.total_files, 13);
-        assert_eq!(stats.total_size, 2191162);
-
-        let by_prefix = &stats.by_prefix;
-
-        let root = by_prefix.get("").expect("root prefix should exist");
-        assert_eq!(root.total_files, 6);
-        assert_eq!(root.total_size, 1355662);
-
-        let images = by_prefix.get("images").expect("images prefix should exist");
-        assert_eq!(images.total_files, 3);
-        assert_eq!(images.total_size, 129000);
-
-        let documents = by_prefix
-            .get("documents")
-            .expect("documents prefix should exist");
-        assert_eq!(documents.total_files, 3);
-        assert_eq!(documents.total_size, 206500);
-
-        let archive = by_prefix
-            .get("archive")
-            .expect("archive prefix should exist");
-        assert_eq!(archive.total_files, 1);
-        assert_eq!(archive.total_size, 500000);
-    }
-
-    #[test]
-    fn test_full_pipeline_csv_output() {
-        let (output, _stats) = process(&["../../files/example.parquet"]).unwrap();
-
+        let mut output = Vec::new();
+        processor.write_csv_and_stats(&mut output).unwrap();
         let csv = String::from_utf8(output).unwrap();
-        let lines: Vec<&str> = csv.lines().collect();
-
-        // Header + 13 data rows
-        assert_eq!(lines.len(), 14);
-
-        assert_eq!(
-            lines[0],
-            "bucket,key,size,last_modified_date,storage_class,replication_status,url"
+        assert!(
+            csv.contains("bucket,key,size,last_modified_date,storage_class,replication_status,url")
         );
-
-        assert!(csv.contains("https://test-stack-private.s3.amazonaws.com/"));
+        assert_eq!(csv.lines().count(), 1); // header only
     }
 
     #[test]
-    fn test_process_returns_matching_csv_and_stats() {
-        let (csv, stats) = process(&["../../files/example.parquet"]).unwrap();
+    fn test_write_csv_output() {
+        let processor = create_test_processor(&[
+            ("mybucket", "file1.txt", 100),
+            ("mybucket", "file2.txt", 200),
+        ]);
+        let mut output = Vec::new();
+        processor.write_csv_and_stats(&mut output).unwrap();
+        let csv = String::from_utf8(output).unwrap();
 
-        assert_eq!(stats.total_files, 13);
-        assert_eq!(stats.total_size, 2_191_162);
-
-        let csv = String::from_utf8(csv).unwrap();
-        let lines: Vec<&str> = csv.lines().collect();
-        assert_eq!(lines.len(), 14);
-        assert_eq!(
-            lines[0],
-            "bucket,key,size,last_modified_date,storage_class,replication_status,url"
+        assert!(
+            csv.contains("bucket,key,size,last_modified_date,storage_class,replication_status,url")
         );
-
-        let root = stats.by_prefix.get("").expect("root prefix should exist");
-        assert_eq!(root.total_files, 6);
-        assert_eq!(root.total_size, 1_355_662);
+        assert!(csv.contains("mybucket,file1.txt,100,"));
+        assert!(csv.contains("mybucket,file2.txt,200,"));
+        assert!(csv.contains("https://mybucket.s3.amazonaws.com/file1.txt"));
     }
 }

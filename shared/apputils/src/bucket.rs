@@ -235,16 +235,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_type_from_tag_value() {
-        assert_eq!(Type::from_tag_value("internal"), Some(Type::Internal));
-        assert_eq!(Type::from_tag_value("public"), Some(Type::Public));
-        assert_eq!(Type::from_tag_value("replication"), Some(Type::Replication));
-        assert_eq!(Type::from_tag_value("standard"), Some(Type::Standard));
-        assert_eq!(Type::from_tag_value("unknown"), None);
-        assert_eq!(Type::from_tag_value(""), None);
-    }
-
-    #[test]
     fn test_name_new() {
         assert!(Name::new("").is_err());
 
@@ -313,39 +303,6 @@ mod tests {
     }
 
     #[test]
-    fn test_review_bucket_names() {
-        let stack = Stack::new("test-stack").unwrap();
-
-        let names = vec!["example".to_string(), "data-public".to_string()];
-
-        let result = review_bucket_names(&stack, &names).unwrap();
-
-        assert_eq!(result.len(), 2);
-
-        // First bucket pair (standard)
-        assert_eq!(result[0].source.name(), "test-stack-example");
-        assert_eq!(result[0].source.bucket_type(), &Type::Standard);
-        assert_eq!(result[0].replication.name(), "test-stack-example-repl");
-        assert_eq!(result[0].replication.bucket_type(), &Type::Replication);
-
-        // Second bucket pair (public)
-        assert_eq!(result[1].source.name(), "test-stack-data-public");
-        assert_eq!(result[1].source.bucket_type(), &Type::Public);
-        assert_eq!(result[1].replication.name(), "test-stack-data-public-repl");
-        assert_eq!(result[1].replication.bucket_type(), &Type::Replication);
-    }
-
-    #[test]
-    fn test_request_primary_bucket_standard() {
-        let stack = Stack::new("test-stack").unwrap();
-        let standard = Name::new("example").unwrap();
-
-        let result = primary_bucket(&stack, &standard).unwrap();
-        assert_eq!(result.name(), "test-stack-example");
-        assert_eq!(result.bucket_type(), &Type::Standard);
-    }
-
-    #[test]
     fn test_request_primary_bucket_public() {
         let stack = Stack::new("test-stack").unwrap();
         let public = Name::new("example-public").unwrap();
@@ -386,13 +343,13 @@ mod tests {
     }
 
     #[test]
-    fn test_request_replication_bucket_standard() {
+    fn test_request_primary_bucket_standard() {
         let stack = Stack::new("test-stack").unwrap();
         let standard = Name::new("example").unwrap();
 
-        let result = replication_bucket(&stack, &standard).unwrap();
-        assert_eq!(result.name(), "test-stack-example-repl");
-        assert_eq!(result.bucket_type(), &Type::Replication);
+        let result = primary_bucket(&stack, &standard).unwrap();
+        assert_eq!(result.name(), "test-stack-example");
+        assert_eq!(result.bucket_type(), &Type::Standard);
     }
 
     #[test]
@@ -403,5 +360,48 @@ mod tests {
         let result = replication_bucket(&stack, &public).unwrap();
         assert_eq!(result.name(), "test-stack-example-public-repl");
         assert_eq!(result.bucket_type(), &Type::Replication);
+    }
+
+    #[test]
+    fn test_request_replication_bucket_standard() {
+        let stack = Stack::new("test-stack").unwrap();
+        let standard = Name::new("example").unwrap();
+
+        let result = replication_bucket(&stack, &standard).unwrap();
+        assert_eq!(result.name(), "test-stack-example-repl");
+        assert_eq!(result.bucket_type(), &Type::Replication);
+    }
+
+    #[test]
+    fn test_review_bucket_names() {
+        let stack = Stack::new("test-stack").unwrap();
+
+        let names = vec!["example".to_string(), "data-public".to_string()];
+
+        let result = review_bucket_names(&stack, &names).unwrap();
+
+        assert_eq!(result.len(), 2);
+
+        // First bucket pair (standard)
+        assert_eq!(result[0].source.name(), "test-stack-example");
+        assert_eq!(result[0].source.bucket_type(), &Type::Standard);
+        assert_eq!(result[0].replication.name(), "test-stack-example-repl");
+        assert_eq!(result[0].replication.bucket_type(), &Type::Replication);
+
+        // Second bucket pair (public)
+        assert_eq!(result[1].source.name(), "test-stack-data-public");
+        assert_eq!(result[1].source.bucket_type(), &Type::Public);
+        assert_eq!(result[1].replication.name(), "test-stack-data-public-repl");
+        assert_eq!(result[1].replication.bucket_type(), &Type::Replication);
+    }
+
+    #[test]
+    fn test_type_from_tag_value() {
+        assert_eq!(Type::from_tag_value("internal"), Some(Type::Internal));
+        assert_eq!(Type::from_tag_value("public"), Some(Type::Public));
+        assert_eq!(Type::from_tag_value("replication"), Some(Type::Replication));
+        assert_eq!(Type::from_tag_value("standard"), Some(Type::Standard));
+        assert_eq!(Type::from_tag_value("unknown"), None);
+        assert_eq!(Type::from_tag_value(""), None);
     }
 }

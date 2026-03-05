@@ -29,8 +29,8 @@ impl StorageReport {
         }
     }
 
-    fn _to_html(&self) -> String {
-        todo!()
+    pub fn to_html(&self) -> String {
+        "<!DOCTYPE html><html><head></head><body>Work in progress ...</body></html>".to_string()
     }
 }
 

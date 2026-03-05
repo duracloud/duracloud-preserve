@@ -13,8 +13,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::new(&args.stack)?;
     let config = app::config::config(stack.clone()).await?;
 
-    println!("{:?}", stack);
+    let stats = storage_report::perform(&config).await?;
+    println!("{:?}", stats);
 
-    storage_report::perform(&config).await?;
     Ok(())
 }

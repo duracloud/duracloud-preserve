@@ -127,8 +127,11 @@ impl Stack {
     }
 
     /// Stack storage stats destination
-    pub fn metadata_storage_stats_path(&self, stack: &str, date_ctx: DateCtx) -> String {
-        format!("{METADATA_PREFIX}/{date_ctx}/storage/stats/{stack}.json")
+    pub fn metadata_storage_stats_path(&self, date_ctx: DateCtx) -> String {
+        format!(
+            "{METADATA_PREFIX}/{date_ctx}/storage/stats/{}.json",
+            self.as_str()
+        )
     }
 
     /// Replication policy name for stack
@@ -151,9 +154,9 @@ impl Stack {
         format!("{REPORTS_PREFIX}/{date_ctx}/manifests/{bucket}.csv")
     }
 
-    /// Storage report (html) destination provided for user access
-    pub fn reports_storage_path(&self, stack: &str, date_ctx: DateCtx) -> String {
-        format!("{REPORTS_PREFIX}/{date_ctx}/storage/{stack}.html")
+    /// Stack storage report (html) destination provided for user access
+    pub fn reports_storage_path(&self, date_ctx: DateCtx) -> String {
+        format!("{REPORTS_PREFIX}/{date_ctx}/storage/{}.html", self.as_str())
     }
 
     /// Request bucket name for stack
@@ -258,7 +261,7 @@ mod tests {
     fn test_metadata_storage_stats_path() {
         let stack = Stack::new("test-stack").unwrap();
         assert_eq!(
-            stack.metadata_storage_stats_path(stack.as_str(), DateCtx::Latest),
+            stack.metadata_storage_stats_path(DateCtx::Latest),
             "metadata/latest/storage/stats/test-stack.json"
         );
     }
@@ -303,7 +306,7 @@ mod tests {
     fn test_reports_storage_path() {
         let stack = Stack::new("test-stack").unwrap();
         assert_eq!(
-            stack.reports_storage_path(stack.as_str(), DateCtx::Latest),
+            stack.reports_storage_path(DateCtx::Latest),
             "reports/latest/storage/test-stack.html"
         );
     }

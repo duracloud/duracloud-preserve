@@ -1,3 +1,4 @@
+use app::perform::storage_report;
 use apputils::Stack;
 use clap::Args as ClapArgs;
 
@@ -10,7 +11,10 @@ pub struct Args {
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::new(&args.stack)?;
+    let config = app::config::config(stack.clone()).await?;
 
     println!("{:?}", stack);
+
+    storage_report::perform(&config).await?;
     Ok(())
 }

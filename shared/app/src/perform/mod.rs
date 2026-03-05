@@ -5,3 +5,4 @@ pub mod checksum_report;
 pub mod compute_checksums;
 #[cfg(feature = "duckdb")]
 pub mod inventory_report;
+pub mod storage_report;

@@ -66,7 +66,7 @@ pub async fn perform(
     for ctx in [stack::DateCtx::Latest, opts.date_ctx] {
         let csv_path = config
             .stack()
-            .reports_manifest_path(&manifest.source_bucket, ctx);
+            .reports_manifests_path(&manifest.source_bucket, ctx);
         let csv_file = File::new(&bucket, csv_path);
 
         tracing::info!("Uploading csv: {}", csv_file.s3_url());
@@ -80,7 +80,7 @@ pub async fn perform(
 
         let stats_path = config
             .stack()
-            .metadata_stats_path(&manifest.source_bucket, ctx);
+            .metadata_manifests_stats_path(&manifest.source_bucket, ctx);
         let stats_file = File::new(&bucket, stats_path);
 
         tracing::info!("Uploading stats: {}", stats_file.s3_url());
@@ -181,7 +181,7 @@ mod tests {
 
         let latest_csv_key = config
             .stack()
-            .reports_manifest_path(source_bucket, DateCtx::Latest);
+            .reports_manifests_path(source_bucket, DateCtx::Latest);
         assert!(
             csv_puts
                 .iter()
@@ -211,7 +211,7 @@ mod tests {
 
         let latest_stats_key = config
             .stack()
-            .metadata_stats_path(source_bucket, DateCtx::Latest);
+            .metadata_manifests_stats_path(source_bucket, DateCtx::Latest);
         assert!(
             stats_puts
                 .iter()

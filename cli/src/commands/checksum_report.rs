@@ -21,7 +21,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 
     let file = File::new(
         stack.managed_bucket(),
-        stack.metadata_checksums_path(&bucket, DateCtx::Latest),
+        stack.metadata_checksums_receipts_path(&bucket, DateCtx::Latest),
     );
 
     let opts = checksum_report::PerformOptions::default();

@@ -112,18 +112,23 @@ impl Stack {
 
     /// Checksums job receipt (json) destination used for checksum verification processing
     /// A valid identifier is either a source (not replication) bucket name or job id
-    pub fn metadata_checksums_path(&self, identifier: &str, date_ctx: DateCtx) -> String {
-        format!("{METADATA_PREFIX}/{date_ctx}/checksums/{identifier}.json")
+    pub fn metadata_checksums_receipts_path(&self, identifier: &str, date_ctx: DateCtx) -> String {
+        format!("{METADATA_PREFIX}/{date_ctx}/checksums/receipts/{identifier}.json")
     }
 
-    /// Checksum verification stats (json) destination
+    /// Checksum verification stats destination
     pub fn metadata_checksums_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
         format!("{METADATA_PREFIX}/{date_ctx}/checksums/stats/{bucket}.json")
     }
 
-    /// Usage stats (json) destination used to generate storage reports
-    pub fn metadata_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{METADATA_PREFIX}/{date_ctx}/stats/{bucket}.json")
+    /// Inventory (per bucket) usage stats destination
+    pub fn metadata_manifests_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
+        format!("{METADATA_PREFIX}/{date_ctx}/manifests/stats/{bucket}.json")
+    }
+
+    /// Stack storage stats destination
+    pub fn metadata_storage_stats_path(&self, stack: &str, date_ctx: DateCtx) -> String {
+        format!("{METADATA_PREFIX}/{date_ctx}/storage/stats/{stack}.json")
     }
 
     /// Replication policy name for stack
@@ -136,19 +141,19 @@ impl Stack {
         format!("{}{REPLICATION_ROLE_SUFFIX}", self.as_str())
     }
 
-    /// File manifest (csv) upload destination provided for user access
-    pub fn reports_manifest_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{REPORTS_PREFIX}/{date_ctx}/manifests/{bucket}.csv")
-    }
-
     /// Checksum verification report (csv) upload destination provided for user access
     pub fn reports_checksums_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
         format!("{REPORTS_PREFIX}/{date_ctx}/checksums/{bucket}.csv")
     }
 
+    /// File manifest (csv) upload destination provided for user access
+    pub fn reports_manifests_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
+        format!("{REPORTS_PREFIX}/{date_ctx}/manifests/{bucket}.csv")
+    }
+
     /// Storage report (html) destination provided for user access
-    pub fn reports_storage_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{REPORTS_PREFIX}/{date_ctx}/storage/{bucket}.html")
+    pub fn reports_storage_path(&self, stack: &str, date_ctx: DateCtx) -> String {
+        format!("{REPORTS_PREFIX}/{date_ctx}/storage/{stack}.html")
     }
 
     /// Request bucket name for stack
@@ -185,6 +190,162 @@ impl Name {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_batch_policy_name() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(stack.batch_policy_name(), "test-stack-s3-batch-policy");
+    }
+
+    #[test]
+    fn test_batch_reports_checksum_manifest() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.batch_reports_checksum_manifest("my-bucket", "abc123"),
+            "batch/reports/checksum/my-bucket/job-abc123/manifest.json"
+        );
+    }
+
+    #[test]
+    fn test_batch_role_name() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(stack.batch_role_name(), "test-stack-s3-batch-role");
+    }
+
+    #[test]
+    fn test_feedback_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.feedback_path("bucket-request/test.txt"),
+            "feedback/bucket-request/test.txt"
+        );
+    }
+
+    #[test]
+    fn test_managed_bucket() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(stack.managed_bucket(), "test-stack-managed");
+    }
+
+    #[test]
+    fn test_metadata_checksums_receipts_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.metadata_checksums_receipts_path("my-bucket", DateCtx::Latest),
+            "metadata/latest/checksums/receipts/my-bucket.json"
+        );
+    }
+
+    #[test]
+    fn test_metadata_checksums_stats_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.metadata_checksums_stats_path("my-bucket", DateCtx::Latest),
+            "metadata/latest/checksums/stats/my-bucket.json"
+        );
+    }
+
+    #[test]
+    fn test_metadata_manifests_stats_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.metadata_manifests_stats_path("my-bucket", DateCtx::Latest),
+            "metadata/latest/manifests/stats/my-bucket.json"
+        );
+    }
+
+    #[test]
+    fn test_metadata_storage_stats_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.metadata_storage_stats_path(stack.as_str(), DateCtx::Latest),
+            "metadata/latest/storage/stats/test-stack.json"
+        );
+    }
+
+    #[test]
+    fn test_replication_policy_name() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.replication_policy_name(),
+            "test-stack-s3-replication-policy"
+        );
+    }
+
+    #[test]
+    fn test_replication_role_name() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.replication_role_name(),
+            "test-stack-s3-replication-role"
+        );
+    }
+
+    #[test]
+    fn test_reports_checksums_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.reports_checksums_path("my-bucket", DateCtx::Latest),
+            "reports/latest/checksums/my-bucket.csv"
+        );
+    }
+
+    #[test]
+    fn test_reports_manifests_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.reports_manifests_path("my-bucket", DateCtx::Latest),
+            "reports/latest/manifests/my-bucket.csv"
+        );
+    }
+
+    #[test]
+    fn test_reports_storage_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.reports_storage_path(stack.as_str(), DateCtx::Latest),
+            "reports/latest/storage/test-stack.html"
+        );
+    }
+
+    #[test]
+    fn test_request_bucket() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(stack.request_bucket(), "test-stack-bucket-request");
+    }
+
+    #[test]
+    fn test_stack_from_bucket_name() {
+        // Valid bucket names: (input, expected_stack)
+        let valid_cases = [
+            ("test-stack-managed", "test-stack"),
+            ("test-stack-bucket-request", "test-stack"),
+            ("test-stack-example", "test-stack"),
+            ("test-stack-something-something", "test-stack"),
+            ("test-stack-something-public", "test-stack"),
+            ("test-stack-something-repl", "test-stack"),
+        ];
+
+        for (input, expected) in valid_cases {
+            assert_eq!(
+                Stack::from_bucket_name(input).unwrap().as_str(),
+                expected,
+                "failed for input: {}",
+                input
+            );
+        }
+
+        // Invalid: not enough parts
+        let invalid_cases = ["test-stack", "test", ""];
+
+        for input in invalid_cases {
+            assert!(
+                Stack::from_bucket_name(input).is_err(),
+                "expected error for input: {}",
+                input
+            );
+        }
+    }
 
     #[test]
     fn test_stack_new() {
@@ -231,134 +392,5 @@ mod tests {
         // Invalid: non-alphanumeric characters
         assert!(Stack::new("test_-stack").is_err());
         assert!(Stack::new("test-sta.ck").is_err());
-    }
-
-    #[test]
-    fn test_stack_from_bucket_name() {
-        // Valid bucket names: (input, expected_stack)
-        let valid_cases = [
-            ("test-stack-managed", "test-stack"),
-            ("test-stack-bucket-request", "test-stack"),
-            ("test-stack-example", "test-stack"),
-            ("test-stack-something-something", "test-stack"),
-            ("test-stack-something-public", "test-stack"),
-            ("test-stack-something-repl", "test-stack"),
-        ];
-
-        for (input, expected) in valid_cases {
-            assert_eq!(
-                Stack::from_bucket_name(input).unwrap().as_str(),
-                expected,
-                "failed for input: {}",
-                input
-            );
-        }
-
-        // Invalid: not enough parts
-        let invalid_cases = ["test-stack", "test", ""];
-
-        for input in invalid_cases {
-            assert!(
-                Stack::from_bucket_name(input).is_err(),
-                "expected error for input: {}",
-                input
-            );
-        }
-    }
-
-    #[test]
-    fn test_batch_policy_name() {
-        let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(stack.batch_policy_name(), "test-stack-s3-batch-policy");
-    }
-
-    #[test]
-    fn test_batch_role_name() {
-        let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(stack.batch_role_name(), "test-stack-s3-batch-role");
-    }
-
-    #[test]
-    fn test_managed_bucket_name() {
-        let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(stack.managed_bucket(), "test-stack-managed");
-    }
-
-    #[test]
-    fn test_replication_policy_name() {
-        let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.replication_policy_name(),
-            "test-stack-s3-replication-policy"
-        );
-    }
-
-    #[test]
-    fn test_replication_role_name() {
-        let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.replication_role_name(),
-            "test-stack-s3-replication-role"
-        );
-    }
-
-    #[test]
-    fn test_request_bucket_name() {
-        let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(stack.request_bucket(), "test-stack-bucket-request");
-    }
-
-    #[test]
-    fn test_reports_manifest_path() {
-        let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.reports_manifest_path("my-bucket", DateCtx::Latest),
-            "reports/latest/manifests/my-bucket.csv"
-        );
-    }
-
-    #[test]
-    fn test_reports_stats_path() {
-        let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.metadata_stats_path("my-bucket", DateCtx::Latest),
-            "metadata/latest/stats/my-bucket.json"
-        );
-    }
-
-    #[test]
-    fn test_metadata_checksums_stats_path() {
-        let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.metadata_checksums_stats_path("my-bucket", DateCtx::Latest),
-            "metadata/latest/checksums/stats/my-bucket.json"
-        );
-    }
-
-    #[test]
-    fn test_reports_storage_path() {
-        let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.reports_storage_path("my-bucket", DateCtx::Latest),
-            "reports/latest/storage/my-bucket.html"
-        );
-    }
-
-    #[test]
-    fn test_reports_checksums_path() {
-        let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.reports_checksums_path("my-bucket", DateCtx::Latest),
-            "reports/latest/checksums/my-bucket.csv"
-        );
-    }
-
-    #[test]
-    fn test_feedback_path() {
-        let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.feedback_path("bucket-request/test.txt"),
-            "feedback/bucket-request/test.txt"
-        );
     }
 }

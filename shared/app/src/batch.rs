@@ -145,10 +145,10 @@ pub async fn trigger_checksum_job(
 
     let stack = config.stack();
     let paths = vec![
-        stack.metadata_checksums_path(&source_result, DateCtx::Latest),
-        stack.metadata_checksums_path(&replication_result, DateCtx::Latest),
-        stack.metadata_checksums_path(source.name(), DateCtx::Latest),
-        stack.metadata_checksums_path(source.name(), DateCtx::Today),
+        stack.metadata_checksums_receipts_path(&source_result, DateCtx::Latest),
+        stack.metadata_checksums_receipts_path(&replication_result, DateCtx::Latest),
+        stack.metadata_checksums_receipts_path(source.name(), DateCtx::Latest),
+        stack.metadata_checksums_receipts_path(source.name(), DateCtx::Today),
     ];
 
     tracing::info!("Uploading receipt: {:?}", receipt);

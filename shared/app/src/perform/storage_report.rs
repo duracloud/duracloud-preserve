@@ -22,7 +22,7 @@ pub async fn perform(config: &Config) -> Result<(), RequestError> {
 
         let stats_path = config
             .stack()
-            .metadata_stats_path(&bucket_name, stack::DateCtx::Latest);
+            .metadata_manifests_stats_path(&bucket_name, stack::DateCtx::Latest);
 
         let stats = download_bytes(
             config.s3(),

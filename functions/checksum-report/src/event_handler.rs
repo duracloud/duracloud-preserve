@@ -57,7 +57,7 @@ pub(crate) async fn function_handler(
         config.stack().managed_bucket(),
         config
             .stack()
-            .metadata_checksums_path(&job.job_id, apputils::stack::DateCtx::Latest),
+            .metadata_checksums_receipts_path(&job.job_id, apputils::stack::DateCtx::Latest),
     );
 
     if !file::exists(config.s3(), &receipt_file).await {

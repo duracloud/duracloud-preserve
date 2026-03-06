@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Storage Report - {{ stack_name }}</title>
+    <style>
+      :root {
+        --bg: #f5f8fb;
+        --surface: #ffffff;
+        --line: #d8e2ec;
+        --text: #11263a;
+        --muted: #4a6177;
+        --accent: #0f7c86;
+        --accent2: #f28c3a;
+        --accent3: #3266a8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(80rem 30rem at -15% -25%, #ddf2ff 0%, transparent 60%),
+          radial-gradient(70rem 26rem at 115% -20%, #ffe8d6 0%, transparent 55%),
+          var(--bg);
+      }
+
+      .container {
+        max-width: 1160px;
+        margin: 0 auto;
+        padding: 1.5rem 1rem 3rem;
+      }
+
+      .hero {
+        background: linear-gradient(120deg, #0f7c86, #1a5ba2 70%);
+        color: #ffffff;
+        border-radius: 14px;
+        padding: 1.2rem;
+        box-shadow: 0 12px 24px rgba(26, 91, 162, 0.22);
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-size: 1.55rem;
+      }
+
+      .hero p {
+        margin: 0.45rem 0 0;
+        color: rgba(255, 255, 255, 0.92);
+      }
+
+      .kpis {
+        margin-top: 1rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.7rem;
+      }
+
+      .kpi {
+        background: rgba(255, 255, 255, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
+        padding: 0.65rem;
+      }
+
+      .kpi .label {
+        font-size: 0.8rem;
+        opacity: 0.95;
+      }
+
+      .kpi .value {
+        margin-top: 0.2rem;
+        font-size: 1.06rem;
+        font-weight: 700;
+      }
+
+      .section {
+        margin-top: 1rem;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 1rem;
+      }
+
+      .section h2 {
+        margin: 0 0 0.75rem;
+        font-size: 1.1rem;
+      }
+
+      .empty {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .charts {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.92rem;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 0.55rem;
+        text-align: left;
+      }
+
+      th {
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .num {
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      details {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        margin-top: 0.7rem;
+        padding: 0.6rem;
+      }
+
+      summary {
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .pill {
+        margin-left: 0.45rem;
+        display: inline-block;
+        padding: 0.15rem 0.45rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        color: #0b4f57;
+        background: #e8f6f8;
+      }
+
+      @media (max-width: 720px) {
+        .hero h1 {
+          font-size: 1.35rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <section class="hero">
+        <h1>Storage Report</h1>
+        <p>Stack: {{ stack_name }}</p>
+        <p>Generated: {{ generated_at }}</p>
+        <div class="kpis">
+          <article class="kpi">
+            <div class="label">Total Buckets</div>
+            <div class="value">{{ bucket_count }}</div>
+          </article>
+          <article class="kpi">
+            <div class="label">Total Files</div>
+            <div class="value">{{ total_files }}</div>
+          </article>
+          <article class="kpi">
+            <div class="label">Total Size</div>
+            <div class="value">{{ total_size_formatted }}</div>
+          </article>
+          <article class="kpi">
+            <div class="label">Total Prefixes</div>
+            <div class="value">{{ prefix_count }}</div>
+          </article>
+          {% if has_capacity %}
+          <article class="kpi">
+            <div class="label">Capacity Used</div>
+            <div class="value">{{ capacity_used_pct }}</div>
+          </article>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>1. Big Picture</h2>
+        <div class="charts">
+          <div>
+            <canvas id="bucketSizeChart" aria-label="Bucket size chart"></canvas>
+          </div>
+          <div>
+            <canvas id="bucketFilesChart" aria-label="Bucket files chart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>2. Per-Bucket Rundown</h2>
+        {% if bucket_count == 0 %}
+        <p class="empty">No bucket stats available.</p>
+        {% else %}
+        <table>
+          <thead>
+            <tr>
+              <th>Bucket</th>
+              <th class="num">Files</th>
+              <th class="num">Size</th>
+              <th class="num">% Total Size</th>
+              <th class="num">% Total Files</th>
+              <th class="num">Prefixes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for bucket in buckets %}
+            <tr>
+              <td>{{ bucket.name }}</td>
+              <td class="num">{{ bucket.total_files }}</td>
+              <td class="num">{{ bucket.total_size_formatted }}</td>
+              <td class="num">{{ bucket.pct_total_size }}</td>
+              <td class="num">{{ bucket.pct_total_files }}</td>
+              <td class="num">{{ bucket.prefix_count }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+      </section>
+
+      <section class="section">
+        <h2>3. Per-Bucket / Per-Prefix</h2>
+        {% if bucket_count == 0 %}
+        <p class="empty">No prefix stats available.</p>
+        {% else %}
+        {% for bucket in buckets %}
+        <details>
+          <summary>
+            {{ bucket.name }}
+            <span class="pill">{{ bucket.prefix_count }} prefixes</span>
+          </summary>
+          {% if bucket.prefix_count == 0 %}
+          <p class="empty">No prefixes found for this bucket.</p>
+          {% else %}
+          <table>
+            <thead>
+              <tr>
+                <th>Prefix</th>
+                <th class="num">Files</th>
+                <th class="num">Size</th>
+                <th class="num">% Bucket Size</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for prefix in bucket.prefixes %}
+              <tr>
+                <td>{{ prefix.name }}</td>
+                <td class="num">{{ prefix.total_files }}</td>
+                <td class="num">{{ prefix.total_size_formatted }}</td>
+                <td class="num">{{ prefix.pct_bucket_size }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% endif %}
+        </details>
+        {% endfor %}
+        {% endif %}
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      const sizePayload = {{ chart_size_json|safe }};
+      const filesPayload = {{ chart_files_json|safe }};
+
+      function palette(count) {
+        const colors = [
+          "#0f7c86", "#1a5ba2", "#f28c3a", "#3f8f5f", "#7c5ac1",
+          "#d95f5f", "#248f8f", "#a66d39", "#4f6ea8", "#a85f86"
+        ];
+
+        if (count <= colors.length) {
+          return colors.slice(0, count);
+        }
+
+        const generated = [];
+        for (let i = 0; i < count; i++) {
+          const hue = Math.round((360 / count) * i);
+          generated.push(`hsl(${hue} 60% 50%)`);
+        }
+        return generated;
+      }
+
+      function renderDonut(canvasId, title, payload) {
+        const node = document.getElementById(canvasId);
+        if (!node || !window.Chart || !payload || !payload.labels || payload.labels.length === 0) {
+          return;
+        }
+
+        new Chart(node, {
+          type: "doughnut",
+          data: {
+            labels: payload.labels,
+            datasets: [{
+              data: payload.values,
+              backgroundColor: palette(payload.labels.length),
+            }],
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              title: { display: true, text: title },
+              legend: { position: "bottom" },
+            },
+          },
+        });
+      }
+
+      renderDonut("bucketSizeChart", "Bucket Size Distribution", sizePayload);
+      renderDonut("bucketFilesChart", "Bucket File Distribution", filesPayload);
+    </script>
+  </body>
+</html>

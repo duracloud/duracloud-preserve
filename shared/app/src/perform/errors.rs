@@ -65,6 +65,8 @@ pub enum StorageReportError {
         #[source]
         source: serde_json::Error,
     },
+    #[error("failed to render storage report HTML: {0}")]
+    Render(#[source] askama::Error),
     #[error("failed to upload file: {0}")]
     UploadError(#[source] RequestError),
 }

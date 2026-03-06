@@ -5,17 +5,26 @@ use apputils::{
     content_type::{APPLICATION_JSON, TEXT_HTML},
     stack,
     stats::InventoryStats,
-    storage::StorageReport,
+    storage::{StorageReport, StorageReportMeta},
 };
 use aws_sdk_s3::primitives::ByteStream;
 use awsutils::file::{self, File, download_bytes};
 use bytes::Bytes;
+use chrono::Utc;
 
 use crate::{
     bucket::get_stack_buckets_by_type, config::Config, perform::errors::StorageReportError,
 };
 
-pub async fn perform(config: &Config) -> Result<StorageReport, StorageReportError> {
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PerformOptions {
+    pub storage_capacity_bytes: Option<u64>,
+}
+
+pub async fn perform(
+    config: &Config,
+    opts: &PerformOptions,
+) -> Result<StorageReport, StorageReportError> {
     let buckets =
         get_stack_buckets_by_type(config.s3(), config.stack(), &[Type::Public, Type::Standard])
             .await
@@ -53,9 +62,18 @@ pub async fn perform(config: &Config) -> Result<StorageReport, StorageReportErro
 
     let storage_report = StorageReport::from_inventory(bucket_stats);
     let managed_bucket = config.stack().managed_bucket();
+    let meta = StorageReportMeta {
+        stack_name: config.stack().as_str().to_string(),
+        generated_at: Utc::now().format("%m/%d/%Y %H:%M:%S UTC").to_string(),
+        storage_capacity_bytes: opts.storage_capacity_bytes,
+    };
 
     let stats_bytes = Bytes::from(serde_json::to_vec(&storage_report)?);
-    let html_bytes = Bytes::from(storage_report.to_html());
+    let html_bytes = Bytes::from(
+        storage_report
+            .to_html(meta)
+            .map_err(StorageReportError::Render)?,
+    );
 
     for ctx in [stack::DateCtx::Latest, stack::DateCtx::Today] {
         let html_path = config.stack().reports_storage_path(ctx);

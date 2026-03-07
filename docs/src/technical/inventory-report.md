@@ -52,8 +52,8 @@ stack name appears for bucket name in the inventory parquet files.
 
 When run successfully there should be four generated files:
 
-- `metadata/latest/stats/$bucket.csv`
-- `metadata/YYYY-MM-DD/stats/$bucket.csv`
+- `metadata/latest/manifests/stats/$bucket.csv`
+- `metadata/YYYY-MM-DD/manifests/stats/$bucket.csv`
 - `reports/latest/manifests/$bucket.csv`
 - `reports/YYYY-MM-DD/manifests/$bucket.csv`
 

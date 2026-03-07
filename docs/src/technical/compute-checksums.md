@@ -36,10 +36,10 @@ This will trigger jobs for `ALL` stack buckets.
 
 For each bucket pair processed a single job "receipt" is uploaded to these locations:
 
-- `metadata/latest/checksums/{source_job_id}.json`
-- `metadata/latest/checksums/{repl_job_id}.json`
-- `metadata/latest/checksums/{source_bucket_name}.json`
-- `metadata/{date}/checksums/{source_bucket_name}.json`
+- `metadata/latest/checksums/receipts/{source_job_id}.json`
+- `metadata/latest/checksums/receipts/{repl_job_id}.json`
+- `metadata/latest/checksums/receipts/{source_bucket_name}.json`
+- `metadata/{date}/checksums/receipts/{source_bucket_name}.json`
 
 The receipt is the same content uploaded multiple times for discovery (job ids are used by the Lambda checksum report process, bucket names for the CLI checksum report and for easier access in general).
 

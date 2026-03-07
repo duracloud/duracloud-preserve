@@ -1,6 +1,7 @@
 use apputils::Stack;
 
 use crate::bucket::RequestError;
+use crate::errors::S3ResultExt;
 use aws_sdk_s3::{
     Client,
     error::SdkError,
@@ -16,7 +17,7 @@ pub async fn delete(client: &Client, file: &File) -> Result<(), RequestError> {
         .key(&file.object)
         .send()
         .await
-        .map_err(|e| RequestError::S3Error(format!("failed to delete file: {}", e)))?;
+        .s3_err("failed to delete file")?;
 
     Ok(())
 }
@@ -38,13 +39,13 @@ pub async fn download(
 pub async fn download_bytes(client: &Client, file: &File) -> Result<bytes::Bytes, RequestError> {
     let response = download(client, file)
         .await
-        .map_err(|e| RequestError::S3Error(format!("failed to download file: {}", e)))?;
+        .s3_err("failed to download file")?;
 
     response
         .body
         .collect()
         .await
-        .map_err(|e| RequestError::S3Error(format!("failed to read body: {}", e)))
+        .s3_err("failed to read body")
         .map(|data| data.into_bytes())
 }
 
@@ -118,7 +119,7 @@ pub async fn upload(
         .content_type(content_type)
         .send()
         .await
-        .map_err(|e| RequestError::S3Error(format!("failed to upload file: {}", e)))?;
+        .s3_err("failed to upload file")?;
 
     Ok(())
 }

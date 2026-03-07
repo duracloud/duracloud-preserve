@@ -38,13 +38,13 @@ pub enum ComputeChecksumsError {
 #[derive(Debug, Error)]
 pub enum ChecksumReportError {
     #[error("failed to download checksum receipt: {0}")]
-    ReceiptDownload(#[source] RequestError),
+    ReceiptDownload(#[from] RequestError),
     #[error("failed to parse checksum receipt: {0}")]
-    ReceiptParse(#[source] serde_json::Error),
+    ReceiptParse(#[from] serde_json::Error),
     #[error("failed to resolve batch manifests: {0}")]
-    BatchStatus(#[source] BatchStatusError),
+    BatchStatus(#[from] BatchStatusError),
     #[error("failed to process checksum report: {0}")]
-    Processing(#[source] checksum::ChecksumError),
+    Processing(#[from] checksum::ChecksumError),
 }
 
 #[derive(Debug, Error)]
@@ -66,7 +66,7 @@ pub enum StorageReportError {
         source: serde_json::Error,
     },
     #[error("failed to render storage report HTML: {0}")]
-    Render(#[source] askama::Error),
+    Render(#[from] askama::Error),
     #[error("failed to upload file: {0}")]
     UploadError(#[source] RequestError),
 }

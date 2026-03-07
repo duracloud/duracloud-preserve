@@ -40,26 +40,24 @@ pub async fn perform(
 ) -> Result<VerificationStats, ChecksumReportError> {
     tracing::info!("Retrieving job receipt from S3: {}", job_file.s3_url());
 
-    let bytes = file::download_bytes(config.s3(), job_file)
-        .await
-        .map_err(ChecksumReportError::ReceiptDownload)?;
-    let receipt: ChecksumJobReceipt =
-        serde_json::from_slice(&bytes).map_err(ChecksumReportError::ReceiptParse)?;
+    let bytes = file::download_bytes(config.s3(), job_file).await?;
+    let receipt: ChecksumJobReceipt = serde_json::from_slice(&bytes)?;
     let source_bucket = receipt.source_bucket.clone();
 
     let Some(ready_manifests) = resolve_ready_manifests(config, &receipt).await? else {
         return Ok(checksum::empty_stats());
     };
 
-    process_and_upload(
+    let stats = process_and_upload(
         config,
         &source_bucket,
         ready_manifests.source_results,
         ready_manifests.replication_results,
         opts,
     )
-    .await
-    .map_err(ChecksumReportError::Processing)
+    .await?;
+
+    Ok(stats)
 }
 
 async fn resolve_ready_manifests(
@@ -67,9 +65,7 @@ async fn resolve_ready_manifests(
     receipt: &ChecksumJobReceipt,
 ) -> Result<Option<ReadyManifests>, ChecksumReportError> {
     let Some(source) =
-        get_manifest_if_ready(config, &receipt.source_bucket, &receipt.source_job_id)
-            .await
-            .map_err(ChecksumReportError::BatchStatus)?
+        get_manifest_if_ready(config, &receipt.source_bucket, &receipt.source_job_id).await?
     else {
         tracing::info!("Source job {} not ready yet", receipt.source_job_id);
         return Ok(None);
@@ -77,9 +73,8 @@ async fn resolve_ready_manifests(
 
     tracing::info!("Source job file found: {:?}", &source);
 
-    let Some(repl) = get_manifest_if_ready(config, &receipt.repl_bucket, &receipt.repl_job_id)
-        .await
-        .map_err(ChecksumReportError::BatchStatus)?
+    let Some(repl) =
+        get_manifest_if_ready(config, &receipt.repl_bucket, &receipt.repl_job_id).await?
     else {
         tracing::info!("Replication job {} not ready yet", receipt.repl_job_id);
         return Ok(None);

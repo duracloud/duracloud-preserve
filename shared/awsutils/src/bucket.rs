@@ -10,6 +10,7 @@ use aws_sdk_s3::Client;
 use tokio::io::AsyncBufReadExt;
 
 pub use crate::errors::RequestError;
+use crate::errors::S3ResultExt;
 use crate::file::{File, download};
 
 /// Delete an empty bucket.
@@ -19,7 +20,7 @@ pub async fn delete(client: &Client, bucket: &str) -> Result<(), RequestError> {
         .bucket(bucket)
         .send()
         .await
-        .map_err(|e| RequestError::S3Error(format!("failed to delete bucket {}: {}", bucket, e)))?;
+        .s3_err(format!("failed to delete bucket {bucket}"))?;
 
     Ok(())
 }
@@ -35,7 +36,7 @@ pub async fn empty(client: &Client, bucket: &str) -> Result<(), RequestError> {
             .max_keys(1000)
             .send()
             .await
-            .map_err(|e| RequestError::S3Error(format!("failed to list versions: {}", e)))?;
+            .s3_err("failed to list versions")?;
 
         let mut objects_to_delete = Vec::new();
 
@@ -46,9 +47,7 @@ pub async fn empty(client: &Client, bucket: &str) -> Result<(), RequestError> {
                         .key(key)
                         .version_id(version_id)
                         .build()
-                        .map_err(|e| {
-                            RequestError::S3Error(format!("failed to build object id: {}", e))
-                        })?,
+                        .s3_err("failed to build object id")?,
                 );
             }
         }
@@ -60,9 +59,7 @@ pub async fn empty(client: &Client, bucket: &str) -> Result<(), RequestError> {
                         .key(key)
                         .version_id(version_id)
                         .build()
-                        .map_err(|e| {
-                            RequestError::S3Error(format!("failed to build object id: {}", e))
-                        })?,
+                        .s3_err("failed to build object id")?,
                 );
             }
         }
@@ -78,11 +75,11 @@ pub async fn empty(client: &Client, bucket: &str) -> Result<(), RequestError> {
                 Delete::builder()
                     .set_objects(Some(objects_to_delete))
                     .build()
-                    .map_err(|e| RequestError::S3Error(format!("failed to build delete: {}", e)))?,
+                    .s3_err("failed to build delete")?,
             )
             .send()
             .await
-            .map_err(|e| RequestError::S3Error(format!("failed to delete objects: {}", e)))?;
+            .s3_err("failed to delete objects")?;
     }
 
     Ok(())

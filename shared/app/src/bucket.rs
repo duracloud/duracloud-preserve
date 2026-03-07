@@ -11,6 +11,7 @@ use awsutils::{
     bucket_creator::{
         BUCKET_TAG_ORIGIN_KEY, BUCKET_TAG_ORIGIN_VAL, BucketCreator, BucketCreatorParams,
     },
+    errors::S3ResultExt,
 };
 
 use crate::config::Config;
@@ -159,7 +160,7 @@ pub async fn get_stack_buckets(
         .list_buckets()
         .send()
         .await
-        .map_err(|e| RequestError::S3Error(format!("failed to list buckets: {}", e)))?;
+        .s3_err("failed to list buckets")?;
 
     for bucket in response.buckets() {
         let Some(name) = bucket.name() else {

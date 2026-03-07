@@ -15,6 +15,7 @@ use apputils::Stack;
 
 use crate::bucket::{BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, RequestError, Type};
 use crate::config::get_region;
+use crate::errors::S3ResultExt;
 
 pub const BUCKET_TAG_ORIGIN_KEY: &str = "BucketOrigin";
 pub const BUCKET_TAG_ORIGIN_VAL: &str = "bucket-request";
@@ -139,9 +140,7 @@ impl<'a> BucketCreator<'a> {
             .bucket(bucket_name)
             .send()
             .await
-            .map_err(|e| {
-                RequestError::S3Error(format!("failed to create bucket {} ({:?})", bucket_name, e))
-            })?;
+            .s3_err(format!("failed to create bucket {bucket_name}"))?;
 
         Ok(())
     }
@@ -154,9 +153,7 @@ impl<'a> BucketCreator<'a> {
             .bucket(bucket_name)
             .send()
             .await
-            .map_err(|e| {
-                RequestError::S3Error(format!("failed to delete bucket {} ({:?})", bucket_name, e))
-            })?;
+            .s3_err(format!("failed to delete bucket {bucket_name}"))?;
 
         Ok(())
     }
@@ -220,12 +217,9 @@ impl<'a> BucketCreator<'a> {
             .policy(policy.to_string())
             .send()
             .await
-            .map_err(|e| {
-                RequestError::S3Error(format!(
-                    "failed to apply deny upload policy to {} ({:?})",
-                    bucket_name, e
-                ))
-            })?;
+            .s3_err(format!(
+                "failed to apply deny upload policy to {bucket_name}"
+            ))?;
 
         Ok(())
     }
@@ -256,9 +250,7 @@ impl<'a> BucketCreator<'a> {
                     .build(),
             )
             .build()
-            .map_err(|e| {
-                RequestError::S3Error(format!("failed to build expiration rule: {:?}", e))
-            })?;
+            .s3_err("failed to build expiration rule")?;
 
         let transition = LifecycleRule::builder()
             .id(transition_class.as_str())
@@ -271,9 +263,7 @@ impl<'a> BucketCreator<'a> {
                     .build(),
             )
             .build()
-            .map_err(|e| {
-                RequestError::S3Error(format!("failed to build transition rule: {:?}", e))
-            })?;
+            .s3_err("failed to build transition rule")?;
 
         let rules = vec![expiration, transition];
 
@@ -284,21 +274,11 @@ impl<'a> BucketCreator<'a> {
                 BucketLifecycleConfiguration::builder()
                     .set_rules(Some(rules))
                     .build()
-                    .map_err(|e| {
-                        RequestError::S3Error(format!(
-                            "failed to build lifecycle configuration: {:?}",
-                            e
-                        ))
-                    })?,
+                    .s3_err("failed to build lifecycle configuration")?,
             )
             .send()
             .await
-            .map_err(|e| {
-                RequestError::S3Error(format!(
-                    "failed to apply lifecycle policy {} ({:?})",
-                    bucket_name, e
-                ))
-            })?;
+            .s3_err(format!("failed to apply lifecycle policy {bucket_name}"))?;
 
         Ok(())
     }
@@ -323,12 +303,9 @@ impl<'a> BucketCreator<'a> {
             .policy(policy.to_string())
             .send()
             .await
-            .map_err(|e| {
-                RequestError::S3Error(format!(
-                    "failed to apply public access policy to {bucket_name} ({:?})",
-                    e
-                ))
-            })?;
+            .s3_err(format!(
+                "failed to apply public access policy to {bucket_name}"
+            ))?;
 
         Ok(())
     }
@@ -347,23 +324,13 @@ impl<'a> BucketCreator<'a> {
                             .target_bucket(dest_bucket)
                             .target_prefix(format!("{LOGGING_PREFIX}/{bucket_name}/"))
                             .build()
-                            .map_err(|e| {
-                                RequestError::S3Error(format!(
-                                    "failed to build logging config: {:?}",
-                                    e
-                                ))
-                            })?,
+                            .s3_err("failed to build logging config")?,
                     )
                     .build(),
             )
             .send()
             .await
-            .map_err(|e| {
-                RequestError::S3Error(format!(
-                    "failed to enable logging on {bucket_name} ({:?})",
-                    e
-                ))
-            })?;
+            .s3_err(format!("failed to enable logging on {bucket_name}"))?;
 
         Ok(())
     }
@@ -385,12 +352,7 @@ impl<'a> BucketCreator<'a> {
                         InventorySchedule::builder()
                             .frequency(InventoryFrequency::Daily)
                             .build()
-                            .map_err(|e| {
-                                RequestError::S3Error(format!(
-                                    "failed to build inventory schedule: {:?}",
-                                    e
-                                ))
-                            })?,
+                            .s3_err("failed to build inventory schedule")?,
                     )
                     .destination(
                         InventoryDestination::builder()
@@ -401,12 +363,7 @@ impl<'a> BucketCreator<'a> {
                                     .format(INVENTORY_FORMAT)
                                     .prefix(INVENTORY_PREFIX)
                                     .build()
-                                    .map_err(|e| {
-                                        RequestError::S3Error(format!(
-                                            "failed to build inventory destination: {:?}",
-                                            e
-                                        ))
-                                    })?,
+                                    .s3_err("failed to build inventory destination")?,
                             )
                             .build(),
                     )
@@ -415,21 +372,11 @@ impl<'a> BucketCreator<'a> {
                     .optional_fields(InventoryOptionalField::StorageClass)
                     .optional_fields(InventoryOptionalField::ReplicationStatus)
                     .build()
-                    .map_err(|e| {
-                        RequestError::S3Error(format!(
-                            "failed to build inventory configuration: {:?}",
-                            e
-                        ))
-                    })?,
+                    .s3_err("failed to build inventory configuration")?,
             )
             .send()
             .await
-            .map_err(|e| {
-                RequestError::S3Error(format!(
-                    "failed to enable inventory on {bucket_name} ({:?})",
-                    e
-                ))
-            })?;
+            .s3_err(format!("failed to enable inventory on {bucket_name}"))?;
 
         Ok(())
     }
@@ -447,12 +394,7 @@ impl<'a> BucketCreator<'a> {
             )
             .send()
             .await
-            .map_err(|e| {
-                RequestError::S3Error(format!(
-                    "failed to enable notifications on {bucket_name} ({:?})",
-                    e
-                ))
-            })?;
+            .s3_err(format!("failed to enable notifications on {bucket_name}"))?;
 
         Ok(())
     }
@@ -473,12 +415,7 @@ impl<'a> BucketCreator<'a> {
             )
             .send()
             .await
-            .map_err(|e| {
-                RequestError::S3Error(format!(
-                    "failed to enable public access on {bucket_name} ({:?})",
-                    e
-                ))
-            })?;
+            .s3_err(format!("failed to enable public access on {bucket_name}"))?;
 
         Ok(())
     }
@@ -509,12 +446,7 @@ impl<'a> BucketCreator<'a> {
                                                 ReplicationTimeValue::builder().minutes(15).build(),
                                             )
                                             .build()
-                                            .map_err(|e| {
-                                                RequestError::S3Error(format!(
-                                                    "failed to build replication time: {:?}",
-                                                    e
-                                                ))
-                                            })?,
+                                            .s3_err("failed to build replication time")?,
                                     )
                                     .metrics(
                                         Metrics::builder()
@@ -523,20 +455,10 @@ impl<'a> BucketCreator<'a> {
                                                 ReplicationTimeValue::builder().minutes(15).build(),
                                             )
                                             .build()
-                                            .map_err(|e| {
-                                                RequestError::S3Error(format!(
-                                                    "failed to build replication metrics: {:?}",
-                                                    e
-                                                ))
-                                            })?,
+                                            .s3_err("failed to build replication metrics")?,
                                     )
                                     .build()
-                                    .map_err(|e| {
-                                        RequestError::S3Error(format!(
-                                            "failed to build replication destination: {:?}",
-                                            e
-                                        ))
-                                    })?,
+                                    .s3_err("failed to build replication destination")?,
                             )
                             .delete_marker_replication(
                                 DeleteMarkerReplication::builder()
@@ -544,28 +466,16 @@ impl<'a> BucketCreator<'a> {
                                     .build(),
                             )
                             .build()
-                            .map_err(|e| {
-                                RequestError::S3Error(format!(
-                                    "failed to build replication rule: {:?}",
-                                    e
-                                ))
-                            })?,
+                            .s3_err("failed to build replication rule")?,
                     )
                     .build()
-                    .map_err(|e| {
-                        RequestError::S3Error(format!(
-                            "failed to build replication configuration: {:?}",
-                            e
-                        ))
-                    })?,
+                    .s3_err("failed to build replication configuration")?,
             )
             .send()
             .await
-            .map_err(|e| {
-                RequestError::S3Error(format!(
-                    "failed to enable replication from {src_bucket_name} to {repl_bucket_name} ({:?})", e
-                ))
-            })?;
+            .s3_err(format!(
+                "failed to enable replication from {src_bucket_name} to {repl_bucket_name}"
+            ))?;
 
         Ok(())
     }
@@ -583,12 +493,7 @@ impl<'a> BucketCreator<'a> {
             )
             .send()
             .await
-            .map_err(|e| {
-                RequestError::S3Error(format!(
-                    "failed to enable versioning on {bucket_name} ({:?})",
-                    e
-                ))
-            })?;
+            .s3_err(format!("failed to enable versioning on {bucket_name}"))?;
 
         Ok(())
     }
@@ -601,12 +506,9 @@ impl<'a> BucketCreator<'a> {
             .bucket(bucket_name)
             .send()
             .await
-            .map_err(|e| {
-                RequestError::S3Error(format!(
-                    "failed to remove deny upload policy from {bucket_name} ({:?})",
-                    e
-                ))
-            })?;
+            .s3_err(format!(
+                "failed to remove deny upload policy from {bucket_name}"
+            ))?;
 
         Ok(())
     }

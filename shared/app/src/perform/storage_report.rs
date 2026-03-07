@@ -69,11 +69,7 @@ pub async fn perform(
     };
 
     let stats_bytes = Bytes::from(serde_json::to_vec(&storage_report)?);
-    let html_bytes = Bytes::from(
-        storage_report
-            .to_html(meta)
-            .map_err(StorageReportError::Render)?,
-    );
+    let html_bytes = Bytes::from(storage_report.to_html(meta)?);
 
     for ctx in [stack::DateCtx::Latest, stack::DateCtx::Today] {
         let html_path = config.stack().reports_storage_path(ctx);

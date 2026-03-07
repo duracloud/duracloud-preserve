@@ -105,6 +105,11 @@ resource "aws_iam_role_policy" "role_access" {
           aws_iam_role.batch.arn,
           aws_iam_role.replication.arn,
         ]
+      },
+      {
+        Effect   = "Allow"
+        Action   = "ssm:GetParameter"
+        Resource = aws_ssm_parameter.storage_capacity.arn
       }
     ]
   })

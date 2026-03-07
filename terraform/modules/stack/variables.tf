@@ -48,3 +48,17 @@ variable "stack" {
     error_message = "Stack name must be two lowercase alphanumeric parts separated by a hyphen (e.g. 'digipress-dev1')."
   }
 }
+
+variable "storage_capacity" {
+  description = "Storage capacity limit for usage reports (this is an indicator only, it is not enforced)"
+  type        = number
+  default     = 0
+
+  validation {
+    condition = (
+      var.storage_capacity >= 0 &&
+      floor(var.storage_capacity) == var.storage_capacity
+    )
+    error_message = "Storage capacity must be a whole number greater than or equal to 0 bytes"
+  }
+}

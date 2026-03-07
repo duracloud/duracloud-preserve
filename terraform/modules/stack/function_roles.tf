@@ -1,6 +1,6 @@
 # Batch Operations Role - used for S3 Batch Operations jobs
 resource "aws_iam_role" "batch" {
-  name = "${local.stack}-s3-batch-role"
+  name = local.batch_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -11,11 +11,11 @@ resource "aws_iam_role" "batch" {
     }]
   })
 
-  tags = { Name = "${local.stack}-s3-batch-role" }
+  tags = { Name = local.batch_role_name }
 }
 
 resource "aws_iam_role_policy" "batch" {
-  name = "${local.stack}-s3-batch-policy"
+  name = "${local.batch_role_name}-policy"
   role = aws_iam_role.batch.id
 
   policy = jsonencode({
@@ -61,7 +61,7 @@ resource "aws_iam_role_policy" "batch" {
 
 # Replication Role - used for S3 same/cross-region replication
 resource "aws_iam_role" "replication" {
-  name = "${local.stack}-s3-replication-role"
+  name = local.replication_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -72,11 +72,11 @@ resource "aws_iam_role" "replication" {
     }]
   })
 
-  tags = { Name = "${local.stack}-s3-replication-role" }
+  tags = { Name = local.replication_role_name }
 }
 
 resource "aws_iam_role_policy" "replication" {
-  name = "${local.stack}-s3-replication-policy"
+  name = "${local.replication_role_name}-policy"
   role = aws_iam_role.replication.id
 
   policy = jsonencode({

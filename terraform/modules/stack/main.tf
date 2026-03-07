@@ -13,13 +13,19 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 locals {
-  account_id = data.aws_caller_identity.current.account_id
-  basic_role = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-  name       = var.name
-  region     = data.aws_region.current.region
-  stack      = var.stack
+  account_id       = data.aws_caller_identity.current.account_id
+  basic_role       = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  name             = var.name
+  region           = data.aws_region.current.region
+  stack            = var.stack
+  storage_capacity = var.storage_capacity
 
-  # prefixes
+  # names shared with rust code (stack.rs)
+  batch_role_name             = "${local.stack}-s3-batch-role"
+  replication_role_name       = "${local.stack}-s3-replication-role"
+  storage_capacity_param_name = "${local.stack}-storage-capacity"
+
+  # prefixes shared with rust code (mostly)
   batch_prefix      = "batch"      # c.f. batch.rs
   cloudtrail_prefix = "cloudtrail" # tf only
   feedback_prefix   = "feedback"   # c.f. stack.rs

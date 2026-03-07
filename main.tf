@@ -74,7 +74,9 @@ module "stack" {
   domain           = var.domain
   name             = local.name
   stack            = local.stack
-  functions        = local.functions
+  storage_capacity = pow(10, 12) # 1TB
+
+  functions = local.functions
 
   depends_on = [module.artifacts]
 }

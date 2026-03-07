@@ -26,6 +26,7 @@ pub struct Config {
     roles: Roles,
     sdk_config: SdkConfig,
     stack: Stack,
+    storage_capacity: u64,
 }
 
 impl std::fmt::Debug for Config {
@@ -45,6 +46,7 @@ impl Config {
         account_id: String,
         roles: Roles,
         stack: Stack,
+        storage_capacity: u64,
         debug_handler: bool,
     ) -> Self {
         let clients = Clients::new(&sdk_config);
@@ -55,6 +57,7 @@ impl Config {
             stack,
             clients,
             sdk_config,
+            storage_capacity,
         }
     }
 
@@ -74,6 +77,7 @@ impl Config {
             stack,
             clients,
             sdk_config,
+            storage_capacity: 0,
         }
     }
 
@@ -104,9 +108,13 @@ impl Config {
     pub fn stack(&self) -> &Stack {
         &self.stack
     }
+
+    pub fn storage_capacity(&self) -> u64 {
+        self.storage_capacity
+    }
 }
 
-/// Role ARNs for the stack
+/// Role ARNs for the stack.
 #[derive(Debug, Clone)]
 pub struct Roles {
     pub batch: String,
@@ -119,11 +127,13 @@ pub async fn config(stack: Stack) -> Result<Config, RequestError> {
 
     let account_id = aws_config_utils::get_account_id(&sdk_config).await?;
     let batch_role_name = stack.batch_role_name();
+    let storage_capacity_param_name = stack.storage_capacity_param_name();
     let replication_role_name = stack.replication_role_name();
 
-    let (batch_role, replication_role) = tokio::try_join!(
+    let (batch_role, replication_role, storage_capacity) = tokio::try_join!(
         aws_config_utils::get_role_arn(&sdk_config, &batch_role_name),
         aws_config_utils::get_role_arn(&sdk_config, &replication_role_name),
+        aws_config_utils::get_parameter(&sdk_config, &storage_capacity_param_name),
     )?;
 
     let roles = Roles {
@@ -131,5 +141,16 @@ pub async fn config(stack: Stack) -> Result<Config, RequestError> {
         replication: replication_role,
     };
 
-    Ok(Config::new(sdk_config, account_id, roles, stack, false))
+    let storage_capacity = storage_capacity.parse::<u64>().map_err(|e| {
+        RequestError::ValidationError(format!("failed to parse storage capacity: {}", e))
+    })?;
+
+    Ok(Config::new(
+        sdk_config,
+        account_id,
+        roles,
+        stack,
+        storage_capacity,
+        false,
+    ))
 }

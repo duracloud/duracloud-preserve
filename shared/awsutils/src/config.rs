@@ -49,10 +49,31 @@ pub async fn get_role_arn(config: &SdkConfig, role_name: &str) -> Result<String,
         .ok_or_else(|| RequestError::ConfigError("role missing ARN".to_string()))
 }
 
+/// Get an SSM parameter value.
+pub async fn get_parameter(config: &SdkConfig, param_name: &str) -> Result<String, RequestError> {
+    let ssm_client = aws_sdk_ssm::Client::new(config);
+
+    let response = ssm_client
+        .get_parameter()
+        .with_decryption(true)
+        .name(param_name)
+        .send()
+        .await
+        .map_err(|e| {
+            RequestError::ConfigError(format!("failed to get parameter '{}': {}", param_name, e))
+        })?;
+
+    response
+        .parameter()
+        .and_then(|p| p.value())
+        .map(|v| v.to_string())
+        .ok_or_else(|| RequestError::ConfigError("failed to get parameter value".to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_support::{mock_sdk_config, replay_xml_event};
+    use test_support::{mock_sdk_config, replay_event_with_content_type, replay_xml_event};
 
     #[tokio::test]
     async fn test_get_account_id_returns_account_from_sts_identity() {
@@ -74,6 +95,45 @@ mod tests {
             .expect("get_account_id should succeed");
 
         assert_eq!(account_id, "123456789012");
+    }
+
+    #[tokio::test]
+    async fn test_get_parameter_returns_value() {
+        let body = r#"{"Parameter":{"Name":"test-stack-storage-capacity","Type":"SecureString","Value":"1000"}}"#;
+        let (sdk_config, _replay) = mock_sdk_config(replay_event_with_content_type(
+            "https://test.s3.amazonaws.com/",
+            200,
+            body,
+            Some("application/x-amz-json-1.1"),
+        ));
+
+        let value = get_parameter(&sdk_config, "test-stack-storage-capacity")
+            .await
+            .expect("get_parameter should succeed");
+
+        assert_eq!(value, "1000");
+    }
+
+    #[tokio::test]
+    async fn test_get_parameter_maps_ssm_lookup_failures_to_config_error() {
+        let body = r#"{"__type":"ParameterNotFound","message":"Parameter not found"}"#;
+        let (sdk_config, _replay) = mock_sdk_config(replay_event_with_content_type(
+            "https://test.s3.amazonaws.com/",
+            400,
+            body,
+            Some("application/x-amz-json-1.1"),
+        ));
+
+        let err = get_parameter(&sdk_config, "missing-param")
+            .await
+            .expect_err("missing parameter should return an error");
+
+        match err {
+            RequestError::ConfigError(message) => {
+                assert!(message.contains("failed to get parameter 'missing-param'"));
+            }
+            other => panic!("unexpected error variant: {other:?}"),
+        }
     }
 
     #[tokio::test]

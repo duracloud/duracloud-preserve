@@ -9,6 +9,7 @@ const METADATA_PREFIX: &str = "metadata";
 const REPLICATION_POLICY_SUFFIX: &str = "-s3-replication-policy";
 const REPLICATION_ROLE_SUFFIX: &str = "-s3-replication-role";
 const REPORTS_PREFIX: &str = "reports";
+const STORAGE_CAPACITY_SUFFIX: &str = "-storage-capacity";
 
 /// Minimum number of `STACK_BUCKET_DELIMITER` parts in a valid bucket name.
 pub const BUCKET_NAME_MIN_PARTS: usize = 3;
@@ -162,6 +163,11 @@ impl Stack {
     /// Request bucket name for stack
     pub fn request_bucket(&self) -> String {
         format!("{}{REQUEST_SUFFIX}", self.as_str())
+    }
+
+    /// Storage capacity parameter name for stack
+    pub fn storage_capacity_param_name(&self) -> String {
+        format!("{}{STORAGE_CAPACITY_SUFFIX}", self.as_str())
     }
 }
 

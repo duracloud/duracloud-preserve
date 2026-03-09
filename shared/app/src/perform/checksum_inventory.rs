@@ -1,16 +1,334 @@
-use awsutils::file::File;
+use apputils::{content_type::TEXT_CSV, stack::DateCtx};
+use aws_sdk_s3::primitives::ByteStream;
+use awsutils::file::{self, File};
+use bytes::Bytes;
+use futures::stream::{self, TryStreamExt};
 
-use crate::{config::Config, perform::errors::ChecksumInventoryError};
+use crate::{bucket::bucket_from_csv_key, config::Config, perform::errors::ChecksumInventoryError};
+
+const CONCURRENCY: usize = 64;
+const HEADERS: [&str; 5] = ["bucket", "key", "checksum", "size", "status"];
+
+const STATUS_OK: &str = "ok";
+const STATUS_NOT_FOUND: &str = "not_found";
+const STATUS_MISSING_CHECKSUM: &str = "missing_checksum";
+const STATUS_ERROR: &str = "error";
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PerformOptions {}
 
+struct InventoryRow {
+    bucket: String,
+    key: String,
+    size: String,
+}
+
+struct ChecksumResult {
+    bucket: String,
+    key: String,
+    checksum: String,
+    size: String,
+    status: &'static str,
+}
+
 pub async fn perform(
     config: &Config,
-    report: &File,
+    csv_file: &File,
     opts: &PerformOptions,
-) -> Result<(), ChecksumInventoryError> {
-    let _ = (config, report, opts);
-    tracing::info!("checksum_inventory: not yet implemented");
-    Ok(())
+) -> Result<String, ChecksumInventoryError> {
+    let _ = opts;
+    let bucket = bucket_from_csv_key(csv_file)?;
+
+    let bytes = file::download_bytes(config.s3(), csv_file)
+        .await
+        .map_err(ChecksumInventoryError::Download)?;
+
+    let mut rdr = csv::ReaderBuilder::new().from_reader(&bytes[..]);
+
+    let rows = rdr
+        .records()
+        .map(|result| -> Result<InventoryRow, ChecksumInventoryError> {
+            let record = result?;
+            Ok(InventoryRow {
+                bucket: record[0].to_string(),
+                key: record[1].to_string(),
+                size: record[2].to_string(),
+            })
+        });
+
+    let mut wtr = csv::Writer::from_writer(Vec::new());
+    wtr.write_record(HEADERS)?;
+
+    let client = config.s3();
+    let (wtr, count, skipped) = stream::iter(rows)
+        .map_ok(|row| async move {
+            let file = File::new(&row.bucket, &row.key);
+            let head = match file::head(client, &file).await {
+                Ok(head) => head,
+                Err(err) => {
+                    let is_not_found = err.as_service_error().is_some_and(|e| e.is_not_found());
+
+                    if !is_not_found {
+                        tracing::warn!(
+                            bucket = row.bucket,
+                            key = row.key,
+                            %err,
+                            "Head request failed",
+                        );
+                    }
+
+                    let status = if is_not_found {
+                        STATUS_NOT_FOUND
+                    } else {
+                        STATUS_ERROR
+                    };
+
+                    return Ok::<_, ChecksumInventoryError>(ChecksumResult {
+                        bucket: row.bucket,
+                        key: row.key,
+                        checksum: String::new(),
+                        size: row.size,
+                        status,
+                    });
+                }
+            };
+
+            let (checksum, status) = match head.checksum_crc64_nvme() {
+                Some(c) => (c.to_string(), STATUS_OK),
+                None => (String::new(), STATUS_MISSING_CHECKSUM),
+            };
+
+            Ok(ChecksumResult {
+                bucket: row.bucket,
+                key: row.key,
+                checksum,
+                size: row.size,
+                status,
+            })
+        })
+        .try_buffer_unordered(CONCURRENCY)
+        .try_fold(
+            (wtr, 0usize, 0usize),
+            |(mut wtr, count, skipped), row| async move {
+                wtr.write_record([&row.bucket, &row.key, &row.checksum, &row.size, row.status])?;
+                let skipped = if row.status == STATUS_OK {
+                    skipped
+                } else {
+                    skipped + 1
+                };
+                Ok((wtr, count + 1, skipped))
+            },
+        )
+        .await?;
+
+    if skipped > 0 {
+        tracing::warn!("{skipped} of {count} objects had non-ok status");
+    }
+
+    tracing::info!("Processed {count} inventory rows");
+
+    let csv_bytes = wtr
+        .into_inner()
+        .map_err(|e| csv::Error::from(e.into_error()))?;
+
+    let managed_bucket = config.stack().managed_bucket();
+    let upload_path = config
+        .stack()
+        .reports_checksums_path(&format!("{bucket}_inventory"), DateCtx::Latest);
+    let upload_file = File::new(&managed_bucket, upload_path);
+
+    tracing::info!("Uploading checksum inventory: {}", upload_file.s3_url());
+
+    file::upload(
+        config.s3(),
+        &upload_file,
+        ByteStream::from(Bytes::from(csv_bytes)),
+        TEXT_CSV,
+    )
+    .await
+    .map_err(ChecksumInventoryError::Upload)?;
+
+    Ok(upload_file.s3_url())
+}
+
+#[cfg(test)]
+mod tests {
+    use aws_sdk_s3::primitives::SdkBody;
+    use test_support::TestClientBuilder;
+
+    use super::*;
+    use crate::config as app_config;
+
+    const TEST_CHECKSUM: &str = "BoJQOEj27t0=";
+    const CHECKSUM_HEADER: (&str, &str) = ("x-amz-checksum-crc64nvme", TEST_CHECKSUM);
+
+    fn csv_file(config: &Config) -> File {
+        File::new(
+            config.stack().managed_bucket(),
+            "reports/latest/manifests/test-stack-private.csv",
+        )
+    }
+
+    fn inventory_csv(rows: &[(&str, &str, &str)]) -> String {
+        let mut csv =
+            "bucket,key,size,last_modified_date,storage_class,replication_status,url\n".to_string();
+        for (bucket, key, size) in rows {
+            csv.push_str(&format!(
+                "{bucket},{key},{size},2026-02-07T04:13:34Z,GLACIER_IR,COMPLETED,https://{bucket}.s3.amazonaws.com/{key}\n"
+            ));
+        }
+        csv
+    }
+
+    fn parse_output_csv(csv_bytes: &[u8]) -> Vec<Vec<String>> {
+        let mut rdr = csv::ReaderBuilder::new().from_reader(csv_bytes);
+        rdr.records()
+            .map(|r| r.unwrap().iter().map(|f| f.to_string()).collect())
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn test_bucket_from_csv_key() {
+        let file = File::new("managed", "reports/latest/manifests/my-bucket.csv");
+        assert_eq!(bucket_from_csv_key(&file).unwrap(), "my-bucket");
+    }
+
+    #[tokio::test]
+    async fn test_bucket_from_csv_key_invalid() {
+        let file = File::new("managed", "reports/latest/manifests/no-extension");
+        assert!(bucket_from_csv_key(&file).is_err());
+    }
+
+    #[tokio::test]
+    async fn test_download_failure_aborts() {
+        let sdk_config = TestClientBuilder::new()
+            .s3_error("NoSuchKey", "csv not found")
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+
+        let result = perform(&config, &csv_file(&config), &PerformOptions::default()).await;
+        assert!(
+            matches!(result, Err(ChecksumInventoryError::Download(_))),
+            "should abort on CSV download failure: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_error_status_on_non_404_failure() {
+        let csv = inventory_csv(&[("test-bucket", "denied.jpg", "9999")]);
+
+        let sdk_config = TestClientBuilder::new()
+            .success(SdkBody::from(csv), None)
+            .s3_error("AccessDenied", "forbidden")
+            .ok()
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+
+        let result = perform(&config, &csv_file(&config), &PerformOptions::default()).await;
+        assert!(
+            result.is_ok(),
+            "perform should not abort on non-404 HEAD error: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_missing_checksum_status() {
+        let csv = inventory_csv(&[("test-bucket", "no-crc.jpg", "5678")]);
+
+        let sdk_config = TestClientBuilder::new()
+            .success(SdkBody::from(csv), None)
+            .ok() // HEAD 200, no checksum header
+            .ok()
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+
+        let result = perform(&config, &csv_file(&config), &PerformOptions::default()).await;
+        assert!(
+            result.is_ok(),
+            "perform should not abort on missing checksum: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_not_found_status() {
+        let csv = inventory_csv(&[("test-bucket", "deleted.jpg", "1234")]);
+
+        let sdk_config = TestClientBuilder::new()
+            .success(SdkBody::from(csv), None)
+            .error(404, "NotFound", "not found")
+            .ok()
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+
+        let result = perform(&config, &csv_file(&config), &PerformOptions::default()).await;
+        assert!(
+            result.is_ok(),
+            "perform should not abort on 404: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_ok_status_with_checksum() {
+        let csv = inventory_csv(&[("test-bucket", "file.jpg", "1234")]);
+
+        let sdk_config = TestClientBuilder::new()
+            .success(SdkBody::from(csv), None)
+            .success_with_headers(SdkBody::empty(), &[CHECKSUM_HEADER])
+            .ok()
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+
+        let result = perform(&config, &csv_file(&config), &PerformOptions::default()).await;
+        assert!(result.is_ok(), "perform should succeed: {result:?}");
+    }
+
+    #[tokio::test]
+    async fn test_output_csv_contains_correct_statuses() {
+        let csv = inventory_csv(&[
+            ("test-bucket", "good.jpg", "100"),
+            ("test-bucket", "deleted.jpg", "200"),
+            ("test-bucket", "no-crc.jpg", "300"),
+        ]);
+
+        let (sdk_config, replay) = TestClientBuilder::new()
+            .success(SdkBody::from(csv), None)
+            .success_with_headers(SdkBody::empty(), &[CHECKSUM_HEADER])
+            .error(404, "NotFound", "not found")
+            .ok() // HEAD 200, no checksum header
+            .ok() // upload
+            .build_sdk_config_with_replay();
+        let config = app_config::Config::for_tests(sdk_config, false);
+
+        perform(&config, &csv_file(&config), &PerformOptions::default())
+            .await
+            .expect("perform should succeed");
+
+        let requests = test_support::recorded_requests(&replay);
+        let put = requests
+            .iter()
+            .find(|r| r.method == "PUT")
+            .expect("should have a PUT request");
+
+        let rows = parse_output_csv(&put.body);
+        assert_eq!(rows.len(), 3, "should have 3 data rows");
+
+        // buffer_unordered doesn't preserve order, so check by key
+        for row in &rows {
+            match row[1].as_str() {
+                "good.jpg" => {
+                    assert_eq!(row[2], TEST_CHECKSUM);
+                    assert_eq!(row[4], "ok");
+                }
+                "deleted.jpg" => {
+                    assert_eq!(row[2], "");
+                    assert_eq!(row[4], "not_found");
+                }
+                "no-crc.jpg" => {
+                    assert_eq!(row[2], "");
+                    assert_eq!(row[4], "missing_checksum");
+                }
+                key => panic!("unexpected key: {key}"),
+            }
+        }
+    }
 }

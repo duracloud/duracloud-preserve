@@ -35,7 +35,16 @@ pub enum ComputeChecksumsError {
 }
 
 #[derive(Debug, Error)]
-pub enum ChecksumInventoryError {}
+pub enum ChecksumInventoryError {
+    #[error("cannot extract bucket name from CSV key: {0}")]
+    InvalidCsvKey(String),
+    #[error("failed to download inventory CSV: {0}")]
+    Download(#[source] RequestError),
+    #[error("failed to parse inventory CSV: {0}")]
+    CsvParse(#[from] csv::Error),
+    #[error("failed to upload checksum inventory: {0}")]
+    Upload(#[source] RequestError),
+}
 
 #[cfg(feature = "duckdb")]
 #[derive(Debug, Error)]

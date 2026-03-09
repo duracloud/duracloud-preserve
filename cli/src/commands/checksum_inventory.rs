@@ -27,9 +27,9 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let opts = checksum_inventory::PerformOptions::default();
-    checksum_inventory::perform(&config, &report, &opts).await?;
+    let inventory = checksum_inventory::perform(&config, &report, &opts).await?;
 
-    println!("Checksum inventory complete");
+    println!("Checksum inventory uploaded to: {inventory}");
 
     Ok(())
 }

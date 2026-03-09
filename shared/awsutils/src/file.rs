@@ -6,6 +6,7 @@ use aws_sdk_s3::{
     Client,
     error::SdkError,
     operation::get_object::{GetObjectError, GetObjectOutput},
+    operation::head_object::{HeadObjectError, HeadObjectOutput},
     primitives::ByteStream,
 };
 use std::path::PathBuf;
@@ -102,6 +103,22 @@ pub async fn feedback(
         content_type,
     )
     .await
+}
+
+/// Head object request for file metadata (with checksums enabled)
+pub async fn head(
+    client: &Client,
+    file: &File,
+) -> Result<HeadObjectOutput, SdkError<HeadObjectError>> {
+    use aws_sdk_s3::types::ChecksumMode;
+
+    client
+        .head_object()
+        .bucket(&file.bucket)
+        .key(&file.object)
+        .checksum_mode(ChecksumMode::Enabled)
+        .send()
+        .await
 }
 
 /// Upload content to S3

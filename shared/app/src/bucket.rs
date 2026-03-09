@@ -12,11 +12,25 @@ use awsutils::{
         BUCKET_TAG_ORIGIN_KEY, BUCKET_TAG_ORIGIN_VAL, BucketCreator, BucketCreatorParams,
     },
     errors::S3ResultExt,
+    file::File,
 };
 
-use crate::config::Config;
+use crate::{config::Config, perform::errors::ChecksumInventoryError};
 
 type TagFilter<'a> = Option<&'a dyn Fn(&[Tag]) -> bool>;
+
+/// Extract the target bucket name from the CSV file key.
+/// Key format: `reports/{date_ctx}/manifests/{bucket}.csv`
+pub fn bucket_from_csv_key(csv_file: &File) -> Result<&str, ChecksumInventoryError> {
+    csv_file
+        .key()
+        .rsplit('/')
+        .next()
+        .and_then(|filename| filename.strip_suffix(".csv"))
+        .ok_or(ChecksumInventoryError::InvalidCsvKey(
+            csv_file.key().to_string(),
+        ))
+}
 
 fn bucket_type_from_tags(tags: &[Tag]) -> Option<Type> {
     tags.iter()
@@ -257,6 +271,18 @@ mod tests {
   <TagSet>{entries}</TagSet>
 </Tagging>"#
         )
+    }
+
+    #[tokio::test]
+    async fn test_bucket_from_csv_key() {
+        let file = File::new("managed", "reports/latest/manifests/my-bucket.csv");
+        assert_eq!(bucket_from_csv_key(&file).unwrap(), "my-bucket");
+    }
+
+    #[tokio::test]
+    async fn test_bucket_from_csv_key_invalid() {
+        let file = File::new("managed", "reports/latest/manifests/no-extension");
+        assert!(bucket_from_csv_key(&file).is_err());
     }
 
     #[tokio::test]

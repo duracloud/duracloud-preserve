@@ -144,6 +144,33 @@ impl TestClientBuilder {
         self
     }
 
+    /// Add a successful response with body and custom headers.
+    pub fn success_with_headers(
+        mut self,
+        body: impl Into<SdkBody>,
+        headers: &[(&str, &str)],
+    ) -> Self {
+        let body = body.into();
+        let mut response_builder = http::Response::builder().status(200);
+
+        for (name, value) in headers {
+            response_builder = response_builder.header(*name, *value);
+        }
+
+        if let Some(length) = body.content_length() {
+            response_builder = response_builder.header("Content-Length", length.to_string());
+        }
+
+        self.events.push(ReplayEvent::new(
+            http::Request::builder()
+                .uri(DEFAULT_TEST_URI)
+                .body(SdkBody::empty())
+                .unwrap(),
+            response_builder.body(body).unwrap(),
+        ));
+        self
+    }
+
     /// Add an S3-specific error (BucketAlreadyExists, NoSuchBucket, etc.).
     pub fn s3_error(self, code: &str, message: &str) -> Self {
         let status = match code {

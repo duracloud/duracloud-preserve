@@ -34,6 +34,9 @@ pub enum ComputeChecksumsError {
     PartialFailure(Vec<String>),
 }
 
+#[derive(Debug, Error)]
+pub enum ChecksumInventoryError {}
+
 #[cfg(feature = "duckdb")]
 #[derive(Debug, Error)]
 pub enum ChecksumReportError {

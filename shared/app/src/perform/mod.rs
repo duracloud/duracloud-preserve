@@ -1,5 +1,6 @@
 pub mod bucket_reconciliation;
 pub mod bucket_request;
+pub mod checksum_inventory;
 #[cfg(feature = "duckdb")]
 pub mod checksum_report;
 pub mod compute_checksums;

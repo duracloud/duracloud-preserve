@@ -6,6 +6,7 @@ use futures::stream::{self, TryStreamExt};
 
 use crate::{bucket::bucket_from_csv_key, config::Config, perform::errors::ChecksumInventoryError};
 
+const CHECKSUM_TYPE: &str = "crc64nvme";
 const CONCURRENCY: usize = 64;
 const HEADERS: [&str; 5] = ["bucket", "key", "checksum", "size", "status"];
 
@@ -134,7 +135,7 @@ pub async fn perform(
     let managed_bucket = config.stack().managed_bucket();
     let upload_path = config
         .stack()
-        .reports_checksums_path(&format!("{bucket}_inventory"), DateCtx::Latest);
+        .reports_checksums_path(&format!("{bucket}_{CHECKSUM_TYPE}"), DateCtx::Latest);
     let upload_file = File::new(&managed_bucket, upload_path);
 
     tracing::info!("Uploading checksum inventory: {}", upload_file.s3_url());

@@ -410,8 +410,8 @@ mod tests {
 
         let html = report.to_html(test_meta(None)).unwrap();
 
-        assert!(html.contains("&lt;bucket&gt;&amp;name"));
-        assert!(html.contains("&lt;prefix&gt;&amp;name"));
+        assert!(html.contains("&#60;bucket&#62;&#38;name"));
+        assert!(html.contains("&#60;prefix&#62;&#38;name"));
     }
 
     #[test]

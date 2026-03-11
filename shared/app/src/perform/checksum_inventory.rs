@@ -7,7 +7,7 @@ use crate::{
     bucket::bucket_from_csv_key,
     checksum::{InventoryRow, generate_checksum_inventory},
     config::Config,
-    perform::errors::ChecksumInventoryError,
+    errors::ChecksumInventoryError,
 };
 
 const CHECKSUM_TYPE: &str = "crc64nvme";

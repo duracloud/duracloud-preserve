@@ -1,7 +1,7 @@
 use awsutils::file::{self, File};
 use futures::stream::{self, TryStreamExt};
 
-use crate::{config::Config, perform::errors::ChecksumInventoryError};
+use crate::{config::Config, errors::ChecksumInventoryError};
 
 const CONCURRENCY: usize = 64;
 const HEADERS: [&str; 5] = ["bucket", "key", "checksum", "size", "status"];

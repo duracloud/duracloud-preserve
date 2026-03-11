@@ -11,7 +11,7 @@ use awsutils::{
 };
 use bytes::Bytes;
 
-use crate::{batch::get_manifest_if_ready, config::Config, perform::errors::ChecksumReportError};
+use crate::{batch::get_manifest_if_ready, config::Config, errors::ChecksumReportError};
 
 #[derive(Debug, Clone, Copy)]
 pub struct PerformOptions {
@@ -154,7 +154,7 @@ mod tests {
     use aws_smithy_types::body::SdkBody;
 
     use super::*;
-    use crate::{config as app_config, perform::errors::ChecksumReportError};
+    use crate::{config as app_config, errors::ChecksumReportError};
     use test_support::{TestClientBuilder, recorded_requests};
 
     fn batch_result(status: &str, bucket: &str, key: &str) -> BatchResultEntry {

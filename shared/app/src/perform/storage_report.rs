@@ -12,9 +12,7 @@ use awsutils::file::{self, File, download_bytes};
 use bytes::Bytes;
 use chrono::Utc;
 
-use crate::{
-    bucket::get_stack_buckets_by_type, config::Config, perform::errors::StorageReportError,
-};
+use crate::{bucket::get_stack_buckets_by_type, config::Config, errors::StorageReportError};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PerformOptions {

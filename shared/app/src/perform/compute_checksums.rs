@@ -1,6 +1,6 @@
 use crate::{
     batch::trigger_checksum_job, bucket as app_bucket, config::Config,
-    perform::errors::ComputeChecksumsError,
+    errors::ComputeChecksumsError,
 };
 use awsutils::{
     batch::BatchError,

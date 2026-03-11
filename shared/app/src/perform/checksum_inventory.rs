@@ -2,35 +2,18 @@ use apputils::{content_type::TEXT_CSV, stack::DateCtx};
 use aws_sdk_s3::primitives::ByteStream;
 use awsutils::file::{self, File};
 use bytes::Bytes;
-use futures::stream::{self, TryStreamExt};
 
-use crate::{bucket::bucket_from_csv_key, config::Config, perform::errors::ChecksumInventoryError};
+use crate::{
+    bucket::bucket_from_csv_key,
+    checksum::{InventoryRow, generate_checksum_inventory},
+    config::Config,
+    perform::errors::ChecksumInventoryError,
+};
 
 const CHECKSUM_TYPE: &str = "crc64nvme";
-const CONCURRENCY: usize = 64;
-const HEADERS: [&str; 5] = ["bucket", "key", "checksum", "size", "status"];
-
-const STATUS_OK: &str = "ok";
-const STATUS_NOT_FOUND: &str = "not_found";
-const STATUS_MISSING_CHECKSUM: &str = "missing_checksum";
-const STATUS_ERROR: &str = "error";
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PerformOptions {}
-
-struct InventoryRow {
-    bucket: String,
-    key: String,
-    size: String,
-}
-
-struct ChecksumResult {
-    bucket: String,
-    key: String,
-    checksum: String,
-    size: String,
-    status: &'static str,
-}
 
 pub async fn perform(
     config: &Config,
@@ -57,80 +40,13 @@ pub async fn perform(
             })
         });
 
-    let mut wtr = csv::Writer::from_writer(Vec::new());
-    wtr.write_record(HEADERS)?;
+    let (csv_bytes, count, skipped) = generate_checksum_inventory(config, rows).await?;
 
-    let client = config.s3();
-    let (wtr, count, skipped) = stream::iter(rows)
-        .map_ok(|row| async move {
-            let file = File::new(&row.bucket, &row.key);
-            let head = match file::head(client, &file).await {
-                Ok(head) => head,
-                Err(err) => {
-                    let is_not_found = err.as_service_error().is_some_and(|e| e.is_not_found());
-
-                    if !is_not_found {
-                        tracing::warn!(
-                            bucket = row.bucket,
-                            key = row.key,
-                            %err,
-                            "Head request failed",
-                        );
-                    }
-
-                    let status = if is_not_found {
-                        STATUS_NOT_FOUND
-                    } else {
-                        STATUS_ERROR
-                    };
-
-                    return Ok::<_, ChecksumInventoryError>(ChecksumResult {
-                        bucket: row.bucket,
-                        key: row.key,
-                        checksum: String::new(),
-                        size: row.size,
-                        status,
-                    });
-                }
-            };
-
-            let (checksum, status) = match head.checksum_crc64_nvme() {
-                Some(c) => (c.to_string(), STATUS_OK),
-                None => (String::new(), STATUS_MISSING_CHECKSUM),
-            };
-
-            Ok(ChecksumResult {
-                bucket: row.bucket,
-                key: row.key,
-                checksum,
-                size: row.size,
-                status,
-            })
-        })
-        .try_buffer_unordered(CONCURRENCY)
-        .try_fold(
-            (wtr, 0usize, 0usize),
-            |(mut wtr, count, skipped), row| async move {
-                wtr.write_record([&row.bucket, &row.key, &row.checksum, &row.size, row.status])?;
-                let skipped = if row.status == STATUS_OK {
-                    skipped
-                } else {
-                    skipped + 1
-                };
-                Ok((wtr, count + 1, skipped))
-            },
-        )
-        .await?;
+    tracing::info!("Processed {count} inventory rows");
 
     if skipped > 0 {
         tracing::warn!("{skipped} of {count} objects had non-ok status");
     }
-
-    tracing::info!("Processed {count} inventory rows");
-
-    let csv_bytes = wtr
-        .into_inner()
-        .map_err(|e| csv::Error::from(e.into_error()))?;
 
     let managed_bucket = config.stack().managed_bucket();
     let upload_path = config

@@ -7,7 +7,7 @@ use awsutils::{
     file::{self, File},
 };
 
-use crate::{bucket, config::Config, perform::errors::BucketRequestError};
+use crate::{bucket, config::Config, errors::BucketRequestError};
 
 #[derive(Debug, Clone)]
 pub struct PerformOptions {

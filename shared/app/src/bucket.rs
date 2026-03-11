@@ -15,7 +15,7 @@ use awsutils::{
     file::File,
 };
 
-use crate::{config::Config, perform::errors::ChecksumInventoryError};
+use crate::{config::Config, errors::ChecksumInventoryError};
 
 type TagFilter<'a> = Option<&'a dyn Fn(&[Tag]) -> bool>;
 

@@ -1,12 +1,11 @@
-use apputils::content_type::TEXT_PLAIN;
 use aws_sdk_s3::types::TransitionStorageClass;
-use aws_smithy_types::body::SdkBody;
 
 use awsutils::{
     bucket_creator,
     file::{self, File},
 };
 
+use crate::helpers::upload_feedback_text;
 use crate::{bucket, config::Config, errors::BucketRequestError};
 
 #[derive(Debug, Clone)]
@@ -34,17 +33,7 @@ pub async fn perform(
         Ok(names) => names,
         Err(e) => {
             tracing::error!("Error getting bucket names: {}", e);
-            if let Err(fb_err) = file::feedback(
-                config.s3(),
-                config.stack(),
-                file.key(),
-                SdkBody::from(e.to_string()),
-                TEXT_PLAIN,
-            )
-            .await
-            {
-                tracing::error!("Failed to upload feedback: {fb_err}");
-            }
+            upload_feedback_text(config, file.key(), e.to_string()).await;
             return Err(BucketRequestError::RequestFile(e));
         }
     };
@@ -56,17 +45,7 @@ pub async fn perform(
         Ok(buckets) => buckets,
         Err(e) => {
             tracing::error!("Error parsing bucket names: {}", e);
-            if let Err(fb_err) = file::feedback(
-                config.s3(),
-                config.stack(),
-                file.key(),
-                SdkBody::from(e.to_string()),
-                TEXT_PLAIN,
-            )
-            .await
-            {
-                tracing::error!("Failed to upload feedback: {fb_err}");
-            }
+            upload_feedback_text(config, file.key(), e.to_string()).await;
             return Err(BucketRequestError::Validation(e));
         }
     };
@@ -77,17 +56,7 @@ pub async fn perform(
     let issues = bucket::create_buckets(config, &buckets, opts.standard_storage_tier.clone()).await;
     if !issues.is_empty() {
         tracing::error!("{:?}", issues);
-        if let Err(fb_err) = file::feedback(
-            config.s3(),
-            config.stack(),
-            file.key(),
-            SdkBody::from(issues.join("\n")),
-            TEXT_PLAIN,
-        )
-        .await
-        {
-            tracing::error!("Failed to upload feedback: {fb_err}");
-        }
+        upload_feedback_text(config, file.key(), issues.join("\n")).await;
         return Err(BucketRequestError::CreateBuckets(issues));
     }
 

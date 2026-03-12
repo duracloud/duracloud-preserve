@@ -1,7 +1,6 @@
 use apputils::content_type::{APPLICATION_JSON, TEXT_CSV};
-use apputils::stack::{self, DateCtx};
+use apputils::stack::DateCtx;
 use apputils::stats::InventoryStats;
-use aws_sdk_s3::primitives::ByteStream;
 use bytes::Bytes;
 
 use awsutils::{
@@ -10,7 +9,7 @@ use awsutils::{
     inventory::{InventoryError, InventoryManifest, process},
 };
 
-use crate::config::Config;
+use crate::{config::Config, helpers::upload_versioned_bytes};
 #[derive(Debug, Clone, Copy)]
 pub struct PerformOptions {
     pub date_ctx: DateCtx,
@@ -64,35 +63,35 @@ pub async fn perform(
     let csv_bytes = Bytes::from(csv);
     let stats_bytes = Bytes::from(serde_json::to_vec(&stats)?);
 
-    for ctx in [stack::DateCtx::Latest, opts.date_ctx] {
-        let csv_path = config
-            .stack()
-            .reports_manifests_path(&manifest.source_bucket, ctx);
-        let csv_file = File::new(&bucket, csv_path);
+    upload_versioned_bytes(
+        config,
+        opts.date_ctx,
+        &csv_bytes,
+        TEXT_CSV,
+        "csv",
+        |ctx| {
+            config
+                .stack()
+                .reports_manifests_path(&manifest.source_bucket, ctx)
+        },
+        InventoryError::from,
+    )
+    .await?;
 
-        tracing::info!("Uploading csv: {}", csv_file.s3_url());
-        file::upload(
-            config.s3(),
-            &csv_file,
-            ByteStream::from(csv_bytes.clone()),
-            TEXT_CSV,
-        )
-        .await?;
-
-        let stats_path = config
-            .stack()
-            .metadata_manifests_stats_path(&manifest.source_bucket, ctx);
-        let stats_file = File::new(&bucket, stats_path);
-
-        tracing::info!("Uploading stats: {}", stats_file.s3_url());
-        file::upload(
-            config.s3(),
-            &stats_file,
-            ByteStream::from(stats_bytes.clone()),
-            APPLICATION_JSON,
-        )
-        .await?;
-    }
+    upload_versioned_bytes(
+        config,
+        opts.date_ctx,
+        &stats_bytes,
+        APPLICATION_JSON,
+        "stats",
+        |ctx| {
+            config
+                .stack()
+                .metadata_manifests_stats_path(&manifest.source_bucket, ctx)
+        },
+        InventoryError::from,
+    )
+    .await?;
 
     Ok(stats)
 }

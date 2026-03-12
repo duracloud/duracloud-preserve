@@ -1,5 +1,4 @@
 use apputils::{content_type::TEXT_CSV, stack::DateCtx};
-use aws_sdk_s3::primitives::ByteStream;
 use awsutils::file::{self, File};
 use bytes::Bytes;
 
@@ -8,19 +7,29 @@ use crate::{
     checksum::{InventoryRow, generate_checksum_inventory},
     config::Config,
     errors::ChecksumInventoryError,
+    helpers::upload_versioned_bytes,
 };
 
 const CHECKSUM_TYPE: &str = "crc64nvme";
 
-#[derive(Debug, Clone, Copy, Default)]
-pub struct PerformOptions {}
+#[derive(Debug, Clone, Copy)]
+pub struct PerformOptions {
+    pub date_ctx: DateCtx,
+}
+
+impl Default for PerformOptions {
+    fn default() -> Self {
+        Self {
+            date_ctx: DateCtx::Today,
+        }
+    }
+}
 
 pub async fn perform(
     config: &Config,
     csv_file: &File,
     opts: &PerformOptions,
 ) -> Result<String, ChecksumInventoryError> {
-    let _ = opts;
     let bucket = bucket_from_csv_key(csv_file)?;
 
     let bytes = file::download_bytes(config.s3(), csv_file)
@@ -48,24 +57,26 @@ pub async fn perform(
         tracing::warn!("{skipped} of {count} objects had non-ok status");
     }
 
-    let managed_bucket = config.stack().managed_bucket();
-    let upload_path = config
-        .stack()
-        .reports_checksums_path(&format!("{bucket}_{CHECKSUM_TYPE}"), DateCtx::Latest);
-    let upload_file = File::new(&managed_bucket, upload_path);
+    let output_name = format!("{bucket}_{CHECKSUM_TYPE}");
+    let csv_bytes = Bytes::from(csv_bytes);
 
-    tracing::info!("Uploading checksum inventory: {}", upload_file.s3_url());
-
-    file::upload(
-        config.s3(),
-        &upload_file,
-        ByteStream::from(Bytes::from(csv_bytes)),
+    upload_versioned_bytes(
+        config,
+        opts.date_ctx,
+        &csv_bytes,
         TEXT_CSV,
+        "checksum inventory",
+        |ctx| config.stack().reports_checksums_path(&output_name, ctx),
+        ChecksumInventoryError::Upload,
     )
-    .await
-    .map_err(ChecksumInventoryError::Upload)?;
+    .await?;
 
-    Ok(upload_file.s3_url())
+    let latest_path = config
+        .stack()
+        .reports_checksums_path(&output_name, DateCtx::Latest);
+    let latest_file = File::new(config.stack().managed_bucket(), latest_path);
+
+    Ok(latest_file.s3_url())
 }
 
 #[cfg(test)]
@@ -138,6 +149,7 @@ mod tests {
             .success(SdkBody::from(csv), None)
             .s3_error("AccessDenied", "forbidden")
             .ok()
+            .ok()
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
 
@@ -155,6 +167,7 @@ mod tests {
         let sdk_config = TestClientBuilder::new()
             .success(SdkBody::from(csv), None)
             .ok() // HEAD 200, no checksum header
+            .ok()
             .ok()
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
@@ -174,6 +187,7 @@ mod tests {
             .success(SdkBody::from(csv), None)
             .error(404, "NotFound", "not found")
             .ok()
+            .ok()
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
 
@@ -191,6 +205,7 @@ mod tests {
         let sdk_config = TestClientBuilder::new()
             .success(SdkBody::from(csv), None)
             .success_with_headers(SdkBody::empty(), &[CHECKSUM_HEADER])
+            .ok()
             .ok()
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
@@ -212,7 +227,8 @@ mod tests {
             .success_with_headers(SdkBody::empty(), &[CHECKSUM_HEADER])
             .error(404, "NotFound", "not found")
             .ok() // HEAD 200, no checksum header
-            .ok() // upload
+            .ok() // upload latest
+            .ok() // upload dated
             .build_sdk_config_with_replay();
         let config = app_config::Config::for_tests(sdk_config, false);
 

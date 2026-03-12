@@ -1,9 +1,8 @@
 use apputils::{
     content_type::{APPLICATION_JSON, TEXT_CSV},
-    stack::{self, DateCtx},
+    stack::DateCtx,
     stats::VerificationStats,
 };
-use aws_sdk_s3::primitives::ByteStream;
 use awsutils::{
     batch::{BatchResultEntry, ChecksumJobReceipt},
     checksum,
@@ -11,6 +10,7 @@ use awsutils::{
 };
 use bytes::Bytes;
 
+use crate::helpers::upload_versioned_bytes;
 use crate::{batch::get_manifest_if_ready, config::Config, errors::ChecksumReportError};
 
 #[derive(Debug, Clone, Copy)]
@@ -94,7 +94,6 @@ async fn process_and_upload(
     replication_results: Vec<BatchResultEntry>,
     opts: &PerformOptions,
 ) -> Result<VerificationStats, checksum::ChecksumError> {
-    let managed_bucket = config.stack().managed_bucket();
     let temp_dir = tempfile::tempdir()?;
     let source_paths =
         checksum::download_manifest_files(config.s3(), source_results, &temp_dir).await?;
@@ -115,36 +114,31 @@ async fn process_and_upload(
     let csv_bytes = Bytes::from(csv);
     let stats_bytes = Bytes::from(serde_json::to_vec(&stats)?);
 
-    for ctx in [stack::DateCtx::Latest, opts.date_ctx] {
-        let csv_path = config.stack().reports_checksums_path(source_bucket, ctx);
-        let csv_file = File::new(&managed_bucket, csv_path);
+    upload_versioned_bytes(
+        config,
+        opts.date_ctx,
+        &csv_bytes,
+        TEXT_CSV,
+        "checksum report csv",
+        |ctx| config.stack().reports_checksums_path(source_bucket, ctx),
+        checksum::ChecksumError::from,
+    )
+    .await?;
 
-        tracing::info!("Uploading checksum report csv: {}", csv_file.s3_url());
-        file::upload(
-            config.s3(),
-            &csv_file,
-            ByteStream::from(csv_bytes.clone()),
-            TEXT_CSV,
-        )
-        .await?;
-
-        let stats_path = config
-            .stack()
-            .metadata_checksums_stats_path(source_bucket, ctx);
-        let stats_file = File::new(&managed_bucket, stats_path);
-
-        tracing::info!(
-            "Uploading checksum verification stats: {}",
-            stats_file.s3_url()
-        );
-        file::upload(
-            config.s3(),
-            &stats_file,
-            ByteStream::from(stats_bytes.clone()),
-            APPLICATION_JSON,
-        )
-        .await?;
-    }
+    upload_versioned_bytes(
+        config,
+        opts.date_ctx,
+        &stats_bytes,
+        APPLICATION_JSON,
+        "checksum verification stats",
+        |ctx| {
+            config
+                .stack()
+                .metadata_checksums_stats_path(source_bucket, ctx)
+        },
+        checksum::ChecksumError::from,
+    )
+    .await?;
 
     Ok(stats)
 }

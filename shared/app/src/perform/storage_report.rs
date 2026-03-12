@@ -3,16 +3,18 @@ use std::collections::BTreeMap;
 use apputils::{
     bucket::Type,
     content_type::{APPLICATION_JSON, TEXT_HTML},
-    stack,
+    stack::DateCtx,
     stats::InventoryStats,
     storage::{StorageReport, StorageReportMeta},
 };
-use aws_sdk_s3::primitives::ByteStream;
-use awsutils::file::{self, File, download_bytes};
+use awsutils::file::{File, download_bytes};
 use bytes::Bytes;
 use chrono::Utc;
 
-use crate::{bucket::get_stack_buckets_by_type, config::Config, errors::StorageReportError};
+use crate::{
+    bucket::get_stack_buckets_by_type, config::Config, errors::StorageReportError,
+    helpers::upload_versioned_bytes,
+};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PerformOptions {
@@ -37,7 +39,7 @@ pub async fn perform(
 
         let stats_path = config
             .stack()
-            .metadata_manifests_stats_path(&bucket_name, stack::DateCtx::Latest);
+            .metadata_manifests_stats_path(&bucket_name, DateCtx::Latest);
 
         let stats = download_bytes(
             config.s3(),
@@ -59,7 +61,6 @@ pub async fn perform(
     }
 
     let storage_report = StorageReport::from_inventory(bucket_stats);
-    let managed_bucket = config.stack().managed_bucket();
     let meta = StorageReportMeta {
         stack_name: config.stack().as_str().to_string(),
         generated_at: Utc::now().format("%m/%d/%Y %H:%M:%S UTC").to_string(),
@@ -69,33 +70,27 @@ pub async fn perform(
     let stats_bytes = Bytes::from(serde_json::to_vec(&storage_report)?);
     let html_bytes = Bytes::from(storage_report.to_html(meta)?);
 
-    for ctx in [stack::DateCtx::Latest, stack::DateCtx::Today] {
-        let html_path = config.stack().reports_storage_path(ctx);
-        let html_file = File::new(&managed_bucket, html_path);
+    upload_versioned_bytes(
+        config,
+        DateCtx::Today,
+        &html_bytes,
+        TEXT_HTML,
+        "html",
+        |ctx| config.stack().reports_storage_path(ctx),
+        StorageReportError::UploadError,
+    )
+    .await?;
 
-        tracing::info!("Uploading html: {}", html_file.s3_url());
-        file::upload(
-            config.s3(),
-            &html_file,
-            ByteStream::from(html_bytes.clone()),
-            TEXT_HTML,
-        )
-        .await
-        .map_err(StorageReportError::UploadError)?;
-
-        let stats_path = config.stack().metadata_storage_stats_path(ctx);
-        let stats_file = File::new(&managed_bucket, stats_path);
-
-        tracing::info!("Uploading stats: {}", stats_file.s3_url());
-        file::upload(
-            config.s3(),
-            &stats_file,
-            ByteStream::from(stats_bytes.clone()),
-            APPLICATION_JSON,
-        )
-        .await
-        .map_err(StorageReportError::UploadError)?;
-    }
+    upload_versioned_bytes(
+        config,
+        DateCtx::Today,
+        &stats_bytes,
+        APPLICATION_JSON,
+        "stats",
+        |ctx| config.stack().metadata_storage_stats_path(ctx),
+        StorageReportError::UploadError,
+    )
+    .await?;
 
     Ok(storage_report)
 }

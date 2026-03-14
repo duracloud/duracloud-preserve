@@ -13,7 +13,7 @@ apputils = { path = "../shared/apputils", features = ["duckdb"] }
 awsutils = { path = "../shared/awsutils", features = ["duckdb"] }
 aws-config = { version = "1.8", features = ["behavior-version-latest"] }
 aws-sdk-iam = "1"
-aws-sdk-s3 = "1.125.0"
+aws-sdk-s3 = "1.126.0"
 aws-sdk-sts = "1"
 base64 = "0.22.1"
 clap = { version = "4", default-features = false, features = ["derive", "std"] }

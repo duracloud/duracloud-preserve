@@ -9,8 +9,8 @@ duckdb = ["apputils/duckdb"]
 [dependencies]
 apputils = { path = "../apputils" }
 aws-config = "1.8.15"
-aws-sdk-iam = "1.106.0"
-aws-sdk-s3 = "1.125.0"
+aws-sdk-iam = "1.106.1"
+aws-sdk-s3 = "1.126.0"
 aws-sdk-s3control = "1.112.0"
 aws-sdk-ssm = "1.107.0"
 aws-sdk-sts = "1.96.0"

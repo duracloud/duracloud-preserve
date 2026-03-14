@@ -6,6 +6,6 @@ edition = "2024"
 [dependencies]
 apputils = { path = "../apputils" }
 aws-config = "1.8.15"
-aws-sdk-s3 = "1.125.0"
+aws-sdk-s3 = "1.126.0"
 aws-smithy-runtime = { version = "1.9.4", features = ["test-util"] }
 http = "1.4.0"

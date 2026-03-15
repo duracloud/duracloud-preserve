@@ -7,7 +7,7 @@ use crate::{
     checksum::{InventoryRow, generate_checksum_inventory},
     config::Config,
     errors::ChecksumInventoryError,
-    helpers::upload_versioned_bytes,
+    upload::upload_versioned_bytes,
 };
 
 const CHECKSUM_TYPE: &str = "crc64nvme";
@@ -63,9 +63,8 @@ pub async fn perform(
     upload_versioned_bytes(
         config,
         opts.date_ctx,
-        &csv_bytes,
+        csv_bytes,
         TEXT_CSV,
-        "checksum inventory",
         |ctx| config.stack().reports_checksums_path(&output_name, ctx),
         ChecksumInventoryError::Upload,
     )

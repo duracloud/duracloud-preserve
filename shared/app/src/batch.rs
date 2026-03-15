@@ -1,9 +1,5 @@
-use apputils::stack::DateCtx;
-use aws_sdk_s3::Client;
-use aws_sdk_s3::primitives::ByteStream;
+use apputils::{content_type::APPLICATION_JSON, stack::DateCtx};
 use aws_sdk_s3control::types::JobStatus;
-use bytes::Bytes;
-use futures::future::try_join_all;
 use thiserror::Error;
 
 use awsutils::{
@@ -12,7 +8,7 @@ use awsutils::{
     file::{self, File},
 };
 
-use crate::config::Config;
+use crate::{config::Config, upload::upload_bytes};
 
 #[derive(Debug, Error)]
 pub enum BatchStatusError {
@@ -158,7 +154,7 @@ pub async fn trigger_checksum_job(
     );
 
     let stack = config.stack();
-    let paths = vec![
+    let paths = [
         stack.metadata_checksums_receipts_path(&source_result, DateCtx::Latest),
         stack.metadata_checksums_receipts_path(&replication_result, DateCtx::Latest),
         stack.metadata_checksums_receipts_path(source.name(), DateCtx::Latest),
@@ -167,26 +163,13 @@ pub async fn trigger_checksum_job(
 
     tracing::info!("Uploading receipt: {:?}", receipt);
 
-    upload_receipt(config.s3(), &stack.managed_bucket(), &receipt, &paths).await
-}
-
-/// Uploads a receipt to multiple paths
-pub async fn upload_receipt(
-    client: &Client,
-    bucket: &str,
-    receipt: &ChecksumJobReceipt,
-    paths: &[String],
-) -> Result<Vec<String>, aws_batch::BatchError> {
-    let bytes = Bytes::from(serde_json::to_vec(receipt)?);
-
-    let uploads = paths.iter().map(|path| {
-        let file = File::new(bucket, path);
-        let stream = ByteStream::from(bytes.clone());
-        async move {
-            file::upload(client, &file, stream, "application/json").await?;
-            Ok::<_, aws_batch::BatchError>(file.http_url())
-        }
-    });
-
-    try_join_all(uploads).await
+    let managed_bucket = stack.managed_bucket();
+    let files = paths.iter().map(|p| File::new(&managed_bucket, p));
+    Ok(upload_bytes(
+        config.s3(),
+        serde_json::to_vec(&receipt)?,
+        APPLICATION_JSON,
+        files,
+    )
+    .await?)
 }

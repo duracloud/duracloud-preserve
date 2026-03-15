@@ -10,7 +10,7 @@ use awsutils::{
 };
 use bytes::Bytes;
 
-use crate::helpers::upload_versioned_bytes;
+use crate::upload::upload_versioned_bytes;
 use crate::{batch::get_manifest_if_ready, config::Config, errors::ChecksumReportError};
 
 #[derive(Debug, Clone, Copy)]
@@ -117,9 +117,8 @@ async fn process_and_upload(
     upload_versioned_bytes(
         config,
         opts.date_ctx,
-        &csv_bytes,
+        csv_bytes,
         TEXT_CSV,
-        "checksum report csv",
         |ctx| config.stack().reports_checksums_path(source_bucket, ctx),
         checksum::ChecksumError::from,
     )
@@ -128,9 +127,8 @@ async fn process_and_upload(
     upload_versioned_bytes(
         config,
         opts.date_ctx,
-        &stats_bytes,
+        stats_bytes,
         APPLICATION_JSON,
-        "checksum verification stats",
         |ctx| {
             config
                 .stack()
@@ -330,7 +328,7 @@ mod tests {
 
         let stats_puts: Vec<_> = requests
             .iter()
-            .filter(|r| r.method == "PUT" && r.content_type.as_deref() == Some("application/json"))
+            .filter(|r| r.method == "PUT" && r.content_type.as_deref() == Some(APPLICATION_JSON))
             .collect();
         assert_eq!(stats_puts.len(), 2);
 

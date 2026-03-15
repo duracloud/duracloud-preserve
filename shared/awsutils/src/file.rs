@@ -1,5 +1,3 @@
-use apputils::Stack;
-
 use crate::bucket::RequestError;
 use crate::errors::S3ResultExt;
 use aws_sdk_s3::{
@@ -86,23 +84,6 @@ pub async fn exists(client: &Client, file: &File) -> bool {
         .send()
         .await
         .is_ok()
-}
-
-/// Upload a file to the managed bucket feedback path
-pub async fn feedback(
-    client: &Client,
-    stack: &Stack,
-    key: &str,
-    body: impl Into<ByteStream>,
-    content_type: &str,
-) -> Result<(), RequestError> {
-    upload(
-        client,
-        &File::new(stack.managed_bucket(), stack.feedback_path(key)),
-        body,
-        content_type,
-    )
-    .await
 }
 
 /// Head object request for file metadata (with checksums enabled)

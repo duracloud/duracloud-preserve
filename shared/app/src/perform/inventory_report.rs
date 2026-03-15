@@ -9,7 +9,7 @@ use awsutils::{
     inventory::{InventoryError, InventoryManifest, process},
 };
 
-use crate::{config::Config, helpers::upload_versioned_bytes};
+use crate::{config::Config, upload::upload_versioned_bytes};
 #[derive(Debug, Clone, Copy)]
 pub struct PerformOptions {
     pub date_ctx: DateCtx,
@@ -66,9 +66,8 @@ pub async fn perform(
     upload_versioned_bytes(
         config,
         opts.date_ctx,
-        &csv_bytes,
+        csv_bytes,
         TEXT_CSV,
-        "csv",
         |ctx| {
             config
                 .stack()
@@ -81,9 +80,8 @@ pub async fn perform(
     upload_versioned_bytes(
         config,
         opts.date_ctx,
-        &stats_bytes,
+        stats_bytes,
         APPLICATION_JSON,
-        "stats",
         |ctx| {
             config
                 .stack()
@@ -205,7 +203,7 @@ mod tests {
 
         let stats_puts: Vec<_> = requests
             .iter()
-            .filter(|r| r.method == "PUT" && r.content_type.as_deref() == Some("application/json"))
+            .filter(|r| r.method == "PUT" && r.content_type.as_deref() == Some(APPLICATION_JSON))
             .collect();
         assert_eq!(stats_puts.len(), 2);
 

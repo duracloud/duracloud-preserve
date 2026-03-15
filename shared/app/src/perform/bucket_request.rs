@@ -5,8 +5,7 @@ use awsutils::{
     file::{self, File},
 };
 
-use crate::helpers::upload_feedback_text;
-use crate::{bucket, config::Config, errors::BucketRequestError};
+use crate::{bucket, config::Config, errors::BucketRequestError, upload::upload_feedback};
 
 #[derive(Debug, Clone)]
 pub struct PerformOptions {
@@ -33,7 +32,7 @@ pub async fn perform(
         Ok(names) => names,
         Err(e) => {
             tracing::error!("Error getting bucket names: {}", e);
-            upload_feedback_text(config, file.key(), e.to_string()).await;
+            upload_feedback(config, file.key(), e.to_string()).await;
             return Err(BucketRequestError::RequestFile(e));
         }
     };
@@ -45,7 +44,7 @@ pub async fn perform(
         Ok(buckets) => buckets,
         Err(e) => {
             tracing::error!("Error parsing bucket names: {}", e);
-            upload_feedback_text(config, file.key(), e.to_string()).await;
+            upload_feedback(config, file.key(), e.to_string()).await;
             return Err(BucketRequestError::Validation(e));
         }
     };
@@ -56,7 +55,7 @@ pub async fn perform(
     let issues = bucket::create_buckets(config, &buckets, opts.standard_storage_tier.clone()).await;
     if !issues.is_empty() {
         tracing::error!("{:?}", issues);
-        upload_feedback_text(config, file.key(), issues.join("\n")).await;
+        upload_feedback(config, file.key(), issues.join("\n")).await;
         return Err(BucketRequestError::CreateBuckets(issues));
     }
 

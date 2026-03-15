@@ -13,7 +13,7 @@ use chrono::Utc;
 
 use crate::{
     bucket::get_stack_buckets_by_type, config::Config, errors::StorageReportError,
-    helpers::upload_versioned_bytes,
+    upload::upload_versioned_bytes,
 };
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -73,9 +73,8 @@ pub async fn perform(
     upload_versioned_bytes(
         config,
         DateCtx::Today,
-        &html_bytes,
+        html_bytes,
         TEXT_HTML,
-        "html",
         |ctx| config.stack().reports_storage_path(ctx),
         StorageReportError::UploadError,
     )
@@ -84,9 +83,8 @@ pub async fn perform(
     upload_versioned_bytes(
         config,
         DateCtx::Today,
-        &stats_bytes,
+        stats_bytes,
         APPLICATION_JSON,
-        "stats",
         |ctx| config.stack().metadata_storage_stats_path(ctx),
         StorageReportError::UploadError,
     )

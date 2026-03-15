@@ -1,10 +1,9 @@
 use std::fmt;
 use std::io::Write;
 
-use duckdb::{Connection, Error as DuckDBError};
-use thiserror::Error;
+use duckdb::Connection;
 
-use crate::stats::VerificationStats;
+use crate::{errors::ChecksumError, stats::VerificationStats};
 
 pub fn process(
     source_reports: &[impl AsRef<str>],
@@ -14,16 +13,6 @@ pub fn process(
     let mut csv = Vec::new();
     let stats = verifier.write_csv_and_stats(&mut csv)?;
     Ok((csv, stats))
-}
-
-#[derive(Debug, Error)]
-pub enum ChecksumError {
-    #[error("CSV error: {0}")]
-    Csv(#[from] csv::Error),
-    #[error("DuckDB error: {0}")]
-    DuckDB(#[from] DuckDBError),
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
 }
 
 /// Verification status for an object

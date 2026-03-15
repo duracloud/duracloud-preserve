@@ -105,7 +105,7 @@ mod tests {
 
     use super::*;
     use crate::config as app_config;
-    use apputils::bucket::BucketValidationError;
+    use apputils::errors::BucketValidationError;
     use awsutils::bucket::RequestError;
     use test_support::TestClientBuilder;
 

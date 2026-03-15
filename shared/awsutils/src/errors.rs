@@ -1,5 +1,17 @@
-use apputils::bucket::BucketValidationError;
+use apputils::errors::BucketValidationError;
 use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum ChecksumError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("JSON parse error: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("Processing error: {0}")]
+    Processing(#[from] apputils::errors::ChecksumError),
+    #[error("{0}")]
+    Request(#[from] RequestError),
+}
 
 /// Shared AWS utility error type used across config, file, and bucket operations.
 #[derive(Debug, Error)]

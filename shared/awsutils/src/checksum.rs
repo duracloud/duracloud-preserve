@@ -1,5 +1,4 @@
 use apputils::stats::VerificationStats;
-use thiserror::Error;
 
 use crate::{
     batch::BatchResultEntry,
@@ -7,19 +6,7 @@ use crate::{
     file::{self, File},
 };
 
-pub use apputils::checksum::{ChecksumError as ProcessingError, ChecksumVerifier, process};
-
-#[derive(Debug, Error)]
-pub enum ChecksumError {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("JSON parse error: {0}")]
-    Json(#[from] serde_json::Error),
-    #[error("Processing error: {0}")]
-    Processing(#[from] ProcessingError),
-    #[error("{0}")]
-    Request(#[from] RequestError),
-}
+pub use apputils::checksum::{ChecksumVerifier, process};
 
 pub async fn download_manifest_files(
     client: &aws_sdk_s3::Client,

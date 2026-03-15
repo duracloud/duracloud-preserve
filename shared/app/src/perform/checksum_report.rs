@@ -93,7 +93,7 @@ async fn process_and_upload(
     source_results: Vec<BatchResultEntry>,
     replication_results: Vec<BatchResultEntry>,
     opts: &PerformOptions,
-) -> Result<VerificationStats, checksum::ChecksumError> {
+) -> Result<VerificationStats, ChecksumReportError> {
     let temp_dir = tempfile::tempdir()?;
     let source_paths =
         checksum::download_manifest_files(config.s3(), source_results, &temp_dir).await?;
@@ -120,7 +120,7 @@ async fn process_and_upload(
         csv_bytes,
         TEXT_CSV,
         |ctx| config.stack().reports_checksums_path(source_bucket, ctx),
-        checksum::ChecksumError::from,
+        ChecksumReportError::Upload,
     )
     .await?;
 
@@ -134,7 +134,7 @@ async fn process_and_upload(
                 .stack()
                 .metadata_checksums_stats_path(source_bucket, ctx)
         },
-        checksum::ChecksumError::from,
+        ChecksumReportError::Upload,
     )
     .await?;
 

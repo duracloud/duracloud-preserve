@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
-use thiserror::Error;
-
 use crate::{
     Stack, content_type,
+    errors::BucketValidationError,
     stack::{DISALLOWED_AFFIXES, STACK_BUCKET_DELIMITER},
 };
 
@@ -17,16 +16,6 @@ pub const MAX_LEN_FOR_NAME: u8 = 63;
 
 pub const PUBLIC_SUFFIX: &str = "-public";
 pub const REPLICATION_SUFFIX: &str = "-repl";
-
-#[derive(Debug, Error)]
-pub enum BucketValidationError {
-    #[error("File size {actual} bytes exceeds maximum of {max} bytes")]
-    FileTooLarge { actual: i64, max: i64 },
-    #[error("Content Type error: must be a text file")]
-    InvalidContentType,
-    #[error("Validation error: {0}")]
-    ValidationError(String),
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bucket(Name, Type);

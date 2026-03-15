@@ -1,19 +1,68 @@
-use apputils::bucket::BucketValidationError;
-use awsutils::bucket::RequestError;
-use thiserror::Error;
+use apputils::errors::BucketValidationError;
 #[cfg(feature = "duckdb")]
-use {crate::batch::BatchStatusError, awsutils::checksum};
+use awsutils::{batch::BatchError, bucket::RequestError};
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum BatchStatusError {
+    #[error("{0}")]
+    Batch(#[from] BatchError),
+    #[error("Batch job failed: {0}")]
+    JobFailed(String),
+    #[error("Job matching id not found: {0}")]
+    JobNotFound(String),
+    #[error("Manifest not found: {0}")]
+    ManifestNotFound(String),
+    #[error("Job status matching id not found: {0}")]
+    MissingStatus(String),
+}
 
 #[derive(Debug, Error)]
 pub enum BucketRequestError {
+    #[error("failed to delete request file: {0}")]
+    Cleanup(#[source] RequestError),
+    #[error("failed to create one or more buckets: {}", .0.join("; "))]
+    CreateBuckets(Vec<String>),
     #[error("failed to read bucket request file: {0}")]
     RequestFile(#[source] RequestError),
     #[error("invalid bucket request: {0}")]
     Validation(#[source] BucketValidationError),
-    #[error("failed to create one or more buckets: {}", .0.join("; "))]
-    CreateBuckets(Vec<String>),
-    #[error("failed to delete request file: {0}")]
-    Cleanup(#[source] RequestError),
+}
+
+#[derive(Debug, Error)]
+pub enum ChecksumInventoryError {
+    #[error("failed to parse inventory CSV: {0}")]
+    CsvParse(#[from] csv::Error),
+    #[error("failed to download inventory CSV: {0}")]
+    Download(#[source] RequestError),
+    #[error("cannot extract bucket name from CSV key: {0}")]
+    InvalidCsvKey(String),
+    #[error("failed to upload checksum inventory: {0}")]
+    Upload(#[source] RequestError),
+}
+
+#[cfg(feature = "duckdb")]
+#[derive(Debug, Error)]
+pub enum ChecksumReportError {
+    #[error("failed to resolve batch manifests: {0}")]
+    BatchStatus(#[from] BatchStatusError),
+    #[error("failed to process checksum report: {0}")]
+    Processing(String),
+    #[error("failed to download checksum receipt: {0}")]
+    ReceiptDownload(#[from] RequestError),
+    #[error("failed to parse checksum receipt: {0}")]
+    ReceiptParse(#[from] serde_json::Error),
+    #[error("failed to generate temporary file: #{0}")]
+    TempFileNotCreated(#[from] std::io::Error),
+    #[error("failed to upload checksum report: {0}")]
+    Upload(#[source] RequestError),
+}
+
+#[cfg(feature = "duckdb")]
+impl From<apputils::errors::ChecksumError> for ChecksumReportError {
+    fn from(value: apputils::errors::ChecksumError) -> Self {
+        ChecksumReportError::Processing(value.to_string())
+    }
 }
 
 #[derive(Debug, Error)]
@@ -22,41 +71,16 @@ pub enum ComputeChecksumsError {
     BucketDiscovery(#[source] RequestError),
     #[error("invalid bucket: {0} (must be a standard or public bucket in the stack)")]
     InvalidBucket(String),
+    #[error("failed to pair source and replication buckets: {0}")]
+    PairBuckets(#[source] BucketValidationError),
+    #[error("failed to trigger checksum jobs for one or more buckets: {}", .0.join("; "))]
+    PartialFailure(Vec<String>),
     #[error("failed to build replication bucket '{bucket}': {source}")]
     ReplicationBucket {
         bucket: String,
         #[source]
         source: BucketValidationError,
     },
-    #[error("failed to pair source and replication buckets: {0}")]
-    PairBuckets(#[source] BucketValidationError),
-    #[error("failed to trigger checksum jobs for one or more buckets: {}", .0.join("; "))]
-    PartialFailure(Vec<String>),
-}
-
-#[derive(Debug, Error)]
-pub enum ChecksumInventoryError {
-    #[error("cannot extract bucket name from CSV key: {0}")]
-    InvalidCsvKey(String),
-    #[error("failed to download inventory CSV: {0}")]
-    Download(#[source] RequestError),
-    #[error("failed to parse inventory CSV: {0}")]
-    CsvParse(#[from] csv::Error),
-    #[error("failed to upload checksum inventory: {0}")]
-    Upload(#[source] RequestError),
-}
-
-#[cfg(feature = "duckdb")]
-#[derive(Debug, Error)]
-pub enum ChecksumReportError {
-    #[error("failed to download checksum receipt: {0}")]
-    ReceiptDownload(#[from] RequestError),
-    #[error("failed to parse checksum receipt: {0}")]
-    ReceiptParse(#[from] serde_json::Error),
-    #[error("failed to resolve batch manifests: {0}")]
-    BatchStatus(#[from] BatchStatusError),
-    #[error("failed to process checksum report: {0}")]
-    Processing(#[from] checksum::ChecksumError),
 }
 
 #[derive(Debug, Error)]

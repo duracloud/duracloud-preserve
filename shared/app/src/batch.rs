@@ -1,6 +1,5 @@
 use apputils::{content_type::APPLICATION_JSON, stack::DateCtx};
 use aws_sdk_s3control::types::JobStatus;
-use thiserror::Error;
 
 use awsutils::{
     batch::{self as aws_batch, BatchManifest, ChecksumJobReceipt},
@@ -8,21 +7,7 @@ use awsutils::{
     file::{self, File},
 };
 
-use crate::{config::Config, upload::upload_bytes};
-
-#[derive(Debug, Error)]
-pub enum BatchStatusError {
-    #[error("Manifest not found: {0}")]
-    ManifestNotFound(String),
-    #[error("Batch job failed: {0}")]
-    JobFailed(String),
-    #[error("Job matching id not found: {0}")]
-    JobNotFound(String),
-    #[error("Job status matching id not found: {0}")]
-    MissingStatus(String),
-    #[error("{0}")]
-    Batch(#[from] aws_batch::BatchError),
-}
+use crate::{config::Config, errors::BatchStatusError, upload::upload_bytes};
 
 /// Download a batch manifest
 pub async fn get_batch_manifest(

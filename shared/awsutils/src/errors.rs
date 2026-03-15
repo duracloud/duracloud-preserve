@@ -34,17 +34,6 @@ pub enum RequestError {
     ValidationError(String),
 }
 
-/// Wrap s3 errors with a contextual message.
-pub trait S3ResultExt<T> {
-    fn s3_err(self, context: impl Into<String>) -> Result<T, RequestError>;
-}
-
-impl<T, E: std::fmt::Display> S3ResultExt<T> for Result<T, E> {
-    fn s3_err(self, context: impl Into<String>) -> Result<T, RequestError> {
-        self.map_err(|e| RequestError::S3Error(format!("{}: {e}", context.into())))
-    }
-}
-
 impl From<BucketValidationError> for RequestError {
     fn from(value: BucketValidationError) -> Self {
         match value {
@@ -54,5 +43,16 @@ impl From<BucketValidationError> for RequestError {
             }
             BucketValidationError::InvalidContentType => Self::InvalidContentType,
         }
+    }
+}
+
+/// Wrap s3 errors with a contextual message.
+pub trait S3ResultExt<T> {
+    fn s3_err(self, context: impl Into<String>) -> Result<T, RequestError>;
+}
+
+impl<T, E: std::fmt::Display> S3ResultExt<T> for Result<T, E> {
+    fn s3_err(self, context: impl Into<String>) -> Result<T, RequestError> {
+        self.map_err(|e| RequestError::S3Error(format!("{}: {e}", context.into())))
     }
 }

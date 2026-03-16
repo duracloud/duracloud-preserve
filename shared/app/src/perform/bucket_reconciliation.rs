@@ -2,12 +2,11 @@ use std::collections::HashMap;
 
 use apputils::bucket::{REPLICATION_SUFFIX, Type};
 use awsutils::{
-    bucket::RequestError,
     bucket_creator::BucketCreatorParams,
     bucket_reconciliator::{BucketReconciliator, ReconcileReport},
 };
 
-use crate::config::Config;
+use crate::{config::Config, errors::BucketReconciliationError};
 
 pub struct PerformOptions {
     pub fail_on_drift: bool,
@@ -32,20 +31,12 @@ impl PerformReport {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum PerformError {
-    #[error("AWS error: {0}")]
-    Aws(#[from] RequestError),
-    #[error("Drift detected: {0}")]
-    DriftDetected(String),
-}
-
 /// Run bucket reconciliation for all bucket-request buckets in a stack.
 /// For now this is a reporter-only: reads and compares configuration.
 pub async fn perform(
     config: &Config,
     opts: &PerformOptions,
-) -> Result<PerformReport, PerformError> {
+) -> Result<PerformReport, BucketReconciliationError> {
     let mut buckets =
         crate::bucket::get_bucket_request_buckets(config.s3(), config.stack()).await?;
 
@@ -125,7 +116,7 @@ pub async fn perform(
     };
 
     if opts.fail_on_drift && perform_report.has_drift() {
-        return Err(PerformError::DriftDetected(format!(
+        return Err(BucketReconciliationError::DriftDetected(format!(
             "{} bucket(s) have configuration drift",
             perform_report.drift
         )));
@@ -494,7 +485,7 @@ mod tests {
             .expect_err("fail_on_drift should return error when drift exists");
 
         match err {
-            PerformError::DriftDetected(msg) => {
+            BucketReconciliationError::DriftDetected(msg) => {
                 assert!(msg.contains("1 bucket(s) have configuration drift"));
             }
             other => panic!("unexpected error: {other:?}"),

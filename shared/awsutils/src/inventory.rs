@@ -1,31 +1,14 @@
 use aws_sdk_s3::Client;
 use serde::Deserialize;
-use thiserror::Error;
 
 use crate::{
-    bucket::RequestError,
+    errors::InventoryError,
     file::{self, File},
 };
 
 // Re-export processing types from apputils
-pub use apputils::inventory::{InventoryError as ProcessingError, InventoryProcessor, process};
+pub use apputils::inventory::process;
 pub use apputils::stats::{InventoryStats, PrefixStats};
-
-#[derive(Debug, Error)]
-pub enum InventoryError {
-    #[error("Invalid inventory format: expected '{expected}', got '{actual}'")]
-    InvalidFormat { expected: String, actual: String },
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("JSON parse error: {0}")]
-    Json(#[from] serde_json::Error),
-    #[error("Processing error: {0}")]
-    Processing(#[from] ProcessingError),
-    #[error("{0}")]
-    Request(#[from] RequestError),
-    #[error("S3 error: {0:#}")]
-    S3(#[source] Box<dyn std::error::Error + Send + Sync>),
-}
 
 /// Inventory Manifest
 #[derive(Debug, Deserialize)]

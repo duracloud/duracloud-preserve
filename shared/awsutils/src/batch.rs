@@ -13,27 +13,15 @@ use aws_sdk_s3control::{
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
-use thiserror::Error;
 
-use crate::{
-    bucket::RequestError,
-    file::{self, File},
-};
+use crate::file::{self, File};
+
+pub use crate::errors::BatchError;
 
 const CHECKSUM_ALGORITHM: ComputeObjectChecksumAlgorithm =
     ComputeObjectChecksumAlgorithm::Crc64Nvme;
 const MANIFEST_PREFIX: &str = "batch/manifests";
 const REPORT_PREFIX: &str = "batch/reports";
-
-#[derive(Debug, Error)]
-pub enum BatchError {
-    #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
-    #[error("{0}")]
-    Request(#[from] RequestError),
-    #[error("S3 Control error: {0:#}")]
-    S3Control(#[source] Box<dyn std::error::Error + Send + Sync>),
-}
 
 /// Batch Manifest
 #[derive(Debug, Deserialize)]

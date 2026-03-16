@@ -6,10 +6,10 @@ use bytes::Bytes;
 use awsutils::{
     bucket_creator::INVENTORY_FORMAT,
     file::{self, File},
-    inventory::{InventoryError, InventoryManifest, process},
+    inventory::{InventoryManifest, process},
 };
 
-use crate::{config::Config, upload::upload_versioned_bytes};
+use crate::{config::Config, errors::InventoryReportError, upload::upload_versioned_bytes};
 #[derive(Debug, Clone, Copy)]
 pub struct PerformOptions {
     pub date_ctx: DateCtx,
@@ -27,13 +27,13 @@ pub async fn perform(
     config: &Config,
     manifest_file: &File,
     opts: &PerformOptions,
-) -> Result<InventoryStats, InventoryError> {
+) -> Result<InventoryStats, InventoryReportError> {
     tracing::info!("Retrieving manifest file: {}", manifest_file.s3_url());
     let manifest = InventoryManifest::fetch(config.s3(), manifest_file).await?;
     let bucket = config.stack().managed_bucket();
 
     if manifest.file_format != INVENTORY_FORMAT.as_str() {
-        return Err(InventoryError::InvalidFormat {
+        return Err(InventoryReportError::InvalidFormat {
             expected: INVENTORY_FORMAT.to_string(),
             actual: manifest.file_format.clone(),
         });
@@ -48,7 +48,8 @@ pub async fn perform(
 
     let local_paths =
         file::download_files_to_temp(config.s3(), &files, &temp_dir, "inventory manifest file")
-            .await?;
+            .await
+            .map_err(InventoryReportError::Download)?;
 
     let path_strs_owned: Vec<String> = local_paths
         .iter()
@@ -73,7 +74,7 @@ pub async fn perform(
                 .stack()
                 .reports_manifests_path(&manifest.source_bucket, ctx)
         },
-        InventoryError::from,
+        InventoryReportError::Upload,
     )
     .await?;
 
@@ -87,7 +88,7 @@ pub async fn perform(
                 .stack()
                 .metadata_manifests_stats_path(&manifest.source_bucket, ctx)
         },
-        InventoryError::from,
+        InventoryReportError::Upload,
     )
     .await?;
 
@@ -249,7 +250,7 @@ mod tests {
             .await
             .expect_err("perform should fail for non-parquet format");
         match err {
-            InventoryError::InvalidFormat { expected, actual } => {
+            InventoryReportError::InvalidFormat { expected, actual } => {
                 assert_eq!(expected, INVENTORY_FORMAT.to_string());
                 assert_eq!(actual, "CSV");
             }

@@ -2,6 +2,16 @@ use apputils::errors::BucketValidationError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
+pub enum BatchError {
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("{0}")]
+    Request(#[from] RequestError),
+    #[error("S3 Control error: {0:#}")]
+    S3Control(#[source] Box<dyn std::error::Error + Send + Sync>),
+}
+
+#[derive(Debug, Error)]
 pub enum ChecksumError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
@@ -11,6 +21,22 @@ pub enum ChecksumError {
     Processing(#[from] apputils::errors::ChecksumError),
     #[error("{0}")]
     Request(#[from] RequestError),
+}
+
+#[derive(Debug, Error)]
+pub enum InventoryError {
+    #[error("Invalid inventory format: expected '{expected}', got '{actual}'")]
+    InvalidFormat { expected: String, actual: String },
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("JSON parse error: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("Processing error: {0}")]
+    Processing(#[from] apputils::errors::InventoryError),
+    #[error("{0}")]
+    Request(#[from] RequestError),
+    #[error("S3 error: {0:#}")]
+    S3(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
 /// Shared AWS utility error type used across config, file, and bucket operations.

@@ -1,5 +1,4 @@
 use apputils::errors::BucketValidationError;
-#[cfg(feature = "duckdb")]
 use awsutils::{batch::BatchError, bucket::RequestError};
 use thiserror::Error;
 
@@ -27,6 +26,14 @@ pub enum BucketRequestError {
     RequestFile(#[source] RequestError),
     #[error("invalid bucket request: {0}")]
     Validation(#[source] BucketValidationError),
+}
+
+#[derive(Debug, Error)]
+pub enum BucketReconciliationError {
+    #[error("failed to discover buckets for reconciliation: {0}")]
+    BucketDiscovery(#[from] RequestError),
+    #[error("Drift detected: {0}")]
+    DriftDetected(String),
 }
 
 #[derive(Debug, Error)]
@@ -81,6 +88,32 @@ pub enum ComputeChecksumsError {
         #[source]
         source: BucketValidationError,
     },
+}
+
+#[cfg(feature = "duckdb")]
+#[derive(Debug, Error)]
+pub enum InventoryReportError {
+    #[error("failed to download inventory files: {0}")]
+    Download(#[source] RequestError),
+    #[error("invalid inventory format: expected '{expected}', got '{actual}'")]
+    InvalidFormat { expected: String, actual: String },
+    #[error("failed to create temporary directory: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("failed to serialize inventory stats: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("failed to fetch inventory manifest: {0}")]
+    ManifestFetch(String),
+    #[error("failed to process inventory: {0}")]
+    Processing(#[from] apputils::errors::InventoryError),
+    #[error("failed to upload inventory report: {0}")]
+    Upload(#[source] RequestError),
+}
+
+#[cfg(feature = "duckdb")]
+impl From<awsutils::errors::InventoryError> for InventoryReportError {
+    fn from(value: awsutils::errors::InventoryError) -> Self {
+        InventoryReportError::ManifestFetch(value.to_string())
+    }
 }
 
 #[derive(Debug, Error)]

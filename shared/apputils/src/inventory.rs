@@ -1,10 +1,12 @@
 use std::collections::BTreeMap;
 use std::io::Write;
 
-use duckdb::{Connection, Error as DuckDBError};
-use thiserror::Error;
+use duckdb::Connection;
 
-use crate::stats::{InventoryStats, PrefixStats};
+use crate::{
+    errors::InventoryError,
+    stats::{InventoryStats, PrefixStats},
+};
 
 pub fn process(
     parquet_files: &[impl AsRef<str>],
@@ -13,16 +15,6 @@ pub fn process(
     let mut csv = Vec::new();
     let stats = processor.write_csv_and_stats(&mut csv)?;
     Ok((csv, stats))
-}
-
-#[derive(Debug, Error)]
-pub enum InventoryError {
-    #[error("CSV error: {0}")]
-    Csv(#[from] csv::Error),
-    #[error("DuckDB error: {0}")]
-    DuckDB(#[from] DuckDBError),
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
 }
 
 /// Handles parquet format inventory files from S3

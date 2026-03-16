@@ -96,8 +96,8 @@ mod tests {
     async fn test_event_handler_complete_status() {
         let json = include_str!("../events/complete.json");
         let cw_event: CloudWatchEvent<S3BatchJobDetail> =
-            serde_json::from_str(json).expect("Failed to parse json");
-        let detail = cw_event.detail.as_ref().expect("Detail required");
+            serde_json::from_str(json).expect("failed to parse json");
+        let detail = cw_event.detail.as_ref().expect("detail required");
         assert_eq!(detail.service_event_details.status, "Complete");
 
         let event = LambdaEvent::new(cw_event, Context::default());
@@ -111,8 +111,8 @@ mod tests {
     async fn test_event_handler_failed_status_returns_error() {
         let json = include_str!("../events/failed.json");
         let cw_event: CloudWatchEvent<S3BatchJobDetail> =
-            serde_json::from_str(json).expect("Failed to parse json");
-        let detail = cw_event.detail.as_ref().expect("Detail required");
+            serde_json::from_str(json).expect("failed to parse json");
+        let detail = cw_event.detail.as_ref().expect("detail required");
         assert_eq!(detail.service_event_details.status, "Failed");
 
         let event = LambdaEvent::new(cw_event, Context::default());

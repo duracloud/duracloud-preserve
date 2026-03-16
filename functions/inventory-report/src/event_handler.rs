@@ -10,9 +10,9 @@ pub(crate) async fn function_handler(
 ) -> Result<(), Error> {
     let payload = event.payload;
 
-    let record = payload.records.first().expect("Payload should have record");
-    let bucket = record.s3.bucket.name.as_ref().expect("Bucket required");
-    let object = record.s3.object.key.as_ref().expect("Object requried");
+    let record = payload.records.first().expect("payload should have record");
+    let bucket = record.s3.bucket.name.as_ref().expect("bucket required");
+    let object = record.s3.object.key.as_ref().expect("object requried");
 
     tracing::info!("Bucket: {:?}, Object: {:?}", bucket, object);
 
@@ -54,7 +54,7 @@ mod tests {
     #[should_panic(expected = "Not an inventory manifest file")]
     async fn test_invalid_event_handler() {
         let json = include_str!("../events/sample.json");
-        let mut s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
+        let mut s3_event: S3Event = serde_json::from_str(json).expect("failed to parse json");
 
         // make it so object key != the expected manifest.json
         s3_event.records[0].s3.object.key = Some("something-else.json".to_string());
@@ -70,7 +70,7 @@ mod tests {
     async fn test_valid_event_handler() {
         // json contains object key == manifest.json
         let json = include_str!("../events/sample.json");
-        let s3_event: S3Event = serde_json::from_str(json).expect("Failed to parse json");
+        let s3_event: S3Event = serde_json::from_str(json).expect("failed to parse json");
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let sdk_config = TestClientBuilder::new().ok().build_sdk_config();

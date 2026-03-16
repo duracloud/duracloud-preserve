@@ -11,7 +11,7 @@ async fn main() -> Result<(), Error> {
     tracing::init_default_subscriber();
 
     let stack =
-        Stack::new(&env::var("STACK").expect("Stack is required")).expect("Invalid stack name");
+        Stack::new(&env::var("STACK").expect("stack is required")).expect("invalid stack name");
     let config = app::config::config(stack).await?;
 
     run(service_fn(|event| function_handler(&config, event))).await

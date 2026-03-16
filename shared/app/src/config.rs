@@ -1,7 +1,10 @@
 use apputils::Stack;
 use aws_config::SdkConfig;
 
-use awsutils::{bucket::RequestError, config as aws_config_utils};
+use awsutils::{
+    bucket::{self, RequestError},
+    config as aws_config_utils,
+};
 
 /// AWS SDK clients
 pub struct Clients {
@@ -124,6 +127,14 @@ pub struct Roles {
 /// Create a Config for the stack.
 pub async fn config(stack: Stack) -> Result<Config, RequestError> {
     let sdk_config = aws_config_utils::default_config().await;
+    let managed_bucket = stack.managed_bucket();
+
+    if !bucket::exists(&aws_sdk_s3::Client::new(&sdk_config), &managed_bucket).await {
+        return Err(RequestError::ConfigError(format!(
+            "failed to find managed bucket for stack (does this stack exist?): {}",
+            &managed_bucket
+        )));
+    }
 
     let account_id = aws_config_utils::get_account_id(&sdk_config).await?;
     let batch_role_name = stack.batch_role_name();

@@ -1,5 +1,6 @@
 use crate::bucket::RequestError;
 use aws_config::{BehaviorVersion, SdkConfig};
+use aws_sdk_s3::types::TransitionStorageClass;
 
 /// Load default aws sdk config.
 pub async fn default_config() -> SdkConfig {
@@ -68,6 +69,20 @@ pub async fn get_parameter(config: &SdkConfig, param_name: &str) -> Result<Strin
         .and_then(|p| p.value())
         .map(|v| v.to_string())
         .ok_or_else(|| RequestError::ConfigError("failed to get parameter value".to_string()))
+}
+
+/// Parse a TransitionStorageClass from its as_str() representation.
+/// Only known variants are accepted.
+pub fn parse_storage_class(value: &str) -> Option<TransitionStorageClass> {
+    match value {
+        "DEEP_ARCHIVE" => Some(TransitionStorageClass::DeepArchive),
+        "GLACIER" => Some(TransitionStorageClass::Glacier),
+        "GLACIER_IR" => Some(TransitionStorageClass::GlacierIr),
+        "INTELLIGENT_TIERING" => Some(TransitionStorageClass::IntelligentTiering),
+        "ONEZONE_IA" => Some(TransitionStorageClass::OnezoneIa),
+        "STANDARD_IA" => Some(TransitionStorageClass::StandardIa),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -187,5 +202,17 @@ mod tests {
             }
             other => panic!("unexpected error variant: {other:?}"),
         }
+    }
+
+    #[test]
+    fn test_parse_storage_tier_valid() {
+        let tier = parse_storage_class("GLACIER_IR").expect("glacier_ir should parse");
+        assert_eq!(tier, TransitionStorageClass::GlacierIr);
+    }
+
+    #[test]
+    fn test_parse_storage_tier_not_found() {
+        let not_found = parse_storage_class("NOT_A_TIER");
+        assert!(not_found.is_none());
     }
 }

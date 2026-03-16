@@ -17,6 +17,7 @@ use crate::bucket_creator::{
 };
 
 pub use crate::bucket_creator::BucketCreatorParams;
+use crate::config::parse_storage_class;
 
 /// Status of a single reconciliation step.
 #[derive(Debug)]
@@ -181,7 +182,7 @@ impl<'a> BucketReconciliator<'a> {
             .map(|t| t.value().to_string());
 
         if let Some(ref val) = tag_value
-            && let Some(parsed) = parse_transition_storage_class(val)
+            && let Some(parsed) = parse_storage_class(val)
         {
             return (
                 StepResult {
@@ -244,7 +245,7 @@ impl<'a> BucketReconciliator<'a> {
             if id == "ExpireOldVersions" {
                 continue;
             }
-            if let Some(class) = parse_transition_storage_class(id) {
+            if let Some(class) = parse_storage_class(id) {
                 return Ok(Some(class));
             }
         }
@@ -673,20 +674,6 @@ fn default_storage_class(bucket_type: &Type) -> TransitionStorageClass {
     }
 }
 
-/// Parse a TransitionStorageClass from its as_str() representation.
-/// Only known variants are accepted.
-fn parse_transition_storage_class(value: &str) -> Option<TransitionStorageClass> {
-    match value {
-        "DEEP_ARCHIVE" => Some(TransitionStorageClass::DeepArchive),
-        "GLACIER" => Some(TransitionStorageClass::Glacier),
-        "GLACIER_IR" => Some(TransitionStorageClass::GlacierIr),
-        "INTELLIGENT_TIERING" => Some(TransitionStorageClass::IntelligentTiering),
-        "ONEZONE_IA" => Some(TransitionStorageClass::OnezoneIa),
-        "STANDARD_IA" => Some(TransitionStorageClass::StandardIa),
-        _ => None,
-    }
-}
-
 fn s3_error_has_code<E>(e: &E, codes: &[&str]) -> bool
 where
     E: ProvideErrorMetadata,
@@ -730,19 +717,19 @@ mod tests {
     #[test]
     fn test_parse_transition_storage_class() {
         assert!(matches!(
-            parse_transition_storage_class("GLACIER_IR"),
+            parse_storage_class("GLACIER_IR"),
             Some(TransitionStorageClass::GlacierIr)
         ));
         assert!(matches!(
-            parse_transition_storage_class("DEEP_ARCHIVE"),
+            parse_storage_class("DEEP_ARCHIVE"),
             Some(TransitionStorageClass::DeepArchive)
         ));
         assert!(matches!(
-            parse_transition_storage_class("INTELLIGENT_TIERING"),
+            parse_storage_class("INTELLIGENT_TIERING"),
             Some(TransitionStorageClass::IntelligentTiering)
         ));
-        assert!(parse_transition_storage_class("not-a-class").is_none());
-        assert!(parse_transition_storage_class("").is_none());
+        assert!(parse_storage_class("not-a-class").is_none());
+        assert!(parse_storage_class("").is_none());
     }
 
     #[tokio::test]

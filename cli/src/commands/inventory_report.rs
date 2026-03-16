@@ -22,7 +22,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Err("Bucket not found".into());
     }
 
-    let manifest = resolve_date_ctx(&config, &bucket).await?;
+    let manifest = get_manifest(&config, &bucket).await?;
     let opts = inventory_report::PerformOptions::default();
     let stats = inventory_report::perform(&config, &manifest, &opts).await?;
 
@@ -35,15 +35,13 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Determine which inventory to use: today's if available, otherwise yesterday's.
-async fn resolve_date_ctx(config: &Config, target_bucket: &str) -> Result<File, &'static str> {
+async fn get_manifest(config: &Config, target_bucket: &str) -> Result<File, &'static str> {
     for ctx in [DateCtx::Today, DateCtx::Yesterday] {
         let manifest = File::new(
             config.stack().managed_bucket(),
-            format!(
-                "manifests/{}/inventory/{}T01-00Z/manifest.json",
-                target_bucket, ctx
-            ),
+            config.stack().inventory_manifest_path(target_bucket, ctx),
         );
+        println!("Checking for manifest: {}", manifest.s3_url());
         if file::exists(config.s3(), &manifest).await {
             return Ok(manifest);
         }

@@ -5,6 +5,7 @@ const BATCH_CHECKSUM_PREFIX: &str = "batch/reports/checksum";
 const BATCH_POLICY_SUFFIX: &str = "-s3-batch-policy";
 const BATCH_ROLE_SUFFIX: &str = "-s3-batch-role";
 const FEEDBACK_PREFIX: &str = "feedback";
+const MANIFESTS_PREFIX: &str = "manifests";
 const METADATA_PREFIX: &str = "metadata";
 const REPLICATION_POLICY_SUFFIX: &str = "-s3-replication-policy";
 const REPLICATION_ROLE_SUFFIX: &str = "-s3-replication-role";
@@ -104,6 +105,11 @@ impl Stack {
     /// File upload path for feedback
     pub fn feedback_path(&self, file: &str) -> String {
         format!("{FEEDBACK_PREFIX}/{file}")
+    }
+
+    /// Path to an inventory manifest (manifest.json)
+    pub fn inventory_manifest_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
+        format!("{MANIFESTS_PREFIX}/{bucket}/inventory/{date_ctx}T01-00Z/manifest.json")
     }
 
     /// Get managed bucket name for stack

@@ -5,7 +5,7 @@
 
 ## Overview
 
-This function creates Amazon S3 buckets using a predefined configuration template.
+This function creates Amazon S3 buckets with [prefab configuration](#).
 
 A text file containing bucket names is uploaded to the `${stack}-bucket-request` bucket. When the file is uploaded, the S3 event triggers the Lambda function, which downloads the file and processes each bucket name.
 

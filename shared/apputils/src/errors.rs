@@ -12,8 +12,10 @@ pub enum BucketValidationError {
 
 #[derive(Debug, Error)]
 pub enum ChecksumError {
+    #[cfg(feature = "duckdb")]
     #[error("CSV error: {0}")]
     Csv(#[from] csv::Error),
+    #[cfg(feature = "duckdb")]
     #[error("DuckDB error: {0}")]
     DuckDB(#[from] duckdb::Error),
     #[error("IO error: {0}")]
@@ -22,8 +24,10 @@ pub enum ChecksumError {
 
 #[derive(Debug, Error)]
 pub enum InventoryError {
+    #[cfg(feature = "duckdb")]
     #[error("CSV error: {0}")]
     Csv(#[from] csv::Error),
+    #[cfg(feature = "duckdb")]
     #[error("DuckDB error: {0}")]
     DuckDB(#[from] duckdb::Error),
     #[error("IO error: {0}")]

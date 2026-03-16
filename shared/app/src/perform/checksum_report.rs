@@ -312,12 +312,12 @@ mod tests {
         assert!(
             csv_puts
                 .iter()
-                .any(|r| uri_has_key(&r.uri, latest_csv_key.as_str()))
+                .any(|r| uri_has_key(&r.uri, latest_csv_key.key()))
         );
         assert!(
             csv_puts
                 .iter()
-                .any(|r| !uri_has_key(&r.uri, latest_csv_key.as_str()))
+                .any(|r| !uri_has_key(&r.uri, latest_csv_key.key()))
         );
         assert!(csv_puts.iter().all(|r| r.body == csv_puts[0].body));
 
@@ -338,12 +338,12 @@ mod tests {
         assert!(
             stats_puts
                 .iter()
-                .any(|r| uri_has_key(&r.uri, latest_stats_key.as_str()))
+                .any(|r| uri_has_key(&r.uri, latest_stats_key.key()))
         );
         assert!(
             stats_puts
                 .iter()
-                .any(|r| !uri_has_key(&r.uri, latest_stats_key.as_str()))
+                .any(|r| !uri_has_key(&r.uri, latest_stats_key.key()))
         );
         assert!(stats_puts.iter().all(|r| r.body == stats_puts[0].body));
 

@@ -184,12 +184,12 @@ mod tests {
         assert!(
             csv_puts
                 .iter()
-                .any(|r| uri_has_key(&r.uri, latest_csv_key.as_str()))
+                .any(|r| uri_has_key(&r.uri, latest_csv_key.key()))
         );
         assert!(
             csv_puts
                 .iter()
-                .any(|r| !uri_has_key(&r.uri, latest_csv_key.as_str()))
+                .any(|r| !uri_has_key(&r.uri, latest_csv_key.key()))
         );
 
         let csv_uris: HashSet<_> = csv_puts.iter().map(|r| r.uri.as_str()).collect();
@@ -214,12 +214,12 @@ mod tests {
         assert!(
             stats_puts
                 .iter()
-                .any(|r| uri_has_key(&r.uri, latest_stats_key.as_str()))
+                .any(|r| uri_has_key(&r.uri, latest_stats_key.key()))
         );
         assert!(
             stats_puts
                 .iter()
-                .any(|r| !uri_has_key(&r.uri, latest_stats_key.as_str()))
+                .any(|r| !uri_has_key(&r.uri, latest_stats_key.key()))
         );
 
         let stats_uris: HashSet<_> = stats_puts.iter().map(|r| r.uri.as_str()).collect();

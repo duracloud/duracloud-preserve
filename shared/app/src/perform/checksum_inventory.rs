@@ -70,10 +70,11 @@ pub async fn perform(
     )
     .await?;
 
-    let latest_path = config
-        .stack()
-        .reports_checksums_path(&output_name, DateCtx::Latest);
-    let latest_file = File::new(config.stack().managed_bucket(), latest_path);
+    let latest_file = File::from(
+        config
+            .stack()
+            .reports_checksums_path(&output_name, DateCtx::Latest),
+    );
 
     Ok(latest_file.s3_url())
 }

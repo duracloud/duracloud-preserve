@@ -37,19 +37,18 @@ pub async fn perform(
 
         tracing::info!("Retrieving inventory stats for: {bucket_name} {bucket_type}");
 
-        let stats_path = config
-            .stack()
-            .metadata_manifests_stats_path(&bucket_name, DateCtx::Latest);
+        let stats_file = File::from(
+            config
+                .stack()
+                .metadata_manifests_stats_path(&bucket_name, DateCtx::Latest),
+        );
 
-        let stats = download_bytes(
-            config.s3(),
-            &File::new(config.stack().managed_bucket(), stats_path),
-        )
-        .await
-        .map_err(|source| StorageReportError::DownloadStats {
-            bucket: bucket_name.clone(),
-            source,
-        })?;
+        let stats = download_bytes(config.s3(), &stats_file)
+            .await
+            .map_err(|source| StorageReportError::DownloadStats {
+                bucket: bucket_name.clone(),
+                source,
+            })?;
 
         let stats: InventoryStats =
             serde_json::from_slice(&stats).map_err(|source| StorageReportError::ParseStats {

@@ -1,4 +1,4 @@
-use apputils::{content_type::TEXT_PLAIN, stack::DateCtx};
+use apputils::{ManagedFile, content_type::TEXT_PLAIN, stack::DateCtx};
 use aws_sdk_s3::Client;
 use aws_sdk_s3::primitives::ByteStream;
 use awsutils::{
@@ -30,8 +30,7 @@ pub async fn upload_bytes(
 }
 
 pub async fn upload_feedback(config: &Config, key: &str, message: String) {
-    let stack = config.stack();
-    let file = File::new(stack.managed_bucket(), stack.feedback_path(key));
+    let file = File::from(config.stack().feedback_path(key));
     if let Err(e) = upload_bytes(config.s3(), message.into_bytes(), TEXT_PLAIN, [file]).await {
         tracing::error!("Failed to upload feedback: {e}");
     }
@@ -42,11 +41,10 @@ pub async fn upload_versioned_bytes<E>(
     date_ctx: DateCtx,
     body: impl Into<Bytes>,
     content_type: &str,
-    path_for_ctx: impl Fn(DateCtx) -> String,
+    path_for_ctx: impl Fn(DateCtx) -> ManagedFile,
     map_err: impl Fn(RequestError) -> E,
 ) -> Result<(), E> {
-    let bucket = config.stack().managed_bucket();
-    let files = [DateCtx::Latest, date_ctx].map(|ctx| File::new(&bucket, path_for_ctx(ctx)));
+    let files = [DateCtx::Latest, date_ctx].map(|ctx| File::from(path_for_ctx(ctx)));
     upload_bytes(config.s3(), body, content_type, files)
         .await
         .map(|_| ())

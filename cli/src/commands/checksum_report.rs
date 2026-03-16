@@ -19,10 +19,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Err("Bucket not found".into());
     }
 
-    let file = File::new(
-        stack.managed_bucket(),
-        stack.metadata_checksums_receipts_path(&bucket, DateCtx::Latest),
-    );
+    let file = File::from(stack.metadata_checksums_receipts_path(&bucket, DateCtx::Latest));
 
     let opts = checksum_report::PerformOptions::default();
     let stats = checksum_report::perform(&config, &file, &opts).await?;

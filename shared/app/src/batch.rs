@@ -15,9 +15,7 @@ pub async fn get_batch_manifest(
     bucket: &str,
     job_id: &str,
 ) -> Result<BatchManifest, BatchStatusError> {
-    let managed_bucket = config.stack().managed_bucket();
-    let manifest = &File::new(
-        &managed_bucket,
+    let manifest = &File::from(
         config
             .stack()
             .batch_reports_checksum_manifest(bucket, job_id),
@@ -139,17 +137,16 @@ pub async fn trigger_checksum_job(
     );
 
     let stack = config.stack();
-    let paths = [
+    let files = [
         stack.metadata_checksums_receipts_path(&source_result, DateCtx::Latest),
         stack.metadata_checksums_receipts_path(&replication_result, DateCtx::Latest),
         stack.metadata_checksums_receipts_path(source.name(), DateCtx::Latest),
         stack.metadata_checksums_receipts_path(source.name(), DateCtx::Today),
-    ];
+    ]
+    .map(File::from);
 
     tracing::info!("Uploading receipt: {:?}", receipt);
 
-    let managed_bucket = stack.managed_bucket();
-    let files = paths.iter().map(|p| File::new(&managed_bucket, p));
     Ok(upload_bytes(
         config.s3(),
         serde_json::to_vec(&receipt)?,

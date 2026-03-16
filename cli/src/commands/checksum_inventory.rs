@@ -15,8 +15,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::from_bucket_name(&bucket)?;
     let config = app::config::config(stack.clone()).await?;
 
-    let report = File::new(
-        config.stack().managed_bucket(),
+    let report = File::from(
         config
             .stack()
             .reports_manifests_path(&bucket, DateCtx::Latest),

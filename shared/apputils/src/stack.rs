@@ -42,6 +42,23 @@ impl std::fmt::Display for DateCtx {
     }
 }
 
+/// An S3 file reference within the stack's managed bucket.
+#[derive(Debug, Clone)]
+pub struct ManagedFile {
+    bucket: String,
+    key: String,
+}
+
+impl ManagedFile {
+    pub fn bucket(&self) -> &str {
+        &self.bucket
+    }
+
+    pub fn key(&self) -> &str {
+        &self.key
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Stack(Name);
 
@@ -93,8 +110,11 @@ impl Stack {
     }
 
     /// Batch compute checksums manifest upload path (when report is ready)
-    pub fn batch_reports_checksum_manifest(&self, bucket: &str, job_id: &str) -> String {
-        format!("{BATCH_CHECKSUM_PREFIX}/{bucket}/job-{job_id}/manifest.json")
+    pub fn batch_reports_checksum_manifest(&self, bucket: &str, job_id: &str) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{BATCH_CHECKSUM_PREFIX}/{bucket}/job-{job_id}/manifest.json"),
+        }
     }
 
     /// Batch operations role name for stack
@@ -103,13 +123,19 @@ impl Stack {
     }
 
     /// File upload path for feedback
-    pub fn feedback_path(&self, file: &str) -> String {
-        format!("{FEEDBACK_PREFIX}/{file}")
+    pub fn feedback_path(&self, file: &str) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{FEEDBACK_PREFIX}/{file}"),
+        }
     }
 
     /// Path to an inventory manifest (manifest.json)
-    pub fn inventory_manifest_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{MANIFESTS_PREFIX}/{bucket}/inventory/{date_ctx}T01-00Z/manifest.json")
+    pub fn inventory_manifest_path(&self, bucket: &str, date_ctx: DateCtx) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{MANIFESTS_PREFIX}/{bucket}/inventory/{date_ctx}T01-00Z/manifest.json"),
+        }
     }
 
     /// Get managed bucket name for stack
@@ -119,26 +145,42 @@ impl Stack {
 
     /// Checksums job receipt (json) destination used for checksum verification processing
     /// A valid identifier is either a source (not replication) bucket name or job id
-    pub fn metadata_checksums_receipts_path(&self, identifier: &str, date_ctx: DateCtx) -> String {
-        format!("{METADATA_PREFIX}/{date_ctx}/checksums/receipts/{identifier}.json")
+    pub fn metadata_checksums_receipts_path(
+        &self,
+        identifier: &str,
+        date_ctx: DateCtx,
+    ) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{METADATA_PREFIX}/{date_ctx}/checksums/receipts/{identifier}.json"),
+        }
     }
 
     /// Checksum verification stats destination
-    pub fn metadata_checksums_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{METADATA_PREFIX}/{date_ctx}/checksums/stats/{bucket}.json")
+    pub fn metadata_checksums_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{METADATA_PREFIX}/{date_ctx}/checksums/stats/{bucket}.json"),
+        }
     }
 
     /// Inventory (per bucket) usage stats destination
-    pub fn metadata_manifests_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{METADATA_PREFIX}/{date_ctx}/manifests/stats/{bucket}.json")
+    pub fn metadata_manifests_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{METADATA_PREFIX}/{date_ctx}/manifests/stats/{bucket}.json"),
+        }
     }
 
     /// Stack storage stats destination
-    pub fn metadata_storage_stats_path(&self, date_ctx: DateCtx) -> String {
-        format!(
-            "{METADATA_PREFIX}/{date_ctx}/storage/stats/{}.json",
-            self.as_str()
-        )
+    pub fn metadata_storage_stats_path(&self, date_ctx: DateCtx) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!(
+                "{METADATA_PREFIX}/{date_ctx}/storage/stats/{}.json",
+                self.as_str()
+            ),
+        }
     }
 
     /// Replication policy name for stack
@@ -152,18 +194,27 @@ impl Stack {
     }
 
     /// Checksum verification report (csv) upload destination provided for user access
-    pub fn reports_checksums_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{REPORTS_PREFIX}/{date_ctx}/checksums/{bucket}.csv")
+    pub fn reports_checksums_path(&self, bucket: &str, date_ctx: DateCtx) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{REPORTS_PREFIX}/{date_ctx}/checksums/{bucket}.csv"),
+        }
     }
 
     /// File manifest (csv) upload destination provided for user access
-    pub fn reports_manifests_path(&self, bucket: &str, date_ctx: DateCtx) -> String {
-        format!("{REPORTS_PREFIX}/{date_ctx}/manifests/{bucket}.csv")
+    pub fn reports_manifests_path(&self, bucket: &str, date_ctx: DateCtx) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{REPORTS_PREFIX}/{date_ctx}/manifests/{bucket}.csv"),
+        }
     }
 
     /// Stack storage report (html) destination provided for user access
-    pub fn reports_storage_path(&self, date_ctx: DateCtx) -> String {
-        format!("{REPORTS_PREFIX}/{date_ctx}/storage/{}.html", self.as_str())
+    pub fn reports_storage_path(&self, date_ctx: DateCtx) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{REPORTS_PREFIX}/{date_ctx}/storage/{}.html", self.as_str()),
+        }
     }
 
     /// Request bucket name for stack
@@ -215,10 +266,12 @@ mod tests {
     #[test]
     fn test_batch_reports_checksum_manifest() {
         let stack = Stack::new("test-stack").unwrap();
+        let mf = stack.batch_reports_checksum_manifest("my-bucket", "abc123");
         assert_eq!(
-            stack.batch_reports_checksum_manifest("my-bucket", "abc123"),
+            mf.key(),
             "batch/reports/checksum/my-bucket/job-abc123/manifest.json"
         );
+        assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
     #[test]
@@ -230,10 +283,9 @@ mod tests {
     #[test]
     fn test_feedback_path() {
         let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.feedback_path("bucket-request/test.txt"),
-            "feedback/bucket-request/test.txt"
-        );
+        let mf = stack.feedback_path("bucket-request/test.txt");
+        assert_eq!(mf.key(), "feedback/bucket-request/test.txt");
+        assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
     #[test]
@@ -245,37 +297,36 @@ mod tests {
     #[test]
     fn test_metadata_checksums_receipts_path() {
         let stack = Stack::new("test-stack").unwrap();
+        let mf = stack.metadata_checksums_receipts_path("my-bucket", DateCtx::Latest);
         assert_eq!(
-            stack.metadata_checksums_receipts_path("my-bucket", DateCtx::Latest),
+            mf.key(),
             "metadata/latest/checksums/receipts/my-bucket.json"
         );
+        assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
     #[test]
     fn test_metadata_checksums_stats_path() {
         let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.metadata_checksums_stats_path("my-bucket", DateCtx::Latest),
-            "metadata/latest/checksums/stats/my-bucket.json"
-        );
+        let mf = stack.metadata_checksums_stats_path("my-bucket", DateCtx::Latest);
+        assert_eq!(mf.key(), "metadata/latest/checksums/stats/my-bucket.json");
+        assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
     #[test]
     fn test_metadata_manifests_stats_path() {
         let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.metadata_manifests_stats_path("my-bucket", DateCtx::Latest),
-            "metadata/latest/manifests/stats/my-bucket.json"
-        );
+        let mf = stack.metadata_manifests_stats_path("my-bucket", DateCtx::Latest);
+        assert_eq!(mf.key(), "metadata/latest/manifests/stats/my-bucket.json");
+        assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
     #[test]
     fn test_metadata_storage_stats_path() {
         let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.metadata_storage_stats_path(DateCtx::Latest),
-            "metadata/latest/storage/stats/test-stack.json"
-        );
+        let mf = stack.metadata_storage_stats_path(DateCtx::Latest);
+        assert_eq!(mf.key(), "metadata/latest/storage/stats/test-stack.json");
+        assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
     #[test]
@@ -299,28 +350,25 @@ mod tests {
     #[test]
     fn test_reports_checksums_path() {
         let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.reports_checksums_path("my-bucket", DateCtx::Latest),
-            "reports/latest/checksums/my-bucket.csv"
-        );
+        let mf = stack.reports_checksums_path("my-bucket", DateCtx::Latest);
+        assert_eq!(mf.key(), "reports/latest/checksums/my-bucket.csv");
+        assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
     #[test]
     fn test_reports_manifests_path() {
         let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.reports_manifests_path("my-bucket", DateCtx::Latest),
-            "reports/latest/manifests/my-bucket.csv"
-        );
+        let mf = stack.reports_manifests_path("my-bucket", DateCtx::Latest);
+        assert_eq!(mf.key(), "reports/latest/manifests/my-bucket.csv");
+        assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
     #[test]
     fn test_reports_storage_path() {
         let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(
-            stack.reports_storage_path(DateCtx::Latest),
-            "reports/latest/storage/test-stack.html"
-        );
+        let mf = stack.reports_storage_path(DateCtx::Latest);
+        assert_eq!(mf.key(), "reports/latest/storage/test-stack.html");
+        assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
     #[test]

@@ -53,8 +53,7 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    let receipt_file = File::new(
-        config.stack().managed_bucket(),
+    let receipt_file = File::from(
         config
             .stack()
             .metadata_checksums_receipts_path(&job.job_id, apputils::stack::DateCtx::Latest),

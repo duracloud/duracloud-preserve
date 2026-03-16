@@ -7,5 +7,5 @@ pub mod errors;
 pub mod inventory;
 pub mod stack;
 pub mod stats;
-pub use stack::Stack;
+pub use stack::{ManagedFile, Stack};
 pub mod storage;

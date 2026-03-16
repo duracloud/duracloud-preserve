@@ -153,3 +153,9 @@ impl File {
         format!("s3://{}/{}", self.bucket, self.object)
     }
 }
+
+impl From<apputils::ManagedFile> for File {
+    fn from(mf: apputils::ManagedFile) -> Self {
+        File::new(mf.bucket(), mf.key())
+    }
+}

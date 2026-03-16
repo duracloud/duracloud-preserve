@@ -2,9 +2,13 @@ pub const MANAGED_SUFFIX: &str = "-managed";
 pub const REQUEST_SUFFIX: &str = "-bucket-request";
 
 const BATCH_CHECKSUM_PREFIX: &str = "batch/reports/checksum";
+const BATCH_MANIFEST_PREFIX: &str = "batch/manifests";
 const BATCH_POLICY_SUFFIX: &str = "-s3-batch-policy";
+const BATCH_REPORT_PREFIX: &str = "batch/reports";
 const BATCH_ROLE_SUFFIX: &str = "-s3-batch-role";
+const BUCKET_REQUEST_PREFIX: &str = "bucket-request";
 const FEEDBACK_PREFIX: &str = "feedback";
+const LOGGING_PREFIX: &str = "audit";
 const MANIFESTS_PREFIX: &str = "manifests";
 const METADATA_PREFIX: &str = "metadata";
 const REPLICATION_POLICY_SUFFIX: &str = "-s3-replication-policy";
@@ -104,9 +108,25 @@ impl Stack {
         Self::new(&stack_name)
     }
 
+    /// Batch manifest prefix for job processing
+    pub fn batch_manifest_prefix(&self, job_type: &str) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{BATCH_MANIFEST_PREFIX}/{job_type}"),
+        }
+    }
+
     /// Batch operations policy name for stack
     pub fn batch_policy_name(&self) -> String {
         format!("{}{BATCH_POLICY_SUFFIX}", self.as_str())
+    }
+
+    /// Batch report prefix for job processing
+    pub fn batch_report_prefix(&self, job_type: &str, source_bucket: &str) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{BATCH_REPORT_PREFIX}/{job_type}/{source_bucket}"),
+        }
     }
 
     /// Batch compute checksums manifest upload path (when report is ready)
@@ -122,6 +142,14 @@ impl Stack {
         format!("{}{BATCH_ROLE_SUFFIX}", self.as_str())
     }
 
+    /// Bucket request file upload path
+    pub fn bucket_request_path(&self, file: &str) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{BUCKET_REQUEST_PREFIX}/{file}"),
+        }
+    }
+
     /// File upload path for feedback
     pub fn feedback_path(&self, file: &str) -> ManagedFile {
         ManagedFile {
@@ -135,6 +163,14 @@ impl Stack {
         ManagedFile {
             bucket: self.managed_bucket(),
             key: format!("{MANIFESTS_PREFIX}/{bucket}/inventory/{date_ctx}T01-00Z/manifest.json"),
+        }
+    }
+
+    /// Logging prefix path for a bucket
+    pub fn logging_prefix_path(&self, bucket: &str) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{LOGGING_PREFIX}/{bucket}/"),
         }
     }
 
@@ -258,9 +294,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_batch_manifest_prefix() {
+        let stack = Stack::new("test-stack").unwrap();
+        let mf = stack.batch_manifest_prefix("checksum");
+        assert_eq!(mf.key(), "batch/manifests/checksum");
+        assert_eq!(mf.bucket(), "test-stack-managed");
+    }
+
+    #[test]
     fn test_batch_policy_name() {
         let stack = Stack::new("test-stack").unwrap();
         assert_eq!(stack.batch_policy_name(), "test-stack-s3-batch-policy");
+    }
+
+    #[test]
+    fn test_batch_report_prefix() {
+        let stack = Stack::new("test-stack").unwrap();
+        let mf = stack.batch_report_prefix("checksum", "my-bucket");
+        assert_eq!(mf.key(), "batch/reports/checksum/my-bucket");
+        assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
     #[test]
@@ -281,10 +333,26 @@ mod tests {
     }
 
     #[test]
+    fn test_bucket_request_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        let mf = stack.bucket_request_path("request.txt");
+        assert_eq!(mf.key(), "bucket-request/request.txt");
+        assert_eq!(mf.bucket(), "test-stack-managed");
+    }
+
+    #[test]
     fn test_feedback_path() {
         let stack = Stack::new("test-stack").unwrap();
         let mf = stack.feedback_path("bucket-request/test.txt");
         assert_eq!(mf.key(), "feedback/bucket-request/test.txt");
+        assert_eq!(mf.bucket(), "test-stack-managed");
+    }
+
+    #[test]
+    fn test_logging_prefix_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        let mf = stack.logging_prefix_path("my-bucket");
+        assert_eq!(mf.key(), "audit/my-bucket/");
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
 

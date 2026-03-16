@@ -11,7 +11,7 @@ use crate::bucket::{Bucket, Type};
 use crate::bucket_creator::{
     BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, EXPIRE_ABORTED_MULTIPART_DAYS,
     EXPIRE_NONCURRENT_VERSION_DAYS, INVENTORY_FORMAT, INVENTORY_ID, INVENTORY_PREFIX,
-    LOGGING_PREFIX, REPLICATION_RULE_ID, REPLICATION_RULE_PRIORITY, REPLICATION_TIME_MINUTES,
+    REPLICATION_RULE_ID, REPLICATION_RULE_PRIORITY, REPLICATION_TIME_MINUTES,
     STORAGE_CLASS_PUBLIC_DEFAULT, STORAGE_CLASS_REPLICATION_DEFAULT,
     STORAGE_CLASS_STANDARD_DEFAULT, STORAGE_TRANSITION_DAYS,
 };
@@ -464,13 +464,12 @@ impl<'a> BucketReconciliator<'a> {
             .await
         {
             Ok(resp) => {
-                let expected_target = self.stack.managed_bucket();
-                let expected_prefix = format!("{LOGGING_PREFIX}/{}/", self.bucket.name());
+                let expected = self.stack.logging_prefix_path(self.bucket.name());
 
                 match resp.logging_enabled() {
                     Some(logging)
-                        if logging.target_bucket() == expected_target.as_str()
-                            && logging.target_prefix() == expected_prefix.as_str() =>
+                        if logging.target_bucket() == expected.bucket()
+                            && logging.target_prefix() == expected.key() =>
                     {
                         StepStatus::Ok
                     }
@@ -786,7 +785,7 @@ mod tests {
             .success(
                 logging_xml(
                     &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                    stack.logging_prefix_path(bucket_name).key(),
                 ),
                 None,
             )
@@ -850,7 +849,7 @@ mod tests {
             .success(
                 logging_xml(
                     &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                    stack.logging_prefix_path(bucket_name).key(),
                 ),
                 None,
             )
@@ -910,7 +909,7 @@ mod tests {
             .success(
                 logging_xml(
                     &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                    stack.logging_prefix_path(bucket_name).key(),
                 ),
                 None,
             )
@@ -1199,7 +1198,7 @@ mod tests {
             .success(
                 logging_xml(
                     &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                    stack.logging_prefix_path(bucket_name).key(),
                 ),
                 None,
             )
@@ -1317,7 +1316,7 @@ mod tests {
             .success(
                 logging_xml(
                     &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                    stack.logging_prefix_path(bucket_name).key(),
                 ),
                 None,
             )
@@ -1371,7 +1370,7 @@ mod tests {
             .success(notification_xml_with_eventbridge(), None)
             // 6. get_bucket_logging (wrong target bucket)
             .success(
-                logging_xml("wrong-bucket", &format!("{LOGGING_PREFIX}/{bucket_name}/")),
+                logging_xml("wrong-bucket", stack.logging_prefix_path(bucket_name).key()),
                 None,
             )
             // 7. get_bucket_inventory_configuration
@@ -1425,7 +1424,7 @@ mod tests {
             .success(
                 logging_xml(
                     &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                    stack.logging_prefix_path(bucket_name).key(),
                 ),
                 None,
             )
@@ -1491,7 +1490,7 @@ mod tests {
             .success(
                 logging_xml(
                     &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                    stack.logging_prefix_path(bucket_name).key(),
                 ),
                 None,
             )
@@ -1556,7 +1555,7 @@ mod tests {
             .success(
                 logging_xml(
                     &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                    stack.logging_prefix_path(bucket_name).key(),
                 ),
                 None,
             )
@@ -1620,7 +1619,7 @@ mod tests {
             .success(
                 logging_xml(
                     &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                    stack.logging_prefix_path(bucket_name).key(),
                 ),
                 None,
             )
@@ -1683,7 +1682,7 @@ mod tests {
             .success(
                 logging_xml(
                     &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                    stack.logging_prefix_path(bucket_name).key(),
                 ),
                 None,
             )
@@ -1743,7 +1742,7 @@ mod tests {
             .success(
                 logging_xml(
                     &stack.managed_bucket(),
-                    &format!("{LOGGING_PREFIX}/{bucket_name}/"),
+                    stack.logging_prefix_path(bucket_name).key(),
                 ),
                 None,
             )

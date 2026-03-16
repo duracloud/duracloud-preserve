@@ -27,7 +27,6 @@ pub(crate) const EXPIRE_NONCURRENT_VERSION_DAYS: u8 = 14;
 pub const INVENTORY_FORMAT: InventoryFormat = InventoryFormat::Parquet;
 pub(crate) const INVENTORY_ID: &str = "inventory";
 pub(crate) const INVENTORY_PREFIX: &str = "manifests";
-pub(crate) const LOGGING_PREFIX: &str = "audit";
 
 pub const STORAGE_CLASS_STANDARD_DEFAULT: TransitionStorageClass =
     TransitionStorageClass::GlacierIr;
@@ -312,7 +311,7 @@ impl<'a> BucketCreator<'a> {
 
     async fn enable_bucket_logging(&self) -> Result<(), RequestError> {
         let bucket_name = self.bucket.name();
-        let dest_bucket = self.stack.managed_bucket();
+        let logging = self.stack.logging_prefix_path(bucket_name);
 
         self.client
             .put_bucket_logging()
@@ -321,8 +320,8 @@ impl<'a> BucketCreator<'a> {
                 aws_sdk_s3::types::BucketLoggingStatus::builder()
                     .logging_enabled(
                         aws_sdk_s3::types::LoggingEnabled::builder()
-                            .target_bucket(dest_bucket)
-                            .target_prefix(format!("{LOGGING_PREFIX}/{bucket_name}/"))
+                            .target_bucket(logging.bucket())
+                            .target_prefix(logging.key())
                             .build()
                             .s3_err("failed to build logging config")?,
                     )

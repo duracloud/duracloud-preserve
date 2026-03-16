@@ -37,10 +37,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 
     // Note: we upload to the managed bucket (not the request bucket) intentionally
     // because if the function is deployed we don't want to process twice
-    let file = File::new(
-        stack.managed_bucket(),
-        format!("bucket-request/{}", filename),
-    );
+    let file = File::from(stack.bucket_request_path(&filename));
 
     awsutils::file::upload(
         config.s3(),

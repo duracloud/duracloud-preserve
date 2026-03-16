@@ -8,6 +8,7 @@ use aws_sdk_s3::{
     primitives::ByteStream,
 };
 use std::path::PathBuf;
+
 /// Delete a file from S3
 pub async fn delete(client: &Client, file: &File) -> Result<(), RequestError> {
     client

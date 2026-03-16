@@ -87,14 +87,14 @@ pub async fn trigger_checksum_job(
         replication.name()
     );
 
-    let source_result = aws_batch::create_checksum_job(
-        config.s3control(),
-        config.account_id(),
-        config.batch_role_arn(),
-        source.name(),
-        config.stack().managed_bucket().as_str(),
-    )
-    .await?;
+    let batch_config = aws_batch::BatchConfig {
+        client: config.s3control(),
+        account_id: config.account_id(),
+        role_arn: config.batch_role_arn(),
+        stack: config.stack(),
+    };
+
+    let source_result = aws_batch::create_checksum_job(&batch_config, source.name()).await?;
 
     tracing::info!(
         "Created source checksum job: bucket={}, job_id={}",
@@ -102,26 +102,19 @@ pub async fn trigger_checksum_job(
         source_result
     );
 
-    let replication_result = match aws_batch::create_checksum_job(
-        config.s3control(),
-        config.account_id(),
-        config.batch_role_arn(),
-        replication.name(),
-        config.stack().managed_bucket().as_str(),
-    )
-    .await
-    {
-        Ok(result) => result,
-        Err(e) => {
-            tracing::error!(
-                "Failed to create replication job for {}: {}. Orphaned source job: {}",
-                replication.name(),
-                e,
-                source_result
-            );
-            return Err(e);
-        }
-    };
+    let replication_result =
+        match aws_batch::create_checksum_job(&batch_config, replication.name()).await {
+            Ok(result) => result,
+            Err(e) => {
+                tracing::error!(
+                    "Failed to create replication job for {}: {}. Orphaned source job: {}",
+                    replication.name(),
+                    e,
+                    source_result
+                );
+                return Err(e);
+            }
+        };
 
     tracing::info!(
         "Created replication checksum job: bucket={}, job_id={}",

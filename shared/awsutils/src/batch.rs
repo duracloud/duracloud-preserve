@@ -20,8 +20,13 @@ pub use crate::errors::BatchError;
 
 const CHECKSUM_ALGORITHM: ComputeObjectChecksumAlgorithm =
     ComputeObjectChecksumAlgorithm::Crc64Nvme;
-const MANIFEST_PREFIX: &str = "batch/manifests";
-const REPORT_PREFIX: &str = "batch/reports";
+
+pub struct BatchConfig<'a> {
+    pub client: &'a s3control::Client,
+    pub account_id: &'a str,
+    pub role_arn: &'a str,
+    pub stack: &'a apputils::Stack,
+}
 
 /// Batch Manifest
 #[derive(Debug, Deserialize)]
@@ -78,9 +83,7 @@ impl ChecksumJobReceipt {
 }
 
 struct JobParams<'a> {
-    client: &'a s3control::Client,
-    account_id: &'a str,
-    role_arn: &'a str,
+    config: &'a BatchConfig<'a>,
     job_type: &'a str,
     description: &'a str,
     operation: JobOperation,
@@ -89,11 +92,8 @@ struct JobParams<'a> {
 }
 
 pub async fn create_checksum_job(
-    client: &s3control::Client,
-    account_id: &str,
-    role_arn: &str,
+    config: &BatchConfig<'_>,
     source_bucket: &str,
-    report_bucket: &str,
 ) -> Result<String, BatchError> {
     let operation = JobOperation::builder()
         .s3_compute_object_checksum(
@@ -105,14 +105,14 @@ pub async fn create_checksum_job(
         .build();
 
     let job_type = "checksum";
-    let manifest_generator = build_manifest(job_type, account_id, source_bucket, report_bucket)
+    let manifest_prefix = config.stack.batch_manifest_prefix(job_type);
+    let report_prefix = config.stack.batch_report_prefix(job_type, source_bucket);
+    let manifest_generator = build_manifest(config.account_id, source_bucket, &manifest_prefix)
         .map_err(BatchError::S3Control)?;
-    let report = build_report(job_type, account_id, source_bucket, report_bucket);
+    let report = build_report(config.account_id, &report_prefix);
 
     run(JobParams {
-        client,
-        account_id,
-        role_arn,
+        config,
         job_type,
         description: "Compute object checksums",
         operation,
@@ -123,12 +123,9 @@ pub async fn create_checksum_job(
 }
 
 pub async fn create_copy_job(
-    client: &s3control::Client,
-    account_id: &str,
-    role_arn: &str,
+    config: &BatchConfig<'_>,
     source_bucket: &str,
     dest_bucket: &str,
-    report_bucket: &str,
 ) -> Result<String, BatchError> {
     let operation = JobOperation::builder()
         .s3_put_object_copy(
@@ -139,14 +136,14 @@ pub async fn create_copy_job(
         .build();
 
     let job_type = "copy";
-    let manifest_generator = build_manifest(job_type, account_id, source_bucket, report_bucket)
+    let manifest_prefix = config.stack.batch_manifest_prefix(job_type);
+    let report_prefix = config.stack.batch_report_prefix(job_type, source_bucket);
+    let manifest_generator = build_manifest(config.account_id, source_bucket, &manifest_prefix)
         .map_err(BatchError::S3Control)?;
-    let report = build_report(job_type, account_id, source_bucket, report_bucket);
+    let report = build_report(config.account_id, &report_prefix);
 
     run(JobParams {
-        client,
-        account_id,
-        role_arn,
+        config,
         job_type,
         description: "Copy objects to destination bucket",
         operation,
@@ -157,10 +154,9 @@ pub async fn create_copy_job(
 }
 
 fn build_manifest(
-    job_type: &str,
     account_id: &str,
     source_bucket: &str,
-    report_bucket: &str,
+    manifest: &apputils::ManagedFile,
 ) -> Result<JobManifestGenerator, Box<dyn std::error::Error + Send + Sync>> {
     Ok(JobManifestGenerator::S3JobManifestGenerator(
         S3JobManifestGenerator::builder()
@@ -170,8 +166,8 @@ fn build_manifest(
             .manifest_output_location(
                 S3ManifestOutputLocation::builder()
                     .expected_manifest_bucket_owner(account_id)
-                    .bucket(format!("arn:aws:s3:::{}", report_bucket))
-                    .manifest_prefix(format!("{}/{}", MANIFEST_PREFIX, job_type))
+                    .bucket(format!("arn:aws:s3:::{}", manifest.bucket()))
+                    .manifest_prefix(manifest.key())
                     .manifest_format(GeneratedManifestFormat::S3InventoryReportCsv20211130)
                     .build()?,
             )
@@ -179,17 +175,12 @@ fn build_manifest(
     ))
 }
 
-fn build_report(
-    job_type: &str,
-    account_id: &str,
-    source_bucket: &str,
-    report_bucket: &str,
-) -> JobReport {
+fn build_report(account_id: &str, report: &apputils::ManagedFile) -> JobReport {
     JobReport::builder()
         .enabled(true)
-        .bucket(format!("arn:aws:s3:::{}", report_bucket))
+        .bucket(format!("arn:aws:s3:::{}", report.bucket()))
         .expected_bucket_owner(account_id)
-        .prefix(format!("{}/{}/{}", REPORT_PREFIX, job_type, source_bucket))
+        .prefix(report.key())
         .format(JobReportFormat::ReportCsv20180820)
         .report_scope(JobReportScope::AllTasks)
         .build()
@@ -197,14 +188,15 @@ fn build_report(
 
 async fn run(params: JobParams<'_>) -> Result<String, BatchError> {
     let response = params
+        .config
         .client
         .create_job()
-        .account_id(params.account_id)
+        .account_id(params.config.account_id)
         .operation(params.operation)
         .manifest_generator(params.manifest_generator)
         .report(params.report)
         .priority(10)
-        .role_arn(params.role_arn)
+        .role_arn(params.config.role_arn)
         .client_request_token(format!(
             "{}-job-{}",
             params.job_type,
@@ -243,6 +235,19 @@ mod tests {
     use super::*;
     use test_support::{mock_sdk_config, recorded_requests, replay_xml_event};
 
+    fn test_config(client: &s3control::Client) -> BatchConfig<'_> {
+        // Leak the stack to get a 'static lifetime that outlives the config.
+        // This is fine in tests — the allocation is tiny and the process exits.
+        let stack: &'static apputils::Stack =
+            Box::leak(Box::new(apputils::Stack::new("test-stack").unwrap()));
+        BatchConfig {
+            client,
+            account_id: "123456789012",
+            role_arn: "arn:aws:iam::123456789012:role/test-batch-role",
+            stack,
+        }
+    }
+
     #[tokio::test]
     async fn test_create_checksum_job_serializes_checksum_operation_and_prefixes() {
         let (sdk_config, replay) = mock_sdk_config(replay_xml_event(
@@ -253,16 +258,11 @@ mod tests {
 </CreateJobResult>"#,
         ));
         let client = s3control::Client::new(&sdk_config);
+        let config = test_config(&client);
 
-        let job_id = create_checksum_job(
-            &client,
-            "123456789012",
-            "arn:aws:iam::123456789012:role/test-batch-role",
-            "source-bucket",
-            "report-bucket",
-        )
-        .await
-        .expect("create_checksum_job should succeed");
+        let job_id = create_checksum_job(&config, "source-bucket")
+            .await
+            .expect("create_checksum_job should succeed");
 
         assert_eq!(job_id, "checksum-job-1");
 
@@ -290,17 +290,11 @@ mod tests {
 </Error>"#,
         ));
         let client = s3control::Client::new(&sdk_config);
+        let config = test_config(&client);
 
-        let err = create_copy_job(
-            &client,
-            "123456789012",
-            "arn:aws:iam::123456789012:role/test-batch-role",
-            "source-bucket",
-            "dest-bucket",
-            "report-bucket",
-        )
-        .await
-        .expect_err("create_copy_job should fail");
+        let err = create_copy_job(&config, "source-bucket", "dest-bucket")
+            .await
+            .expect_err("create_copy_job should fail");
 
         match err {
             BatchError::S3Control(inner) => {
@@ -320,17 +314,11 @@ mod tests {
 </CreateJobResult>"#,
         ));
         let client = s3control::Client::new(&sdk_config);
+        let config = test_config(&client);
 
-        let job_id = create_copy_job(
-            &client,
-            "123456789012",
-            "arn:aws:iam::123456789012:role/test-batch-role",
-            "source-bucket",
-            "dest-bucket",
-            "report-bucket",
-        )
-        .await
-        .expect("create_copy_job should succeed");
+        let job_id = create_copy_job(&config, "source-bucket", "dest-bucket")
+            .await
+            .expect("create_copy_job should succeed");
 
         assert_eq!(job_id, "copy-job-1");
 

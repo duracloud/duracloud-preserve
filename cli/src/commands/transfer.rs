@@ -37,15 +37,14 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 
     // TODO: Prompt for confirmation
 
-    let job_id = batch::create_copy_job(
-        config.s3control(),
-        config.account_id(),
-        config.batch_role_arn(),
-        &source,
-        &destination,
-        &stack.managed_bucket(),
-    )
-    .await?;
+    let batch_config = batch::BatchConfig {
+        client: config.s3control(),
+        account_id: config.account_id(),
+        role_arn: config.batch_role_arn(),
+        stack: &stack,
+    };
+
+    let job_id = batch::create_copy_job(&batch_config, &source, &destination).await?;
 
     println!("\nSuccessfully created transfer job: {job_id}");
     Ok(())

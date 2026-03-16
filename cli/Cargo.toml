@@ -8,20 +8,20 @@ name = "duracloud"
 path = "src/main.rs"
 
 [dependencies]
-app = { path = "../shared/app", features = ["duckdb"] }
-apputils = { path = "../shared/apputils", features = ["duckdb"] }
-awsutils = { path = "../shared/awsutils", features = ["duckdb"] }
-aws-config = { version = "1.8", features = ["behavior-version-latest"] }
-aws-sdk-iam = "1"
-aws-sdk-s3 = "1.125.0"
-aws-sdk-sts = "1"
+app = { workspace = true, features = ["duckdb"] }
+apputils = { workspace = true, features = ["duckdb"] }
+awsutils = { workspace = true, features = ["duckdb"] }
+aws-config = { workspace = true, features = ["behavior-version-latest"] }
+aws-sdk-iam.workspace = true
+aws-sdk-s3.workspace = true
+aws-sdk-sts.workspace = true
 base64 = "0.22.1"
 clap = { version = "4", default-features = false, features = ["derive", "std"] }
-chrono = "0.4.44"
+chrono.workspace = true
 crc-fast = "1"
 rand = "0.10"
-serde_json = "1"
+serde_json.workspace = true
 shellexpand = "3"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-tracing = "0.1"
+tokio.workspace = true
+tracing.workspace = true
 tracing-subscriber = "0.3"

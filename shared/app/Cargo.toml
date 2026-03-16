@@ -7,22 +7,22 @@ edition = "2024"
 duckdb = ["awsutils/duckdb", "apputils/duckdb"]
 
 [dependencies]
-askama = "0.15.4"
-apputils = { path = "../apputils" }
-aws-config = "1.8.15"
-aws-sdk-s3 = "1.125.0"
-aws-sdk-s3control = "1.112.0"
-aws-smithy-types = "1.3.4"
-awsutils = { path = "../awsutils" }
-bytes = "1.11.0"
-chrono = "0.4.44"
-csv = "1"
-futures = "0.3.32"
-serde_json = "1.0.149"
-tempfile = "3"
-thiserror = "2.0.18"
-tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread"] }
-tracing = "0.1"
+askama.workspace = true
+apputils.workspace = true
+aws-config.workspace = true
+aws-sdk-s3.workspace = true
+aws-sdk-s3control.workspace = true
+aws-smithy-types.workspace = true
+awsutils.workspace = true
+bytes.workspace = true
+chrono.workspace = true
+csv.workspace = true
+futures.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
-test-support = { path = "../test-support" }
+test-support.workspace = true

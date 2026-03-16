@@ -7,25 +7,25 @@ edition = "2024"
 duckdb = ["apputils/duckdb"]
 
 [dependencies]
-apputils = { path = "../apputils" }
-aws-config = "1.8.15"
-aws-sdk-iam = "1.106.0"
-aws-sdk-s3 = "1.125.0"
-aws-sdk-s3control = "1.112.0"
-aws-sdk-ssm = "1.107.0"
-aws-sdk-sts = "1.96.0"
-aws-smithy-types = "1.3.4"
-bytes = "1.11.0"
-chrono = { version = "0.4", features = ["serde"] }
-futures = "0.3.32"
-serde = {version = "1.0.228", features = ["derive"]}
-serde_json = "1.0.149"
-tempfile = "3"
-thiserror = "2.0.18"
-tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread"] }
-tracing = "0.1"
+apputils.workspace = true
+aws-config.workspace = true
+aws-sdk-iam.workspace = true
+aws-sdk-s3.workspace = true
+aws-sdk-s3control.workspace = true
+aws-sdk-ssm.workspace = true
+aws-sdk-sts.workspace = true
+aws-smithy-types.workspace = true
+bytes.workspace = true
+chrono = { workspace = true, features = ["serde"] }
+futures.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
-aws-smithy-runtime = { version = "1.9.4", features = ["test-util"] }
-http = "1.4.0"
-test-support = { path = "../test-support" }
+aws-smithy-runtime = { workspace = true, features = ["test-util"] }
+http.workspace = true
+test-support.workspace = true

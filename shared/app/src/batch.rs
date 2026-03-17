@@ -10,7 +10,7 @@ use awsutils::{
 use crate::{config::Config, errors::BatchStatusError, upload};
 
 /// Download a batch manifest
-pub async fn get_batch_manifest(
+pub async fn get_manifest(
     config: &Config,
     bucket: &str,
     job_id: &str,
@@ -66,7 +66,7 @@ pub async fn get_manifest_if_ready(
     let status = get_job_status(config, job_id).await?;
 
     match status {
-        JobStatus::Complete => get_batch_manifest(config, bucket, job_id).await.map(Some),
+        JobStatus::Complete => get_manifest(config, bucket, job_id).await.map(Some),
         JobStatus::Failed => Err(BatchStatusError::JobFailed(job_id.to_string())),
         status => {
             tracing::info!("Job {} not in continuable status: {}", job_id, status);
@@ -140,7 +140,7 @@ pub async fn trigger_checksum_job(
 
     tracing::info!("Uploading receipt: {:?}", receipt);
 
-    Ok(upload::upload_bytes(
+    Ok(upload::put_bytes(
         config.s3(),
         serde_json::to_vec(&receipt)?,
         APPLICATION_JSON,

@@ -20,7 +20,7 @@ pub struct IntegrationTestContext {
 pub async fn integration_test_context() -> IntegrationTestContext {
     let stack = test_support::integration_test_stack();
 
-    let sdk_config = config::default_config().await;
+    let sdk_config = config::load_defaults().await;
     let s3 = Client::new(&sdk_config);
 
     let account_id = config::get_account_id(&sdk_config)

@@ -114,7 +114,7 @@ async fn process_and_upload(
     let csv_bytes = Bytes::from(csv);
     let stats_bytes = Bytes::from(serde_json::to_vec(&stats)?);
 
-    upload::upload_versioned_bytes(
+    upload::put_versioned_bytes(
         config,
         opts.date_ctx,
         csv_bytes,
@@ -124,7 +124,7 @@ async fn process_and_upload(
     )
     .await?;
 
-    upload::upload_versioned_bytes(
+    upload::put_versioned_bytes(
         config,
         opts.date_ctx,
         stats_bytes,

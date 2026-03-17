@@ -12,7 +12,7 @@ pub struct Args {
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::new(&args.stack)?;
-    let config = app::config::config(stack).await?;
+    let config = app::config::load(stack).await?;
 
     println!("Evaluating buckets for stack: {}", config.stack().as_str());
 

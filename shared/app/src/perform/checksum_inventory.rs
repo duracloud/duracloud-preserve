@@ -27,7 +27,7 @@ pub async fn perform(
     csv_file: &File,
     opts: &PerformOptions,
 ) -> Result<String, ChecksumInventoryError> {
-    let bucket = bucket::bucket_from_csv_key(csv_file)?;
+    let bucket = bucket::name_from_csv_key(csv_file)?;
 
     let bytes = file::download_bytes(config.s3(), csv_file)
         .await
@@ -46,7 +46,7 @@ pub async fn perform(
             })
         });
 
-    let (csv_bytes, count, skipped) = checksum::generate_checksum_inventory(config, rows).await?;
+    let (csv_bytes, count, skipped) = checksum::generate_inventory(config, rows).await?;
 
     tracing::info!("Processed {count} inventory rows");
 
@@ -57,7 +57,7 @@ pub async fn perform(
     let output_name = format!("{bucket}_{CHECKSUM_TYPE}");
     let csv_bytes = Bytes::from(csv_bytes);
 
-    upload::upload_versioned_bytes(
+    upload::put_versioned_bytes(
         config,
         opts.date_ctx,
         csv_bytes,
@@ -115,13 +115,13 @@ mod tests {
     #[tokio::test]
     async fn test_bucket_from_csv_key() {
         let file = File::new("managed", "reports/latest/manifests/my-bucket.csv");
-        assert_eq!(bucket::bucket_from_csv_key(&file).unwrap(), "my-bucket");
+        assert_eq!(bucket::name_from_csv_key(&file).unwrap(), "my-bucket");
     }
 
     #[tokio::test]
     async fn test_bucket_from_csv_key_invalid() {
         let file = File::new("managed", "reports/latest/manifests/no-extension");
-        assert!(bucket::bucket_from_csv_key(&file).is_err());
+        assert!(bucket::name_from_csv_key(&file).is_err());
     }
 
     #[tokio::test]

@@ -15,7 +15,7 @@ async fn main() -> Result<(), Error> {
     let stack = Stack::new(&stack).expect("invalid stack name");
     let standard_storage_tier = env::var("STORAGE_TIER").expect("storage tier is required");
 
-    let config = app::config::config(stack).await?;
+    let config = app::config::load(stack).await?;
 
     let standard_storage_tier = match config::parse_storage_class(&standard_storage_tier) {
         Some(tier) => tier,

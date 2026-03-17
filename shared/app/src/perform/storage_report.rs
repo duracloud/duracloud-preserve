@@ -22,7 +22,7 @@ pub async fn perform(
     config: &Config,
     opts: &PerformOptions,
 ) -> Result<StorageReport, StorageReportError> {
-    let buckets = bucket::get_stack_buckets_by_type(
+    let buckets = bucket::list_for_stack_by_type(
         config.s3(),
         config.stack(),
         &[Type::Public, Type::Standard],
@@ -69,7 +69,7 @@ pub async fn perform(
     let stats_bytes = Bytes::from(serde_json::to_vec(&storage_report)?);
     let html_bytes = Bytes::from(storage_report.to_html(meta)?);
 
-    upload::upload_versioned_bytes(
+    upload::put_versioned_bytes(
         config,
         DateCtx::Today,
         html_bytes,
@@ -79,7 +79,7 @@ pub async fn perform(
     )
     .await?;
 
-    upload::upload_versioned_bytes(
+    upload::put_versioned_bytes(
         config,
         DateCtx::Today,
         stats_bytes,

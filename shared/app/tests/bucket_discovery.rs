@@ -20,7 +20,7 @@ async fn cleanup_buckets(client: &aws_sdk_s3::Client, bucket_names: &[String]) {
 #[tokio::test]
 #[ignore]
 async fn test_get_stack_buckets_finds_tagged_stack_buckets() {
-    let config = test_support::integration_test_config(config::config).await;
+    let config = test_support::integration_test_config(config::load).await;
     let ts = test_support::unix_timestamp_secs();
     let standard_name = format!("{}-inttest-discovery-{}", config.stack().as_str(), ts);
     let replication_name = format!("{}-inttest-discovery-{}-repl", config.stack().as_str(), ts);
@@ -54,7 +54,7 @@ async fn test_get_stack_buckets_finds_tagged_stack_buckets() {
         .await
         .expect("bucket creation failed");
 
-    let discovered = app_bucket::get_stack_buckets(config.s3(), config.stack(), None).await;
+    let discovered = app_bucket::list_for_stack(config.s3(), config.stack(), None).await;
     cleanup_buckets(config.s3(), &bucket_names).await;
     let discovered = discovered.expect("bucket discovery failed");
 
@@ -64,8 +64,8 @@ async fn test_get_stack_buckets_finds_tagged_stack_buckets() {
 
 #[tokio::test]
 #[ignore]
-async fn test_get_stack_buckets_by_type_filters_results() {
-    let config = test_support::integration_test_config(config::config).await;
+async fn test_list_for_stack_by_type_filters_results() {
+    let config = test_support::integration_test_config(config::load).await;
     let ts = test_support::unix_timestamp_secs();
     let standard_name = format!("{}-inttest-filter-{}", config.stack().as_str(), ts);
     let replication_name = format!("{}-inttest-filter-{}-repl", config.stack().as_str(), ts);
@@ -100,7 +100,7 @@ async fn test_get_stack_buckets_by_type_filters_results() {
         .expect("bucket creation failed");
 
     let discovered =
-        app_bucket::get_stack_buckets_by_type(config.s3(), config.stack(), &[Type::Standard]).await;
+        app_bucket::list_for_stack_by_type(config.s3(), config.stack(), &[Type::Standard]).await;
     cleanup_buckets(config.s3(), &bucket_names).await;
     let discovered = discovered.expect("typed bucket discovery failed");
 

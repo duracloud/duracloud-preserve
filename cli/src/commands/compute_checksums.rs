@@ -13,7 +13,7 @@ pub struct Args {
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let bucket = args.bucket;
     let stack = Stack::from_bucket_name(&bucket)?;
-    let config = app::config::config(stack).await?;
+    let config = app::config::load(stack).await?;
     let bucket_name = bucket::Name::new(&bucket)?;
 
     let receipts = compute_checksums::perform(&config, Some(&bucket_name)).await?;

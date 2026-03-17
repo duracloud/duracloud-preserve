@@ -16,7 +16,7 @@ use awsutils::file::{self, File};
 #[tokio::test]
 #[ignore]
 async fn test_perform() {
-    let config = test_support::integration_test_config(config::config).await;
+    let config = test_support::integration_test_config(config::load).await;
     let ts = test_support::unix_timestamp_secs();
     let bucket_name = format!("perf-{}", ts);
 

@@ -25,7 +25,7 @@ pub struct InventoryRow {
     pub size: String,
 }
 
-pub async fn generate_checksum_inventory(
+pub async fn generate_inventory(
     config: &Config,
     rows: impl Iterator<Item = Result<InventoryRow, ChecksumInventoryError>>,
 ) -> Result<(Vec<u8>, usize, usize), ChecksumInventoryError> {

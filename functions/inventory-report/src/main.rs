@@ -12,7 +12,7 @@ async fn main() -> Result<(), Error> {
 
     let stack =
         Stack::new(&env::var("STACK").expect("stack is required")).expect("invalid stack name");
-    let config = app::config::config(stack).await?;
+    let config = app::config::load(stack).await?;
     let perform_opts = PerformOptions::default();
 
     run(service_fn(|event| {

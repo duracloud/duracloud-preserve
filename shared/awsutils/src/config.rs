@@ -3,7 +3,7 @@ use aws_config::{BehaviorVersion, SdkConfig};
 use aws_sdk_s3::types::TransitionStorageClass;
 
 /// Load default aws sdk config.
-pub async fn default_config() -> SdkConfig {
+pub async fn load_defaults() -> SdkConfig {
     aws_config::load_defaults(BehaviorVersion::latest()).await
 }
 

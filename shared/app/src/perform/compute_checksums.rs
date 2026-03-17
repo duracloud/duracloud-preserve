@@ -39,7 +39,7 @@ pub async fn perform(
             vec![BucketPair::new(source, replication)]
         }
         None => {
-            let all_buckets = app_bucket::get_stack_buckets(config.s3(), config.stack(), None)
+            let all_buckets = app_bucket::list_for_stack(config.s3(), config.stack(), None)
                 .await
                 .map_err(ComputeChecksumsError::BucketDiscovery)?;
             let (mut source_buckets, mut replication_buckets) = (Vec::new(), Vec::new());
@@ -52,7 +52,7 @@ pub async fn perform(
                 }
             }
 
-            bucket::pair_buckets(source_buckets, replication_buckets)
+            bucket::make_pairs(source_buckets, replication_buckets)
                 .map_err(ComputeChecksumsError::PairBuckets)?
         }
     };

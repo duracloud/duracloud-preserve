@@ -16,12 +16,12 @@ pub struct Args {
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::new(&args.stack)?;
-    let sdk_config = config::default_config().await;
+    let sdk_config = config::load_defaults().await;
     let s3_client = aws_sdk_s3::Client::new(&sdk_config);
 
     println!("Discovering buckets for stack: {}", stack.as_str());
 
-    let buckets = app_bucket::get_stack_buckets(&s3_client, &stack, None).await?;
+    let buckets = app_bucket::list_for_stack(&s3_client, &stack, None).await?;
 
     if buckets.is_empty() {
         println!("No buckets found for stack {}", stack.as_str());

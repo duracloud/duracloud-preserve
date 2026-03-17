@@ -11,7 +11,7 @@ use futures::future;
 use crate::config::Config;
 
 /// Upload bytes to one or more S3 files concurrently, returning their HTTP URLs.
-pub async fn upload_bytes(
+pub async fn put_bytes(
     client: &Client,
     body: impl Into<Bytes>,
     content_type: &str,
@@ -29,14 +29,14 @@ pub async fn upload_bytes(
     future::try_join_all(uploads).await
 }
 
-pub async fn upload_feedback(config: &Config, key: &str, message: String) {
+pub async fn put_feedback(config: &Config, key: &str, message: String) {
     let file = File::from(config.stack().feedback_path(key));
-    if let Err(e) = upload_bytes(config.s3(), message.into_bytes(), TEXT_PLAIN, [file]).await {
+    if let Err(e) = put_bytes(config.s3(), message.into_bytes(), TEXT_PLAIN, [file]).await {
         tracing::error!("Failed to upload feedback: {e}");
     }
 }
 
-pub async fn upload_versioned_bytes<E>(
+pub async fn put_versioned_bytes<E>(
     config: &Config,
     date_ctx: DateCtx,
     body: impl Into<Bytes>,
@@ -45,7 +45,7 @@ pub async fn upload_versioned_bytes<E>(
     map_err: impl Fn(RequestError) -> E,
 ) -> Result<(), E> {
     let files = [DateCtx::Latest, date_ctx].map(|ctx| File::from(path_for_ctx(ctx)));
-    upload_bytes(config.s3(), body, content_type, files)
+    put_bytes(config.s3(), body, content_type, files)
         .await
         .map(|_| ())
         .map_err(map_err)

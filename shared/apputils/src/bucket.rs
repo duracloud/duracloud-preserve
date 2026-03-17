@@ -130,7 +130,7 @@ impl std::fmt::Display for Type {
 
 /// Pair source buckets with their replication buckets.
 /// Returns an error if any source bucket lacks a matching replication bucket.
-pub fn pair_buckets(
+pub fn make_pairs(
     source_buckets: Vec<Bucket>,
     replication_buckets: Vec<Bucket>,
 ) -> Result<Vec<BucketPair>, BucketValidationError> {
@@ -161,7 +161,7 @@ pub fn pair_buckets(
 }
 
 /// Convert a stack name + user requested bucket name to a full S3 primary bucket name.
-pub fn primary_bucket(stack: &Stack, partial: &Name) -> Result<Bucket, BucketValidationError> {
+pub fn to_primary(stack: &Stack, partial: &Name) -> Result<Bucket, BucketValidationError> {
     if uses_reserved_prefix_or_suffix(stack.as_str(), partial.as_str()) {
         return Err(BucketValidationError::ValidationError(format!(
             "cannot use reserved prefix or suffix ({})",
@@ -183,7 +183,7 @@ pub fn primary_bucket(stack: &Stack, partial: &Name) -> Result<Bucket, BucketVal
 }
 
 /// Convert a stack name + user requested bucket name to a full S3 replication bucket name.
-pub fn replication_bucket(stack: &Stack, partial: &Name) -> Result<Bucket, BucketValidationError> {
+pub fn to_replication(stack: &Stack, partial: &Name) -> Result<Bucket, BucketValidationError> {
     let name = format!(
         "{}{}{}{}",
         stack.as_str(),
@@ -196,7 +196,7 @@ pub fn replication_bucket(stack: &Stack, partial: &Name) -> Result<Bucket, Bucke
 
 /// Check that user supplied bucket names are valid and convert
 /// to (primary, replication) pairs for the stack.
-pub fn review_bucket_names(
+pub fn review_request_names(
     stack: &Stack,
     names: &[String],
 ) -> Result<Vec<BucketPair>, BucketValidationError> {
@@ -204,8 +204,8 @@ pub fn review_bucket_names(
 
     for name in names {
         let bucket = Name::new(name)?;
-        let primary = primary_bucket(stack, &bucket)?;
-        let replication = replication_bucket(stack, &bucket)?;
+        let primary = to_primary(stack, &bucket)?;
+        let replication = to_replication(stack, &bucket)?;
         buckets.push(BucketPair::new(primary, replication));
     }
 
@@ -253,7 +253,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pair_buckets() {
+    fn test_make_pairs() {
         let source_buckets = vec![
             Bucket::new("alpha", Type::Standard).unwrap(),
             Bucket::new("beta", Type::Public).unwrap(),
@@ -263,7 +263,7 @@ mod tests {
             Bucket::new("alpha-repl", Type::Replication).unwrap(),
         ];
 
-        let pairs = pair_buckets(source_buckets, replication_buckets).unwrap();
+        let pairs = make_pairs(source_buckets, replication_buckets).unwrap();
 
         assert_eq!(pairs.len(), 2);
         assert_eq!(pairs[0].source.name(), "alpha");
@@ -273,7 +273,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pair_buckets_missing_replication() {
+    fn test_make_pairs_missing_replication() {
         let source_buckets = vec![
             Bucket::new("alpha", Type::Standard).unwrap(),
             Bucket::new("beta", Type::Public).unwrap(),
@@ -283,7 +283,7 @@ mod tests {
             // missing beta-repl
         ];
 
-        let result = pair_buckets(source_buckets, replication_buckets);
+        let result = make_pairs(source_buckets, replication_buckets);
 
         assert!(result.is_err());
         let err = result.unwrap_err();
@@ -292,17 +292,17 @@ mod tests {
     }
 
     #[test]
-    fn test_request_primary_bucket_public() {
+    fn test_request_to_primary_public() {
         let stack = Stack::new("test-stack").unwrap();
         let public = Name::new("example-public").unwrap();
 
-        let result = primary_bucket(&stack, &public).unwrap();
+        let result = to_primary(&stack, &public).unwrap();
         assert_eq!(result.name(), "test-stack-example-public");
         assert_eq!(result.bucket_type(), &Type::Public);
     }
 
     #[test]
-    fn test_request_primary_bucket_reserved_validation() {
+    fn test_request_to_primary_reserved_validation() {
         let test_cases = vec![
             "test-stack",
             "test-bucket-request",
@@ -314,7 +314,7 @@ mod tests {
 
         for name in test_cases {
             let bucket_name = Name::new(name).unwrap();
-            let result = primary_bucket(&stack, &bucket_name);
+            let result = to_primary(&stack, &bucket_name);
 
             assert!(result.is_err(), "Expected error for name: {}", name);
             match result.unwrap_err() {
@@ -332,42 +332,42 @@ mod tests {
     }
 
     #[test]
-    fn test_request_primary_bucket_standard() {
+    fn test_request_to_primary_standard() {
         let stack = Stack::new("test-stack").unwrap();
         let standard = Name::new("example").unwrap();
 
-        let result = primary_bucket(&stack, &standard).unwrap();
+        let result = to_primary(&stack, &standard).unwrap();
         assert_eq!(result.name(), "test-stack-example");
         assert_eq!(result.bucket_type(), &Type::Standard);
     }
 
     #[test]
-    fn test_request_replication_bucket_public() {
+    fn test_request_to_replication_public() {
         let stack = Stack::new("test-stack").unwrap();
         let public = Name::new("example-public").unwrap();
 
-        let result = replication_bucket(&stack, &public).unwrap();
+        let result = to_replication(&stack, &public).unwrap();
         assert_eq!(result.name(), "test-stack-example-public-repl");
         assert_eq!(result.bucket_type(), &Type::Replication);
     }
 
     #[test]
-    fn test_request_replication_bucket_standard() {
+    fn test_request_to_replication_standard() {
         let stack = Stack::new("test-stack").unwrap();
         let standard = Name::new("example").unwrap();
 
-        let result = replication_bucket(&stack, &standard).unwrap();
+        let result = to_replication(&stack, &standard).unwrap();
         assert_eq!(result.name(), "test-stack-example-repl");
         assert_eq!(result.bucket_type(), &Type::Replication);
     }
 
     #[test]
-    fn test_review_bucket_names() {
+    fn test_review_request_names() {
         let stack = Stack::new("test-stack").unwrap();
 
         let names = vec!["example".to_string(), "data-public".to_string()];
 
-        let result = review_bucket_names(&stack, &names).unwrap();
+        let result = review_request_names(&stack, &names).unwrap();
 
         assert_eq!(result.len(), 2);
 

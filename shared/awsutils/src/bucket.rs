@@ -4,7 +4,7 @@ use apputils::bucket::{
 
 pub use apputils::bucket::{
     BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, BucketPair, Name, REPLICATION_SUFFIX, Type,
-    pair_buckets, primary_bucket, replication_bucket, review_bucket_names,
+    make_pairs, review_request_names, to_primary, to_replication,
 };
 use aws_sdk_s3::Client;
 use tokio::io::AsyncBufReadExt;
@@ -91,7 +91,7 @@ pub async fn exists(client: &Client, bucket: &str) -> bool {
 }
 
 /// Retrieve bucket request file and verify it is valid.
-pub async fn get_bucket_names(client: &Client, file: &File) -> Result<Vec<String>, RequestError> {
+pub async fn read_request_names(client: &Client, file: &File) -> Result<Vec<String>, RequestError> {
     let Ok(r) = file::download(client, file).await else {
         return Err(RequestError::S3Error("failed to download file".to_string()));
     };
@@ -186,14 +186,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_bucket_names() {
+    async fn test_read_request_names() {
         let content = "123\n456\n789\n234\n567\n890";
         let file = File::new("test-bucket", "buckets.txt");
         let client = TestClientBuilder::new()
             .success(content, Some(TEXT_PLAIN.to_string()))
             .build();
 
-        let names = get_bucket_names(&client, &file).await.unwrap();
+        let names = read_request_names(&client, &file).await.unwrap();
 
         assert_eq!(names.len(), 5);
         assert_eq!(names[0], "123");
@@ -203,14 +203,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_bucket_names_content_type_with_charset() {
+    async fn test_read_request_names_content_type_with_charset() {
         let content = "bucket1\nbucket2";
         let file = File::new("test-bucket", "buckets.txt");
         let client = TestClientBuilder::new()
             .success(content, Some(TEXT_PLAIN.to_string()))
             .build();
 
-        let names = get_bucket_names(&client, &file).await.unwrap();
+        let names = read_request_names(&client, &file).await.unwrap();
 
         assert_eq!(names.len(), 2);
         assert_eq!(names[0], "bucket1");
@@ -218,14 +218,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_bucket_names_exceeds_size_limit() {
+    async fn test_read_request_names_exceeds_size_limit() {
         let content = "a".repeat((MAX_REQUEST_FILE_SIZE + 1) as usize);
         let file = File::new("test-bucket", "buckets.txt");
         let client = TestClientBuilder::new()
             .success(content, Some(TEXT_PLAIN.to_string()))
             .build();
 
-        let result = get_bucket_names(&client, &file).await;
+        let result = read_request_names(&client, &file).await;
 
         assert!(result.is_err());
         match result {
@@ -238,28 +238,28 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_bucket_names_invalid_content_type() {
+    async fn test_read_request_names_invalid_content_type() {
         let content = "bucket1\nbucket2";
         let file = File::new("test-bucket", "buckets.txt");
         let client = TestClientBuilder::new()
             .success(content, Some(APPLICATION_JSON.to_string()))
             .build();
 
-        let result = get_bucket_names(&client, &file).await;
+        let result = read_request_names(&client, &file).await;
 
         assert!(result.is_err());
         assert!(matches!(result, Err(RequestError::InvalidContentType)));
     }
 
     #[tokio::test]
-    async fn test_get_bucket_names_truncates_at_max() {
+    async fn test_read_request_names_truncates_at_max() {
         let content = "a\nb\nc\nd\ne\nf\ng";
         let file = File::new("test-bucket", "buckets.txt");
         let client = TestClientBuilder::new()
             .success(content, Some(TEXT_PLAIN.to_string()))
             .build();
 
-        let names = get_bucket_names(&client, &file).await.unwrap();
+        let names = read_request_names(&client, &file).await.unwrap();
 
         assert_eq!(names.len(), MAX_BUCKETS_PER_REQUEST as usize);
     }

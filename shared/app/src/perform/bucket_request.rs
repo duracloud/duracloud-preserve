@@ -28,11 +28,11 @@ pub async fn perform(
 ) -> Result<(), BucketRequestError> {
     tracing::info!("Retrieving request file from S3: {}", file.s3_url());
 
-    let names = match awsutils::bucket::get_bucket_names(config.s3(), file).await {
+    let names = match awsutils::bucket::read_request_names(config.s3(), file).await {
         Ok(names) => names,
         Err(e) => {
             tracing::error!("Error getting bucket names: {}", e);
-            upload::upload_feedback(config, file.key(), e.to_string()).await;
+            upload::put_feedback(config, file.key(), e.to_string()).await;
             return Err(BucketRequestError::RequestFile(e));
         }
     };
@@ -40,11 +40,11 @@ pub async fn perform(
     tracing::info!("Bucket names: {:?}", names);
     tracing::info!("Parsing bucket names");
 
-    let buckets = match apputils::bucket::review_bucket_names(config.stack(), &names) {
+    let buckets = match apputils::bucket::review_request_names(config.stack(), &names) {
         Ok(buckets) => buckets,
         Err(e) => {
             tracing::error!("Error parsing bucket names: {}", e);
-            upload::upload_feedback(config, file.key(), e.to_string()).await;
+            upload::put_feedback(config, file.key(), e.to_string()).await;
             return Err(BucketRequestError::Validation(e));
         }
     };
@@ -52,10 +52,10 @@ pub async fn perform(
     tracing::info!("Buckets to create: {:?}", buckets);
     tracing::info!("Creating buckets");
 
-    let issues = bucket::create_buckets(config, &buckets, opts.standard_storage_tier.clone()).await;
+    let issues = bucket::create_pairs(config, &buckets, opts.standard_storage_tier.clone()).await;
     if !issues.is_empty() {
         tracing::error!("{:?}", issues);
-        upload::upload_feedback(config, file.key(), issues.join("\n")).await;
+        upload::put_feedback(config, file.key(), issues.join("\n")).await;
         return Err(BucketRequestError::CreateBuckets(issues));
     }
 

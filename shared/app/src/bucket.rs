@@ -21,7 +21,7 @@ type TagFilter<'a> = Option<&'a dyn Fn(&[Tag]) -> bool>;
 
 /// Extract the target bucket name from the CSV file key.
 /// Key format: `reports/{date_ctx}/manifests/{bucket}.csv`
-pub fn bucket_from_csv_key(csv_file: &File) -> Result<&str, ChecksumInventoryError> {
+pub fn name_from_csv_key(csv_file: &File) -> Result<&str, ChecksumInventoryError> {
     csv_file
         .key()
         .rsplit('/')
@@ -69,7 +69,7 @@ async fn create<'a>(
 }
 
 /// Create primary and replication buckets.
-pub async fn create_buckets(
+pub async fn create_pairs(
     config: &Config,
     buckets: &[BucketPair],
     standard_storage_tier: TransitionStorageClass,
@@ -89,7 +89,7 @@ pub async fn create_buckets(
 
         let replication_storage_tier_override = None;
 
-        let result = create_bucket_pair(
+        let result = create_pair(
             config,
             primary,
             replication,
@@ -107,7 +107,7 @@ pub async fn create_buckets(
 }
 
 /// Create a primary bucket and its replication bucket, then enable replication.
-pub async fn create_bucket_pair(
+pub async fn create_pair(
     config: &Config,
     primary: &Bucket,
     replication: &Bucket,
@@ -145,11 +145,8 @@ pub async fn create_bucket_pair(
 
 /// Get stack buckets that were created via bucket-request (BucketOrigin=bucket-request).
 /// These are the buckets eligible for reconciliation.
-pub async fn get_bucket_request_buckets(
-    client: &Client,
-    stack: &Stack,
-) -> Result<Vec<Bucket>, RequestError> {
-    get_stack_buckets(
+pub async fn get_requested(client: &Client, stack: &Stack) -> Result<Vec<Bucket>, RequestError> {
+    list_for_stack(
         client,
         stack,
         Some(&|tags: &[Tag]| {
@@ -162,7 +159,7 @@ pub async fn get_bucket_request_buckets(
 }
 
 /// Get buckets belonging to a stack (prefix match + stack tag) with optional filter.
-pub async fn get_stack_buckets(
+pub async fn list_for_stack(
     client: &Client,
     stack: &Stack,
     filter: TagFilter<'_>,
@@ -213,7 +210,7 @@ pub async fn get_stack_buckets(
 }
 
 /// Get stack buckets filtered by type.
-pub async fn get_stack_buckets_by_type(
+pub async fn list_for_stack_by_type(
     client: &Client,
     stack: &Stack,
     types: &[Type],
@@ -222,7 +219,7 @@ pub async fn get_stack_buckets_by_type(
         return Ok(vec![]);
     }
 
-    get_stack_buckets(
+    list_for_stack(
         client,
         stack,
         Some(&|tags: &[Tag]| bucket_type_from_tags(tags).is_some_and(|t| types.contains(&t))),
@@ -274,19 +271,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_bucket_from_csv_key() {
+    async fn test_name_from_csv_key() {
         let file = File::new("managed", "reports/latest/manifests/my-bucket.csv");
-        assert_eq!(bucket_from_csv_key(&file).unwrap(), "my-bucket");
+        assert_eq!(name_from_csv_key(&file).unwrap(), "my-bucket");
     }
 
     #[tokio::test]
-    async fn test_bucket_from_csv_key_invalid() {
+    async fn test_name_from_csv_key_invalid() {
         let file = File::new("managed", "reports/latest/manifests/no-extension");
-        assert!(bucket_from_csv_key(&file).is_err());
+        assert!(name_from_csv_key(&file).is_err());
     }
 
     #[tokio::test]
-    async fn test_get_bucket_request_buckets_filters_by_origin_tag() {
+    async fn test_get_requested_filters_by_origin_tag() {
         let stack = Stack::new("test-stack").unwrap();
         let list =
             list_buckets_xml(&["test-stack-alpha", "test-stack-bravo", "test-stack-managed"]);
@@ -314,7 +311,7 @@ mod tests {
             .success(managed_tags, None)
             .build();
 
-        let buckets = get_bucket_request_buckets(&client, &stack).await.unwrap();
+        let buckets = get_requested(&client, &stack).await.unwrap();
 
         assert_eq!(buckets.len(), 1);
         assert_eq!(buckets[0].name(), "test-stack-alpha");
@@ -322,7 +319,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_bucket_request_buckets_includes_multiple_types() {
+    async fn test_get_requested_includes_multiple_types() {
         let stack = Stack::new("test-stack").unwrap();
         let list = list_buckets_xml(&[
             "test-stack-data",
@@ -353,7 +350,7 @@ mod tests {
             .success(repl_tags, None)
             .build();
 
-        let buckets = get_bucket_request_buckets(&client, &stack).await.unwrap();
+        let buckets = get_requested(&client, &stack).await.unwrap();
 
         assert_eq!(buckets.len(), 3);
         let types: Vec<&Type> = buckets.iter().map(|b| b.bucket_type()).collect();
@@ -363,7 +360,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_bucket_request_buckets_skips_tag_errors() {
+    async fn test_get_requested_skips_tag_errors() {
         let stack = Stack::new("test-stack").unwrap();
         let list = list_buckets_xml(&["test-stack-alpha", "test-stack-bravo"]);
 
@@ -379,14 +376,14 @@ mod tests {
             .success(bravo_tags, None)
             .build();
 
-        let buckets = get_bucket_request_buckets(&client, &stack).await.unwrap();
+        let buckets = get_requested(&client, &stack).await.unwrap();
 
         assert_eq!(buckets.len(), 1);
         assert_eq!(buckets[0].name(), "test-stack-bravo");
     }
 
     #[tokio::test]
-    async fn test_get_stack_buckets_by_type_empty_types_short_circuits() {
+    async fn test_list_for_stack_by_type_empty_types_short_circuits() {
         let stack = Stack::new("test-stack").unwrap();
         let list = list_buckets_xml(&["test-stack-public", "test-stack-repl"]);
 
@@ -394,16 +391,14 @@ mod tests {
             .success(list, None)
             .build_with_replay();
 
-        let buckets = get_stack_buckets_by_type(&client, &stack, &[])
-            .await
-            .unwrap();
+        let buckets = list_for_stack_by_type(&client, &stack, &[]).await.unwrap();
 
         assert!(buckets.is_empty());
         assert!(test_support::recorded_requests(&replay).is_empty());
     }
 
     #[tokio::test]
-    async fn test_get_stack_buckets_by_type_filters_results() {
+    async fn test_list_for_stack_by_type_filters_results() {
         let stack = Stack::new("test-stack").unwrap();
         let list = list_buckets_xml(&["test-stack-public", "test-stack-repl"]);
         let public_tags = bucket_tagging_xml(&[("Stack", "test-stack"), ("BucketType", "public")]);
@@ -416,7 +411,7 @@ mod tests {
             .success(repl_tags, None)
             .build();
 
-        let buckets = get_stack_buckets_by_type(&client, &stack, &[Type::Public])
+        let buckets = list_for_stack_by_type(&client, &stack, &[Type::Public])
             .await
             .unwrap();
 
@@ -426,7 +421,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_stack_buckets_excludes_missing_or_invalid_bucket_type() {
+    async fn test_list_for_stack_excludes_missing_or_invalid_bucket_type() {
         let stack = Stack::new("test-stack").unwrap();
         let list = list_buckets_xml(&["test-stack-alpha", "test-stack-bravo"]);
         let missing_type_tags = bucket_tagging_xml(&[("Stack", "test-stack")]);
@@ -441,12 +436,12 @@ mod tests {
             .success(invalid_type_tags, None)
             .build();
 
-        let buckets = get_stack_buckets(&client, &stack, None).await.unwrap();
+        let buckets = list_for_stack(&client, &stack, None).await.unwrap();
         assert!(buckets.is_empty());
     }
 
     #[tokio::test]
-    async fn test_get_stack_buckets_excludes_non_matching_stack_tag() {
+    async fn test_list_for_stack_excludes_non_matching_stack_tag() {
         let stack = Stack::new("test-stack").unwrap();
         let list = list_buckets_xml(&["test-stack-alpha"]);
         let tags = bucket_tagging_xml(&[("Stack", "other-stack"), ("BucketType", "standard")]);
@@ -456,12 +451,12 @@ mod tests {
             .success(tags, None)
             .build();
 
-        let buckets = get_stack_buckets(&client, &stack, None).await.unwrap();
+        let buckets = list_for_stack(&client, &stack, None).await.unwrap();
         assert!(buckets.is_empty());
     }
 
     #[tokio::test]
-    async fn test_get_stack_buckets_skips_tag_lookup_failures() {
+    async fn test_list_for_stack_skips_tag_lookup_failures() {
         let stack = Stack::new("test-stack").unwrap();
         let list = list_buckets_xml(&["test-stack-alpha", "test-stack-bravo"]);
         let bravo_tags = bucket_tagging_xml(&[("Stack", "test-stack"), ("BucketType", "standard")]);
@@ -472,7 +467,7 @@ mod tests {
             .success(bravo_tags, None)
             .build();
 
-        let buckets = get_stack_buckets(&client, &stack, None).await.unwrap();
+        let buckets = list_for_stack(&client, &stack, None).await.unwrap();
 
         assert_eq!(buckets.len(), 1);
         assert_eq!(buckets[0].name(), "test-stack-bravo");

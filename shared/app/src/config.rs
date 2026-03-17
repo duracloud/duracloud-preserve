@@ -125,8 +125,8 @@ pub struct Roles {
 }
 
 /// Create a Config for the stack.
-pub async fn config(stack: Stack) -> Result<Config, RequestError> {
-    let sdk_config = aws_config_utils::default_config().await;
+pub async fn load(stack: Stack) -> Result<Config, RequestError> {
+    let sdk_config = aws_config_utils::load_defaults().await;
     let managed_bucket = stack.managed_bucket();
 
     if !bucket::exists(&aws_sdk_s3::Client::new(&sdk_config), &managed_bucket).await {

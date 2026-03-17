@@ -33,7 +33,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Err("No bucket names found in file".into());
     }
 
-    let config = app::config::config(stack.clone()).await?;
+    let config = app::config::load(stack.clone()).await?;
 
     // Note: we upload to the managed bucket (not the request bucket) intentionally
     // because if the function is deployed we don't want to process twice

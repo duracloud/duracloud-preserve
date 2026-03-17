@@ -37,7 +37,7 @@ pub async fn perform(
     config: &Config,
     opts: &PerformOptions,
 ) -> Result<PerformReport, BucketReconciliationError> {
-    let mut buckets = bucket::get_bucket_request_buckets(config.s3(), config.stack()).await?;
+    let mut buckets = bucket::get_requested(config.s3(), config.stack()).await?;
 
     buckets.sort_by(|a, b| a.name().cmp(b.name()));
 

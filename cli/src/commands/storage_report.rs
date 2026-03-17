@@ -11,7 +11,7 @@ pub struct Args {
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::new(&args.stack)?;
-    let config = app::config::config(stack.clone()).await?;
+    let config = app::config::load(stack.clone()).await?;
 
     let storage_capacity = if config.storage_capacity() > 0 {
         Some(config.storage_capacity())

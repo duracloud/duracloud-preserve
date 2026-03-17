@@ -15,28 +15,9 @@ use awsutils::{
     file::File,
 };
 
-use crate::{config::Config, errors::ChecksumInventoryError};
+use crate::{config::Config, errors::FileKeyError};
 
 type TagFilter<'a> = Option<&'a dyn Fn(&[Tag]) -> bool>;
-
-/// Extract the target bucket name from the CSV file key.
-/// Key format: `reports/{date_ctx}/manifests/{bucket}.csv`
-pub fn name_from_csv_key(csv_file: &File) -> Result<&str, ChecksumInventoryError> {
-    csv_file
-        .key()
-        .rsplit('/')
-        .next()
-        .and_then(|filename| filename.strip_suffix(".csv"))
-        .ok_or(ChecksumInventoryError::InvalidCsvKey(
-            csv_file.key().to_string(),
-        ))
-}
-
-fn bucket_type_from_tags(tags: &[Tag]) -> Option<Type> {
-    tags.iter()
-        .find(|tag| tag.key() == BUCKET_TAG_TYPE_KEY)
-        .and_then(|tag| Type::from_tag_value(tag.value()))
-}
 
 /// Create and setup an S3 bucket. If setup fails, attempt rollback.
 /// Returns the BucketCreator for follow-up operations (e.g., enable_replication).
@@ -222,9 +203,25 @@ pub async fn list_for_stack_by_type(
     list_for_stack(
         client,
         stack,
-        Some(&|tags: &[Tag]| bucket_type_from_tags(tags).is_some_and(|t| types.contains(&t))),
+        Some(&|tags: &[Tag]| type_from_tags(tags).is_some_and(|t| types.contains(&t))),
     )
     .await
+}
+
+/// Extract the name from an object key.
+/// Key format example: `reports/{date_ctx}/manifests/{bucket}.csv`
+pub fn name_from_file(file: &File) -> Result<&str, FileKeyError> {
+    file.key()
+        .rsplit('/')
+        .next()
+        .and_then(|filename| filename.rsplit_once('.').map(|(bucket, _)| bucket))
+        .ok_or(FileKeyError::MissingExtension(file.key().to_string()))
+}
+
+fn type_from_tags(tags: &[Tag]) -> Option<Type> {
+    tags.iter()
+        .find(|tag| tag.key() == BUCKET_TAG_TYPE_KEY)
+        .and_then(|tag| Type::from_tag_value(tag.value()))
 }
 
 #[cfg(test)]
@@ -271,15 +268,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_name_from_csv_key() {
+    async fn test_name_from_file() {
         let file = File::new("managed", "reports/latest/manifests/my-bucket.csv");
-        assert_eq!(name_from_csv_key(&file).unwrap(), "my-bucket");
+        assert_eq!(name_from_file(&file).unwrap(), "my-bucket");
     }
 
     #[tokio::test]
-    async fn test_name_from_csv_key_invalid() {
+    async fn test_name_from_file_invalid() {
         let file = File::new("managed", "reports/latest/manifests/no-extension");
-        assert!(name_from_csv_key(&file).is_err());
+        assert!(name_from_file(&file).is_err());
     }
 
     #[tokio::test]

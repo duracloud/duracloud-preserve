@@ -42,8 +42,8 @@ pub enum ChecksumInventoryError {
     CsvParse(#[from] csv::Error),
     #[error("failed to download inventory CSV: {0}")]
     Download(#[source] RequestError),
-    #[error("cannot extract bucket name from CSV key: {0}")]
-    InvalidCsvKey(String),
+    #[error("cannot extract bucket name from inventory file key: {0}")]
+    InvalidFileKey(#[from] FileKeyError),
     #[error("failed to upload checksum inventory: {0}")]
     Upload(#[source] RequestError),
 }
@@ -88,6 +88,12 @@ pub enum ComputeChecksumsError {
         #[source]
         source: BucketValidationError,
     },
+}
+
+#[derive(Debug, Error)]
+pub enum FileKeyError {
+    #[error("file key has no extension: {0}")]
+    MissingExtension(String),
 }
 
 #[cfg(feature = "duckdb")]

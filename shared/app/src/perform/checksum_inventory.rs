@@ -27,7 +27,7 @@ pub async fn perform(
     csv_file: &File,
     opts: &PerformOptions,
 ) -> Result<String, ChecksumInventoryError> {
-    let bucket = bucket::name_from_csv_key(csv_file)?;
+    let bucket = bucket::name_from_file(csv_file)?;
 
     let bytes = file::download_bytes(config.s3(), csv_file)
         .await
@@ -113,15 +113,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_bucket_from_csv_key() {
+    async fn test_bucket_from_file() {
         let file = File::new("managed", "reports/latest/manifests/my-bucket.csv");
-        assert_eq!(bucket::name_from_csv_key(&file).unwrap(), "my-bucket");
+        assert_eq!(bucket::name_from_file(&file).unwrap(), "my-bucket");
     }
 
     #[tokio::test]
-    async fn test_bucket_from_csv_key_invalid() {
+    async fn test_bucket_from_file_invalid() {
         let file = File::new("managed", "reports/latest/manifests/no-extension");
-        assert!(bucket::name_from_csv_key(&file).is_err());
+        assert!(bucket::name_from_file(&file).is_err());
     }
 
     #[tokio::test]

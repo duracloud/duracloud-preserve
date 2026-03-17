@@ -64,8 +64,7 @@ async fn resolve_ready_manifests(
     receipt: &ChecksumJobReceipt,
 ) -> Result<Option<ReadyManifests>, ChecksumReportError> {
     let Some(source) =
-        batch::get_manifest_if_ready(config, &receipt.source_bucket, &receipt.source_job_id)
-            .await?
+        batch::get_manifest(config, &receipt.source_bucket, &receipt.source_job_id).await?
     else {
         tracing::info!("Source job {} not ready yet", receipt.source_job_id);
         return Ok(None);
@@ -74,7 +73,7 @@ async fn resolve_ready_manifests(
     tracing::info!("Source job file found: {:?}", &source);
 
     let Some(repl) =
-        batch::get_manifest_if_ready(config, &receipt.repl_bucket, &receipt.repl_job_id).await?
+        batch::get_manifest(config, &receipt.repl_bucket, &receipt.repl_job_id).await?
     else {
         tracing::info!("Replication job {} not ready yet", receipt.repl_job_id);
         return Ok(None);

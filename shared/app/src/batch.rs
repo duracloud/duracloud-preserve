@@ -9,8 +9,8 @@ use awsutils::{
 
 use crate::{config::Config, errors::BatchStatusError, upload};
 
-/// Download a batch manifest
-pub async fn get_manifest(
+/// Download the manifest object for a completed job.
+async fn fetch_manifest(
     config: &Config,
     bucket: &str,
     job_id: &str,
@@ -29,6 +29,24 @@ pub async fn get_manifest(
     BatchManifest::fetch(config.s3(), manifest)
         .await
         .map_err(BatchStatusError::from)
+}
+
+/// Download a completed batch job manifest if it is available.
+pub async fn get_manifest(
+    config: &Config,
+    bucket: &str,
+    job_id: &str,
+) -> Result<Option<BatchManifest>, BatchStatusError> {
+    let status = get_job_status(config, job_id).await?;
+
+    match status {
+        JobStatus::Complete => fetch_manifest(config, bucket, job_id).await.map(Some),
+        JobStatus::Failed => Err(BatchStatusError::JobFailed(job_id.to_string())),
+        status => {
+            tracing::info!("Job {} not in continuable status: {}", job_id, status);
+            Ok(None)
+        }
+    }
 }
 
 /// Get a batch job's current status
@@ -55,24 +73,6 @@ pub async fn get_job_status(config: &Config, job_id: &str) -> Result<JobStatus, 
         .ok_or(BatchStatusError::MissingStatus(job_id.to_string()))?;
 
     Ok(status)
-}
-
-/// Get a batch job manifest if it's available (job is complete and file is present)
-pub async fn get_manifest_if_ready(
-    config: &Config,
-    bucket: &str,
-    job_id: &str,
-) -> Result<Option<BatchManifest>, BatchStatusError> {
-    let status = get_job_status(config, job_id).await?;
-
-    match status {
-        JobStatus::Complete => get_manifest(config, bucket, job_id).await.map(Some),
-        JobStatus::Failed => Err(BatchStatusError::JobFailed(job_id.to_string())),
-        status => {
-            tracing::info!("Job {} not in continuable status: {}", job_id, status);
-            Ok(None)
-        }
-    }
 }
 
 /// Trigger compute checksum jobs for source and replication bucket pair

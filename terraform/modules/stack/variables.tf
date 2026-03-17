@@ -1,3 +1,14 @@
+variable "billing_alert_threshold" {
+  description = "Trigger billing alert when threshold is exceeded"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.billing_alert_threshold == null || var.billing_alert_threshold > 0
+    error_message = "billing_alert_threshold must be greater than 0 when set."
+  }
+}
+
 variable "cert_ready" {
   description = "Set to true after the ACM certificate has been validated (if using domain)"
   type        = bool

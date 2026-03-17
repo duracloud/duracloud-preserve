@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use app::perform::bucket_request;
+use app::{config, perform::bucket_request};
 use apputils::{Stack, content_type};
-use awsutils::file::File;
+use awsutils::file::{self, File};
 use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
@@ -33,13 +33,13 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Err("No bucket names found in file".into());
     }
 
-    let config = app::config::load(stack.clone()).await?;
+    let config = config::load(stack.clone()).await?;
 
     // Note: we upload to the managed bucket (not the request bucket) intentionally
     // because if the function is deployed we don't want to process twice
     let file = File::from(stack.bucket_request_path(&filename));
 
-    awsutils::file::upload(
+    file::upload(
         config.s3(),
         &file,
         content.into_bytes(),
@@ -53,7 +53,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         file.key()
     );
 
-    let opts = app::perform::bucket_request::PerformOptions::default();
+    let opts = bucket_request::PerformOptions::default();
     bucket_request::perform(&config, &file, &opts).await?;
 
     println!("All buckets created successfully");

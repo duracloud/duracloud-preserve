@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use askama::Template;
-use humansize::{DECIMAL, format_size};
+use humansize::DECIMAL;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -195,7 +195,7 @@ fn format_percent(value: f64) -> String {
 }
 
 fn format_decimal_bytes(value: u64) -> String {
-    format_size(value, DECIMAL)
+    humansize::format_size(value, DECIMAL)
 }
 
 fn percent(numerator: u64, denominator: u64) -> f64 {

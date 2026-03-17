@@ -1,7 +1,8 @@
-use lambda_runtime::{Error, run, service_fn, tracing};
+use lambda_runtime::{Error, tracing};
 
 mod event_handler;
 
+use app::config as app_config;
 use app::perform::bucket_request;
 use apputils::Stack;
 use awsutils::{bucket_creator, config};
@@ -15,7 +16,7 @@ async fn main() -> Result<(), Error> {
     let stack = Stack::new(&stack).expect("invalid stack name");
     let standard_storage_tier = env::var("STORAGE_TIER").expect("storage tier is required");
 
-    let config = app::config::load(stack).await?;
+    let config = app_config::load(stack).await?;
 
     let standard_storage_tier = match config::parse_storage_class(&standard_storage_tier) {
         Some(tier) => tier,
@@ -26,7 +27,7 @@ async fn main() -> Result<(), Error> {
         standard_storage_tier,
     };
 
-    run(service_fn(|event| {
+    lambda_runtime::run(lambda_runtime::service_fn(|event| {
         event_handler::function_handler(&config, &perform_opts, event)
     }))
     .await

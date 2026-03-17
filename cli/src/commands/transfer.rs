@@ -1,3 +1,4 @@
+use app::{bucket as app_bucket, config};
 use apputils::Stack;
 use awsutils::{
     batch::{self},
@@ -19,9 +20,9 @@ pub struct Args {
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let destination = args.destination;
     let stack = Stack::from_bucket_name(&destination)?;
-    let config = app::config::load(stack.clone()).await?;
+    let config = config::load(stack.clone()).await?;
 
-    let stack_buckets = app::bucket::list_for_stack(config.s3(), &stack, None).await?;
+    let stack_buckets = app_bucket::list_for_stack(config.s3(), &stack, None).await?;
     if !stack_buckets.iter().any(|b| b.name() == destination) {
         return Err(format!("Destination bucket '{destination}' is not a stack bucket").into());
     }

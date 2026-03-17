@@ -1,4 +1,4 @@
-use app::perform::storage_report;
+use app::{config, perform::storage_report};
 use apputils::Stack;
 use clap::Args as ClapArgs;
 
@@ -11,7 +11,7 @@ pub struct Args {
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::new(&args.stack)?;
-    let config = app::config::load(stack.clone()).await?;
+    let config = config::load(stack.clone()).await?;
 
     let storage_capacity = if config.storage_capacity() > 0 {
         Some(config.storage_capacity())

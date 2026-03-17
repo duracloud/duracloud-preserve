@@ -1,4 +1,7 @@
-use app::perform::bucket_reconciliation::{self, PerformOptions};
+use app::{
+    config,
+    perform::bucket_reconciliation::{self, PerformOptions},
+};
 use apputils::Stack;
 use awsutils::bucket_reconciliator::StepStatus;
 use clap::Args as ClapArgs;
@@ -12,7 +15,7 @@ pub struct Args {
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::new(&args.stack)?;
-    let config = app::config::load(stack).await?;
+    let config = config::load(stack).await?;
 
     println!("Evaluating buckets for stack: {}", config.stack().as_str());
 

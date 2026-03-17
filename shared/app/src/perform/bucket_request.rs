@@ -1,7 +1,7 @@
+use apputils::bucket as app_bucket;
 use aws_sdk_s3::types::TransitionStorageClass;
-
 use awsutils::{
-    bucket_creator,
+    bucket as aws_bucket, bucket_creator,
     file::{self, File},
 };
 
@@ -28,7 +28,7 @@ pub async fn perform(
 ) -> Result<(), BucketRequestError> {
     tracing::info!("Retrieving request file from S3: {}", file.s3_url());
 
-    let names = match awsutils::bucket::read_request_names(config.s3(), file).await {
+    let names = match aws_bucket::read_request_names(config.s3(), file).await {
         Ok(names) => names,
         Err(e) => {
             tracing::error!("Error getting bucket names: {}", e);
@@ -40,7 +40,7 @@ pub async fn perform(
     tracing::info!("Bucket names: {:?}", names);
     tracing::info!("Parsing bucket names");
 
-    let buckets = match apputils::bucket::review_request_names(config.stack(), &names) {
+    let buckets = match app_bucket::review_request_names(config.stack(), &names) {
         Ok(buckets) => buckets,
         Err(e) => {
             tracing::error!("Error parsing bucket names: {}", e);

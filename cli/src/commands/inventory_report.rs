@@ -1,4 +1,7 @@
-use app::{config::Config, perform::inventory_report};
+use app::{
+    config::{self, Config},
+    perform::inventory_report,
+};
 use apputils::{Stack, stack::DateCtx};
 use awsutils::{
     bucket,
@@ -16,7 +19,7 @@ pub struct Args {
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let bucket = args.bucket;
     let stack = Stack::from_bucket_name(&bucket)?;
-    let config = app::config::load(stack.clone()).await?;
+    let config = config::load(stack.clone()).await?;
 
     if !bucket::exists(config.s3(), &bucket).await {
         return Err("Bucket not found".into());

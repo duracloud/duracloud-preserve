@@ -1,7 +1,8 @@
-use lambda_runtime::{Error, run, service_fn, tracing};
+use lambda_runtime::{Error, tracing};
 
 mod event_handler;
 
+use app::config;
 use app::perform::checksum_report::PerformOptions;
 use apputils::Stack;
 use std::env;
@@ -12,10 +13,10 @@ async fn main() -> Result<(), Error> {
 
     let stack =
         Stack::new(&env::var("STACK").expect("stack is required")).expect("invalid stack name");
-    let config = app::config::load(stack).await?;
+    let config = config::load(stack).await?;
     let perform_opts = PerformOptions::default();
 
-    run(service_fn(|event| {
+    lambda_runtime::run(lambda_runtime::service_fn(|event| {
         event_handler::function_handler(&config, &perform_opts, event)
     }))
     .await

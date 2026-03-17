@@ -12,17 +12,16 @@ mod common;
 use aws_sdk_s3::types::TransitionStorageClass;
 use aws_smithy_types::body::SdkBody;
 use awsutils::bucket::{self, Bucket, Type};
-use common::{bucket_creator, integration_test_context, timestamp};
 
 #[tokio::test]
 #[ignore]
 async fn test_bucket_from_name() {
-    let ctx = integration_test_context().await;
+    let ctx = common::integration_test_context().await;
 
-    let ts = timestamp();
+    let ts = common::timestamp();
     let bucket_name = format!("{}-inttest-fromname-{}", ctx.stack.as_str(), ts);
     let bucket = Bucket::new(&bucket_name, Type::Standard).unwrap();
-    let creator = bucket_creator(&ctx, &bucket, Some(TransitionStorageClass::GlacierIr));
+    let creator = common::bucket_creator(&ctx, &bucket, Some(TransitionStorageClass::GlacierIr));
 
     creator.create().await.expect("bucket creation failed");
 
@@ -49,12 +48,12 @@ async fn test_bucket_from_name() {
 #[tokio::test]
 #[ignore]
 async fn test_empty_bucket() {
-    let ctx = integration_test_context().await;
+    let ctx = common::integration_test_context().await;
 
-    let ts = timestamp();
+    let ts = common::timestamp();
     let bucket_name = format!("{}-inttest-empty-{}", ctx.stack.as_str(), ts);
     let bucket = Bucket::new(&bucket_name, Type::Standard).unwrap();
-    let creator = bucket_creator(&ctx, &bucket, Some(TransitionStorageClass::GlacierIr));
+    let creator = common::bucket_creator(&ctx, &bucket, Some(TransitionStorageClass::GlacierIr));
 
     creator.create().await.expect("bucket creation failed");
     creator.setup().await.expect("bucket setup failed");

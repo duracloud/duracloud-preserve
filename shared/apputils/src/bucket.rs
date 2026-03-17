@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     Stack, content_type,
     errors::BucketValidationError,
-    stack::{DISALLOWED_AFFIXES, STACK_BUCKET_DELIMITER},
+    stack::{DISALLOWED_AFFIXES, MANAGED_SUFFIX, REQUEST_SUFFIX, STACK_BUCKET_DELIMITER},
 };
 
 pub const BUCKET_REQUEST_CONTENT_TYPE: &str = content_type::TEXT_PLAIN;
@@ -214,9 +214,9 @@ pub fn review_request_names(
 
 fn uses_reserved_prefix_or_suffix(prefix: &str, name: &str) -> bool {
     name.starts_with(prefix)
+        || name.ends_with(MANAGED_SUFFIX)
         || name.ends_with(REPLICATION_SUFFIX)
-        || name.ends_with(crate::stack::MANAGED_SUFFIX)
-        || name.ends_with(crate::stack::REQUEST_SUFFIX)
+        || name.ends_with(REQUEST_SUFFIX)
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 use app::perform::checksum_report;
 use apputils::{Stack, stack::DateCtx};
-use awsutils::{bucket::exists, file::File};
+use awsutils::{bucket, file::File};
 use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
@@ -15,7 +15,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::from_bucket_name(&bucket)?;
     let config = app::config::config(stack.clone()).await?;
 
-    if !exists(config.s3(), &bucket).await {
+    if !bucket::exists(config.s3(), &bucket).await {
         return Err("Bucket not found".into());
     }
 

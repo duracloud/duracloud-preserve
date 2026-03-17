@@ -7,14 +7,11 @@ use apputils::{
     stats::InventoryStats,
     storage::{StorageReport, StorageReportMeta},
 };
-use awsutils::file::{File, download_bytes};
+use awsutils::file::{self, File};
 use bytes::Bytes;
 use chrono::Utc;
 
-use crate::{
-    bucket::get_stack_buckets_by_type, config::Config, errors::StorageReportError,
-    upload::upload_versioned_bytes,
-};
+use crate::{bucket, config::Config, errors::StorageReportError, upload};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PerformOptions {
@@ -25,10 +22,13 @@ pub async fn perform(
     config: &Config,
     opts: &PerformOptions,
 ) -> Result<StorageReport, StorageReportError> {
-    let buckets =
-        get_stack_buckets_by_type(config.s3(), config.stack(), &[Type::Public, Type::Standard])
-            .await
-            .map_err(StorageReportError::BucketDiscovery)?;
+    let buckets = bucket::get_stack_buckets_by_type(
+        config.s3(),
+        config.stack(),
+        &[Type::Public, Type::Standard],
+    )
+    .await
+    .map_err(StorageReportError::BucketDiscovery)?;
     let mut bucket_stats = BTreeMap::new();
 
     for bucket in buckets {
@@ -43,7 +43,7 @@ pub async fn perform(
                 .metadata_manifests_stats_path(&bucket_name, DateCtx::Latest),
         );
 
-        let stats = download_bytes(config.s3(), &stats_file)
+        let stats = file::download_bytes(config.s3(), &stats_file)
             .await
             .map_err(|source| StorageReportError::DownloadStats {
                 bucket: bucket_name.clone(),
@@ -69,7 +69,7 @@ pub async fn perform(
     let stats_bytes = Bytes::from(serde_json::to_vec(&storage_report)?);
     let html_bytes = Bytes::from(storage_report.to_html(meta)?);
 
-    upload_versioned_bytes(
+    upload::upload_versioned_bytes(
         config,
         DateCtx::Today,
         html_bytes,
@@ -79,7 +79,7 @@ pub async fn perform(
     )
     .await?;
 
-    upload_versioned_bytes(
+    upload::upload_versioned_bytes(
         config,
         DateCtx::Today,
         stats_bytes,

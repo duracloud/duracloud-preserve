@@ -17,7 +17,7 @@ use crate::bucket_creator::{
 };
 
 pub use crate::bucket_creator::BucketCreatorParams;
-use crate::config::parse_storage_class;
+use crate::config;
 
 /// Status of a single reconciliation step.
 #[derive(Debug)]
@@ -182,7 +182,7 @@ impl<'a> BucketReconciliator<'a> {
             .map(|t| t.value().to_string());
 
         if let Some(ref val) = tag_value
-            && let Some(parsed) = parse_storage_class(val)
+            && let Some(parsed) = config::parse_storage_class(val)
         {
             return (
                 StepResult {
@@ -245,7 +245,7 @@ impl<'a> BucketReconciliator<'a> {
             if id == "ExpireOldVersions" {
                 continue;
             }
-            if let Some(class) = parse_storage_class(id) {
+            if let Some(class) = config::parse_storage_class(id) {
                 return Ok(Some(class));
             }
         }
@@ -716,19 +716,19 @@ mod tests {
     #[test]
     fn test_parse_transition_storage_class() {
         assert!(matches!(
-            parse_storage_class("GLACIER_IR"),
+            config::parse_storage_class("GLACIER_IR"),
             Some(TransitionStorageClass::GlacierIr)
         ));
         assert!(matches!(
-            parse_storage_class("DEEP_ARCHIVE"),
+            config::parse_storage_class("DEEP_ARCHIVE"),
             Some(TransitionStorageClass::DeepArchive)
         ));
         assert!(matches!(
-            parse_storage_class("INTELLIGENT_TIERING"),
+            config::parse_storage_class("INTELLIGENT_TIERING"),
             Some(TransitionStorageClass::IntelligentTiering)
         ));
-        assert!(parse_storage_class("not-a-class").is_none());
-        assert!(parse_storage_class("").is_none());
+        assert!(config::parse_storage_class("not-a-class").is_none());
+        assert!(config::parse_storage_class("").is_none());
     }
 
     #[tokio::test]

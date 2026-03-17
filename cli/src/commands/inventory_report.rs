@@ -1,7 +1,7 @@
 use app::{config::Config, perform::inventory_report};
 use apputils::{Stack, stack::DateCtx};
 use awsutils::{
-    bucket::exists,
+    bucket,
     file::{self, File},
 };
 use clap::Args as ClapArgs;
@@ -18,7 +18,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::from_bucket_name(&bucket)?;
     let config = app::config::config(stack.clone()).await?;
 
-    if !exists(config.s3(), &bucket).await {
+    if !bucket::exists(config.s3(), &bucket).await {
         return Err("Bucket not found".into());
     }
 

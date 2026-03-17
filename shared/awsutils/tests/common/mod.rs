@@ -5,11 +5,10 @@ use aws_sdk_s3::Client;
 use aws_sdk_s3::types::TransitionStorageClass;
 
 use awsutils::{
-    bucket::{Bucket, delete, empty},
+    bucket::{self, Bucket},
     bucket_creator::BucketCreator,
     config,
 };
-use test_support::integration_test_stack;
 
 pub struct IntegrationTestContext {
     pub account_id: String,
@@ -19,7 +18,7 @@ pub struct IntegrationTestContext {
 }
 
 pub async fn integration_test_context() -> IntegrationTestContext {
-    let stack = integration_test_stack();
+    let stack = test_support::integration_test_stack();
 
     let sdk_config = config::default_config().await;
     let s3 = Client::new(&sdk_config);
@@ -56,8 +55,8 @@ pub fn bucket_creator<'a>(
 }
 
 pub async fn cleanup_bucket(client: &Client, bucket: &str) {
-    let _ = empty(client, bucket).await;
-    let _ = delete(client, bucket).await;
+    let _ = bucket::empty(client, bucket).await;
+    let _ = bucket::delete(client, bucket).await;
 }
 
 pub fn timestamp() -> u64 {

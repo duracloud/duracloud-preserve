@@ -3,7 +3,7 @@ use std::io::{self, Write};
 use app::bucket as app_bucket;
 use apputils::Stack;
 use awsutils::bucket::{self as aws_bucket, Type};
-use awsutils::config::default_config;
+use awsutils::config;
 use clap::Args as ClapArgs;
 use rand::RngExt;
 
@@ -16,7 +16,7 @@ pub struct Args {
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::new(&args.stack)?;
-    let sdk_config = default_config().await;
+    let sdk_config = config::default_config().await;
     let s3_client = aws_sdk_s3::Client::new(&sdk_config);
 
     println!("Discovering buckets for stack: {}", stack.as_str());

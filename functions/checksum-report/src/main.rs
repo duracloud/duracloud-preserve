@@ -1,7 +1,6 @@
 use lambda_runtime::{Error, run, service_fn, tracing};
 
 mod event_handler;
-use event_handler::function_handler;
 
 use app::perform::checksum_report::PerformOptions;
 use apputils::Stack;
@@ -17,7 +16,7 @@ async fn main() -> Result<(), Error> {
     let perform_opts = PerformOptions::default();
 
     run(service_fn(|event| {
-        function_handler(&config, &perform_opts, event)
+        event_handler::function_handler(&config, &perform_opts, event)
     }))
     .await
 }

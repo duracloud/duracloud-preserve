@@ -7,18 +7,17 @@
 //!   - Set TEST_STACK env var (defaults to "int-test")
 //!   - Run: make setup s=<stack> p=<profile>
 
-use app::perform::bucket_request;
+use app::{config, perform::bucket_request};
 use apputils::content_type;
 use aws_smithy_types::body::SdkBody;
-use awsutils::bucket::{delete, empty, exists};
+use awsutils::bucket::{self};
 use awsutils::file::{self, File};
-use test_support::{integration_test_config, unix_timestamp_secs};
 
 #[tokio::test]
 #[ignore]
 async fn test_perform() {
-    let config = integration_test_config(app::config::config).await;
-    let ts = unix_timestamp_secs();
+    let config = test_support::integration_test_config(config::config).await;
+    let ts = test_support::unix_timestamp_secs();
     let bucket_name = format!("perf-{}", ts);
 
     let primary = format!("{}-{}", config.stack().as_str(), bucket_name);
@@ -44,16 +43,16 @@ async fn test_perform() {
         .await
         .unwrap();
 
-    assert!(exists(config.s3(), &primary).await);
-    assert!(exists(config.s3(), &repl).await);
+    assert!(bucket::exists(config.s3(), &primary).await);
+    assert!(bucket::exists(config.s3(), &repl).await);
 
     assert!(
         !file::exists(config.s3(), &file).await,
         "request file should be deleted after processing"
     );
 
-    empty(config.s3(), &primary).await.unwrap();
-    empty(config.s3(), &repl).await.unwrap();
-    delete(config.s3(), &primary).await.unwrap();
-    delete(config.s3(), &repl).await.unwrap();
+    bucket::empty(config.s3(), &primary).await.unwrap();
+    bucket::empty(config.s3(), &repl).await.unwrap();
+    bucket::delete(config.s3(), &primary).await.unwrap();
+    bucket::delete(config.s3(), &repl).await.unwrap();
 }

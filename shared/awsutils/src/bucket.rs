@@ -11,7 +11,7 @@ use tokio::io::AsyncBufReadExt;
 
 pub use crate::errors::RequestError;
 use crate::errors::S3ResultExt;
-use crate::file::{File, download};
+use crate::file::{self, File};
 
 /// Delete an empty bucket.
 pub async fn delete(client: &Client, bucket: &str) -> Result<(), RequestError> {
@@ -92,7 +92,7 @@ pub async fn exists(client: &Client, bucket: &str) -> bool {
 
 /// Retrieve bucket request file and verify it is valid.
 pub async fn get_bucket_names(client: &Client, file: &File) -> Result<Vec<String>, RequestError> {
-    let Ok(r) = download(client, file).await else {
+    let Ok(r) = file::download(client, file).await else {
         return Err(RequestError::S3Error("failed to download file".to_string()));
     };
 

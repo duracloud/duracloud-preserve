@@ -6,10 +6,10 @@ use bytes::Bytes;
 use awsutils::{
     bucket_creator::INVENTORY_FORMAT,
     file::{self, File},
-    inventory::{InventoryManifest, process},
+    inventory::{self, InventoryManifest},
 };
 
-use crate::{config::Config, errors::InventoryReportError, upload::upload_versioned_bytes};
+use crate::{config::Config, errors::InventoryReportError, upload};
 #[derive(Debug, Clone, Copy)]
 pub struct PerformOptions {
     pub date_ctx: DateCtx,
@@ -57,14 +57,14 @@ pub async fn perform(
         .collect();
 
     tracing::info!("Processing parquet files: {:?}", path_strs_owned);
-    let (csv, stats) = tokio::task::spawn_blocking(move || process(&path_strs_owned))
+    let (csv, stats) = tokio::task::spawn_blocking(move || inventory::process(&path_strs_owned))
         .await
         .expect("spawn_blocking task panicked")?;
 
     let csv_bytes = Bytes::from(csv);
     let stats_bytes = Bytes::from(serde_json::to_vec(&stats)?);
 
-    upload_versioned_bytes(
+    upload::upload_versioned_bytes(
         config,
         opts.date_ctx,
         csv_bytes,
@@ -78,7 +78,7 @@ pub async fn perform(
     )
     .await?;
 
-    upload_versioned_bytes(
+    upload::upload_versioned_bytes(
         config,
         opts.date_ctx,
         stats_bytes,
@@ -103,7 +103,7 @@ mod tests {
 
     use super::*;
     use crate::config as app_config;
-    use test_support::{TestClientBuilder, recorded_requests};
+    use test_support::TestClientBuilder;
 
     fn manifest_json(file_format: &str, parquet_key: &str, parquet_size: usize) -> String {
         serde_json::json!({
@@ -159,7 +159,7 @@ mod tests {
         assert_eq!(stats.total_files, 13);
         assert_eq!(stats.total_size, 2_191_162);
 
-        let requests = recorded_requests(&replay);
+        let requests = test_support::recorded_requests(&replay);
 
         assert!(
             requests
@@ -257,7 +257,7 @@ mod tests {
             other => panic!("unexpected error: {other:?}"),
         }
 
-        let requests = recorded_requests(&replay);
+        let requests = test_support::recorded_requests(&replay);
 
         assert!(
             requests

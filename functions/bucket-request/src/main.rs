@@ -1,11 +1,10 @@
 use lambda_runtime::{Error, run, service_fn, tracing};
 
 mod event_handler;
-use event_handler::function_handler;
 
 use app::perform::bucket_request;
 use apputils::Stack;
-use awsutils::{bucket_creator, config::parse_storage_class};
+use awsutils::{bucket_creator, config};
 use std::env;
 
 #[tokio::main]
@@ -18,7 +17,7 @@ async fn main() -> Result<(), Error> {
 
     let config = app::config::config(stack).await?;
 
-    let standard_storage_tier = match parse_storage_class(&standard_storage_tier) {
+    let standard_storage_tier = match config::parse_storage_class(&standard_storage_tier) {
         Some(tier) => tier,
         None => bucket_creator::STORAGE_CLASS_STANDARD_DEFAULT,
     };
@@ -28,7 +27,7 @@ async fn main() -> Result<(), Error> {
     };
 
     run(service_fn(|event| {
-        function_handler(&config, &perform_opts, event)
+        event_handler::function_handler(&config, &perform_opts, event)
     }))
     .await
 }

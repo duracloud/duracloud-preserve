@@ -10,8 +10,7 @@ use awsutils::{
 };
 use bytes::Bytes;
 
-use crate::upload::upload_versioned_bytes;
-use crate::{batch::get_manifest_if_ready, config::Config, errors::ChecksumReportError};
+use crate::{batch, config::Config, errors::ChecksumReportError, upload};
 
 #[derive(Debug, Clone, Copy)]
 pub struct PerformOptions {
@@ -65,7 +64,8 @@ async fn resolve_ready_manifests(
     receipt: &ChecksumJobReceipt,
 ) -> Result<Option<ReadyManifests>, ChecksumReportError> {
     let Some(source) =
-        get_manifest_if_ready(config, &receipt.source_bucket, &receipt.source_job_id).await?
+        batch::get_manifest_if_ready(config, &receipt.source_bucket, &receipt.source_job_id)
+            .await?
     else {
         tracing::info!("Source job {} not ready yet", receipt.source_job_id);
         return Ok(None);
@@ -74,7 +74,7 @@ async fn resolve_ready_manifests(
     tracing::info!("Source job file found: {:?}", &source);
 
     let Some(repl) =
-        get_manifest_if_ready(config, &receipt.repl_bucket, &receipt.repl_job_id).await?
+        batch::get_manifest_if_ready(config, &receipt.repl_bucket, &receipt.repl_job_id).await?
     else {
         tracing::info!("Replication job {} not ready yet", receipt.repl_job_id);
         return Ok(None);
@@ -114,7 +114,7 @@ async fn process_and_upload(
     let csv_bytes = Bytes::from(csv);
     let stats_bytes = Bytes::from(serde_json::to_vec(&stats)?);
 
-    upload_versioned_bytes(
+    upload::upload_versioned_bytes(
         config,
         opts.date_ctx,
         csv_bytes,
@@ -124,7 +124,7 @@ async fn process_and_upload(
     )
     .await?;
 
-    upload_versioned_bytes(
+    upload::upload_versioned_bytes(
         config,
         opts.date_ctx,
         stats_bytes,

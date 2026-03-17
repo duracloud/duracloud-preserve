@@ -1,7 +1,6 @@
 use lambda_runtime::{Error, run, service_fn, tracing};
 
 mod event_handler;
-use event_handler::function_handler;
 
 use apputils::Stack;
 use std::env;
@@ -14,5 +13,8 @@ async fn main() -> Result<(), Error> {
         Stack::new(&env::var("STACK").expect("stack is required")).expect("invalid stack name");
     let config = app::config::config(stack).await?;
 
-    run(service_fn(|event| function_handler(&config, event))).await
+    run(service_fn(|event| {
+        event_handler::function_handler(&config, event)
+    }))
+    .await
 }

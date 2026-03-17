@@ -1,7 +1,7 @@
 use apputils::Stack;
 use awsutils::{
     batch::{self},
-    bucket::exists,
+    bucket,
 };
 use clap::Args as ClapArgs;
 
@@ -27,7 +27,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let source = args.source;
-    if !exists(config.s3(), &source).await {
+    if !bucket::exists(config.s3(), &source).await {
         return Err("Source bucket not found".into());
     }
 

@@ -6,7 +6,7 @@ use awsutils::{
     file::{self, File},
 };
 use bytes::Bytes;
-use futures::future::try_join_all;
+use futures::future;
 
 use crate::config::Config;
 
@@ -26,7 +26,7 @@ pub async fn upload_bytes(
             Ok::<_, RequestError>(file.http_url())
         }
     });
-    try_join_all(uploads).await
+    future::try_join_all(uploads).await
 }
 
 pub async fn upload_feedback(config: &Config, key: &str, message: String) {

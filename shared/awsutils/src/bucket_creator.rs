@@ -14,7 +14,7 @@ use aws_sdk_s3::types::{
 use apputils::Stack;
 
 use crate::bucket::{BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, RequestError, Type};
-use crate::config::get_region;
+use crate::config;
 use crate::errors::S3ResultExt;
 
 pub const BUCKET_TAG_ORIGIN_KEY: &str = "BucketOrigin";
@@ -94,7 +94,7 @@ impl<'a> BucketCreator<'a> {
     }
 
     pub async fn create(&self) -> Result<(), RequestError> {
-        let region = get_region(self.client)?;
+        let region = config::get_region(self.client)?;
         let constraint = BucketLocationConstraint::from(region.as_str());
 
         let stack = self.stack.as_str();

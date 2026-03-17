@@ -233,7 +233,7 @@ pub async fn get_stack_buckets_by_type(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_support::{TestClientBuilder, recorded_requests};
+    use test_support::TestClientBuilder;
 
     fn list_buckets_xml(names: &[&str]) -> String {
         let buckets = names
@@ -399,7 +399,7 @@ mod tests {
             .unwrap();
 
         assert!(buckets.is_empty());
-        assert!(recorded_requests(&replay).is_empty());
+        assert!(test_support::recorded_requests(&replay).is_empty());
     }
 
     #[tokio::test]

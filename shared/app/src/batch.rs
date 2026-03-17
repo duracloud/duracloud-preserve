@@ -7,7 +7,7 @@ use awsutils::{
     file::{self, File},
 };
 
-use crate::{config::Config, errors::BatchStatusError, upload::upload_bytes};
+use crate::{config::Config, errors::BatchStatusError, upload};
 
 /// Download a batch manifest
 pub async fn get_batch_manifest(
@@ -140,7 +140,7 @@ pub async fn trigger_checksum_job(
 
     tracing::info!("Uploading receipt: {:?}", receipt);
 
-    Ok(upload_bytes(
+    Ok(upload::upload_bytes(
         config.s3(),
         serde_json::to_vec(&receipt)?,
         APPLICATION_JSON,

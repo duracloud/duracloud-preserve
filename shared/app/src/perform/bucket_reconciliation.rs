@@ -6,7 +6,7 @@ use awsutils::{
     bucket_reconciliator::{BucketReconciliator, ReconcileReport},
 };
 
-use crate::{config::Config, errors::BucketReconciliationError};
+use crate::{bucket, config::Config, errors::BucketReconciliationError};
 
 pub struct PerformOptions {
     pub fail_on_drift: bool,
@@ -37,8 +37,7 @@ pub async fn perform(
     config: &Config,
     opts: &PerformOptions,
 ) -> Result<PerformReport, BucketReconciliationError> {
-    let mut buckets =
-        crate::bucket::get_bucket_request_buckets(config.s3(), config.stack()).await?;
+    let mut buckets = bucket::get_bucket_request_buckets(config.s3(), config.stack()).await?;
 
     buckets.sort_by(|a, b| a.name().cmp(b.name()));
 

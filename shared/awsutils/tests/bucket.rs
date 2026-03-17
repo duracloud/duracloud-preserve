@@ -11,7 +11,7 @@ mod common;
 
 use aws_sdk_s3::types::TransitionStorageClass;
 use aws_smithy_types::body::SdkBody;
-use awsutils::bucket::{Bucket, Type, delete, empty, exists, from_name};
+use awsutils::bucket::{self, Bucket, Type};
 use common::{bucket_creator, integration_test_context, timestamp};
 
 #[tokio::test]
@@ -26,7 +26,7 @@ async fn test_bucket_from_name() {
 
     creator.create().await.expect("bucket creation failed");
 
-    let result = from_name(&ctx.s3, &bucket_name)
+    let result = bucket::from_name(&ctx.s3, &bucket_name)
         .await
         .expect("from_name failed");
 
@@ -36,12 +36,14 @@ async fn test_bucket_from_name() {
     assert_eq!(found_bucket.bucket_type(), &Type::Standard);
 
     // Test non-existent bucket returns None.
-    let missing = from_name(&ctx.s3, "nonexistent-bucket-xyz")
+    let missing = bucket::from_name(&ctx.s3, "nonexistent-bucket-xyz")
         .await
         .expect("from_name should not error for missing bucket");
     assert!(missing.is_none(), "missing bucket should return None");
 
-    delete(&ctx.s3, &bucket_name).await.expect("cleanup failed");
+    bucket::delete(&ctx.s3, &bucket_name)
+        .await
+        .expect("cleanup failed");
 }
 
 #[tokio::test]
@@ -86,7 +88,7 @@ async fn test_empty_bucket() {
         .await
         .expect("put object failed");
 
-    empty(&ctx.s3, &bucket_name)
+    bucket::empty(&ctx.s3, &bucket_name)
         .await
         .expect("empty_bucket failed");
 
@@ -107,10 +109,12 @@ async fn test_empty_bucket() {
         "bucket should have no delete markers"
     );
 
-    delete(&ctx.s3, &bucket_name).await.expect("cleanup failed");
+    bucket::delete(&ctx.s3, &bucket_name)
+        .await
+        .expect("cleanup failed");
 
     assert!(
-        !exists(&ctx.s3, &bucket_name).await,
+        !bucket::exists(&ctx.s3, &bucket_name).await,
         "bucket should not exist after deletion"
     );
 }

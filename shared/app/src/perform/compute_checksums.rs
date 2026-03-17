@@ -1,7 +1,4 @@
-use crate::{
-    batch::trigger_checksum_job, bucket as app_bucket, config::Config,
-    errors::ComputeChecksumsError,
-};
+use crate::{batch, bucket as app_bucket, config::Config, errors::ComputeChecksumsError};
 use awsutils::{
     batch::BatchError,
     bucket::{self, Bucket, BucketPair, Name, REPLICATION_SUFFIX},
@@ -61,7 +58,7 @@ pub async fn perform(
     };
 
     dispatch_checksum_jobs(config, &bucket_pairs, |cfg, source, replication| {
-        Box::pin(trigger_checksum_job(cfg, source, replication))
+        Box::pin(batch::trigger_checksum_job(cfg, source, replication))
     })
     .await
 }

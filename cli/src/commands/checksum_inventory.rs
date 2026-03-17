@@ -1,6 +1,6 @@
 use app::perform::checksum_inventory;
 use apputils::{Stack, stack::DateCtx};
-use awsutils::file::{File, exists};
+use awsutils::file::{self, File};
 use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
@@ -21,7 +21,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             .reports_manifests_path(&bucket, DateCtx::Latest),
     );
 
-    if !exists(config.s3(), &report).await {
+    if !file::exists(config.s3(), &report).await {
         return Err("Inventory report not found".into());
     }
 

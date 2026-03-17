@@ -15,7 +15,7 @@ use aws_sdk_s3::types::{
     InventoryOptionalField, TransitionStorageClass,
 };
 use aws_smithy_types::error::metadata::ProvideErrorMetadata;
-use awsutils::bucket::{Bucket, Type, exists};
+use awsutils::bucket::{self, Bucket, Type};
 use awsutils::bucket_creator::INVENTORY_FORMAT;
 use common::{
     IntegrationTestContext, bucket_creator, cleanup_bucket, integration_test_context, timestamp,
@@ -738,14 +738,14 @@ async fn test_rollback_deletes_bucket() {
     creator.create().await.expect("bucket creation failed");
 
     assert!(
-        exists(&ctx.s3, &bucket_name).await,
+        bucket::exists(&ctx.s3, &bucket_name).await,
         "bucket should exist after creation"
     );
 
     creator.rollback().await.expect("rollback failed");
 
     assert!(
-        !exists(&ctx.s3, &bucket_name).await,
+        !bucket::exists(&ctx.s3, &bucket_name).await,
         "bucket should not exist after rollback"
     );
 }

@@ -29,6 +29,7 @@ pub async fn put_bytes(
     future::try_join_all(uploads).await
 }
 
+/// Upload content to the stack managed bucket feedback path.
 pub async fn put_feedback(config: &Config, key: &str, message: String) {
     let file = File::from(config.stack().feedback_path(key));
     if let Err(e) = put_bytes(config.s3(), message.into_bytes(), TEXT_PLAIN, [file]).await {
@@ -36,6 +37,8 @@ pub async fn put_feedback(config: &Config, key: &str, message: String) {
     }
 }
 
+/// Upload content to dated contextualized paths and to
+/// "latest" (the version) which is updated each time.
 pub async fn put_versioned_bytes<E>(
     config: &Config,
     date_ctx: DateCtx,

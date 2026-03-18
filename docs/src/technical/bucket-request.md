@@ -7,6 +7,13 @@
 
 This Lambda function creates S3 buckets with [prefab configuration](#) based on a list of bucket names provided in a plain text file.
 
+**Example buckets.txt**
+```bash
+manuscripts
+newspapers
+rare-books
+```
+
 The workflow is:
 1. A text file containing bucket names is uploaded to the S3 bucket named `${stack}-bucket-request`
 2. The Lambda function is triggered by the upload event

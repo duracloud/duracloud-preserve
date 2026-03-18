@@ -32,16 +32,23 @@ resource "aws_s3_bucket_policy" "artifacts" {
 
   depends_on = [aws_s3_bucket_public_access_block.artifacts]
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Sid       = "PublicReadGetObject"
-      Effect    = "Allow"
-      Principal = "*"
-      Action    = "s3:GetObject"
-      Resource  = "${aws_s3_bucket.artifacts.arn}/*"
-    }]
-  })
+  policy = data.aws_iam_policy_document.artifacts_public_read.json
+}
+
+data "aws_iam_policy_document" "artifacts_public_read" {
+  statement {
+    sid     = "PublicReadGetObject"
+    effect  = "Allow"
+    actions = ["s3:GetObject"]
+    resources = [
+      "${aws_s3_bucket.artifacts.arn}/*"
+    ]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+  }
 }
 
 resource "aws_s3_object" "files" {

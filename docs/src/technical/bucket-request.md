@@ -17,7 +17,7 @@ The workflow is:
 
 Use `make run-bucket-request` to process a file locally without uploading to S3:
 ```bash
-make run-bucket-request f=files/buckets.txt s=digipress-dev1 p=default
+make run-bucket-request f=files/buckets.txt s=digipres-dev1 p=default
 ```
 
 - `f=` — path to a local file containing [bucket names](#)

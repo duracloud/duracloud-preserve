@@ -25,12 +25,14 @@ locals {
   replication_role_name       = "${local.stack}-s3-replication-role"
   storage_capacity_param_name = "${local.stack}-storage-capacity"
 
-  # prefixes shared with rust code (stack.rs)
+  # prefixes and suffixes shared with rust code (stack.rs)
   batch_prefix      = "batch"
   cloudtrail_prefix = "cloudtrail" # tf only
   feedback_prefix   = "feedback"
   inventory_prefix  = "manifests"
   logging_prefix    = "audit"
+  managed_suffix    = "managed"
   metadata_prefix   = "metadata"
+  repl_suffix       = "repl"
   reports_prefix    = "reports"
 }

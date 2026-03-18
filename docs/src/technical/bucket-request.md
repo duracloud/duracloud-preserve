@@ -1,59 +1,58 @@
 # bucket-request
 
-- Lambda triggered by: s3 event (user uploaded file)
-- Dependencies: None
+- **Lambda trigger:** S3 event (fires when a user uploads a file to the request bucket)
+- **Dependencies:** None
 
 ## Overview
 
-This function creates Amazon S3 buckets with [prefab configuration](#).
+This Lambda function creates S3 buckets with [prefab configuration](#) based on a list of bucket names provided in a plain text file.
 
-A text file containing bucket names is uploaded to the `${stack}-bucket-request` bucket. When the file is uploaded, the S3 event triggers the Lambda function, which downloads the file and processes each bucket name.
+The workflow is:
+1. A text file containing bucket names is uploaded to the S3 bucket named `${stack}-bucket-request`
+2. The Lambda function is triggered by the upload event
+3. The file is downloaded and processed — either locally (for development/testing) or inside Lambda (for remote execution)
+4. Buckets are created according to the prefab configuration if they don't already exist
 
-## Usage
+## CLI Testing
 
-### CLI (local testing)
-
-Run the function locally against a file of bucket names:
+Use `make run-bucket-request` to process a file locally without uploading to S3:
 ```bash
 make run-bucket-request f=files/buckets.txt s=digipress-dev1 p=default
 ```
 
-| Flag | Description                                       |
-| ---- | ------------------------------------------------- |
-| `f=` | Path to a local file containing [bucket names](#) |
-| `s=` | Stack name                                        |
-| `p=` | AWS profile                                       |
+- `f=` — path to a local file containing [bucket names](#)
+- `s=` — the stack name (used as a prefix for created buckets)
+- `p=` — the AWS profile to use
 
-To create a single bucket instead of using a file:
+You can also create a single bucket by name without a file, using the `cargo` CLI directly:
 ```bash
 cargo run -p duracloud -- bucket-request --stack=digipres-dev1 --name=rare-books
 ```
 
-### Remote testing (uploads file to S3 to trigger Lambda)
+This is useful for one-off bucket creation or quick iteration without maintaining a file.
+
+## Remote Testing
+
+Use `make upload` to upload a file to S3 and trigger the Lambda function as it would run in production:
 ```bash
 make upload b=digipress-dev1-bucket-request f=files/buckets.txt p=default
 ```
 
-| Flag | Description                                       |
-| ---- | ------------------------------------------------- |
-| `b=` | Target S3 bucket name                             |
-| `f=` | Path to a local file containing [bucket names](#) |
-| `p=` | AWS profile                                       |
+- `b=` — the name of the S3 request bucket (typically `${stack}-bucket-request`)
+- `f=` — path to the local file containing [bucket names](#)
+- `p=` — the AWS profile to use
 
-## Expected output
+## Output
 
-Using the example file `files/buckets.txt`, two buckets should be created (if they don't already exist):
+Given the example file `files/buckets.txt`, two buckets should be created (assuming they do not already exist):
 
-| Bucket                       | Type                                        |
-| ---------------------------- | ------------------------------------------- |
-| `digipres-dev1-private`      | Private S3 bucket                           |
-| `digipres-dev1-private-repl` | Private S3 bucket (replication destination) |
+- `digipres-dev1-private` — private S3 bucket
+- `digipres-dev1-private-repl` — private S3 bucket used as the replication destination for the above
 
-Verify the buckets were created:
+You can verify the buckets were created using:
 ```bash
 make bucket a=list p=default
-
-# Filter results by stack name
+# Filter results by stack name using grep
 make bucket a=list p=default | grep digipres-dev1
 ```
 

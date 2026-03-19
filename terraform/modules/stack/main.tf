@@ -35,4 +35,14 @@ locals {
   metadata_prefix   = "metadata"
   repl_suffix       = "repl"
   reports_prefix    = "reports"
+
+  # Common S3 ARN patterns
+  stack_bucket_arn_pattern = "arn:aws:s3:::${local.stack}-*"
+  stack_object_arn_pattern = "${local.stack_bucket_arn_pattern}/*"
+
+  managed_bucket_arn        = "arn:aws:s3:::${local.stack}-${local.managed_suffix}"
+  managed_bucket_object_arn = "${local.managed_bucket_arn}/*"
+
+  repl_bucket_arn_pattern = "arn:aws:s3:::${local.stack}-*-${local.repl_suffix}"
+  repl_object_arn_pattern = "${local.repl_bucket_arn_pattern}/*"
 }

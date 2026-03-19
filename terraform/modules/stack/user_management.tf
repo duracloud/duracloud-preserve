@@ -34,21 +34,21 @@ locals {
 
   # Scoped stack buckets (including bucket-request)
   stack_bucket_resources = [
-    "arn:aws:s3:::${local.stack}-*",
-    "arn:aws:s3:::${local.stack}-*/*",
+    local.stack_bucket_arn_pattern,
+    local.stack_object_arn_pattern,
   ]
 
   managed_bucket_resources = [
-    "arn:aws:s3:::${local.stack}-${local.managed_suffix}",
-    "arn:aws:s3:::${local.stack}-${local.managed_suffix}/*",
+    local.managed_bucket_arn,
+    local.managed_bucket_object_arn,
   ]
 
   # Actions permitted on managed buckets (read-only)
   managed_bucket_permitted = ["s3:ListBucket", "s3:GetObject"]
 
   repl_bucket_resources = [
-    "arn:aws:s3:::${local.stack}-${local.repl_suffix}",
-    "arn:aws:s3:::${local.stack}-${local.repl_suffix}/*",
+    local.repl_bucket_arn_pattern,
+    local.repl_object_arn_pattern,
   ]
 
   # Actions permitted on repl buckets (list-only)

@@ -96,11 +96,17 @@ resource "aws_iam_role_policy_attachment" "lambda" {
   role       = aws_iam_role.lambda[each.key].name
 }
 
-data "aws_iam_policy_document" "role_access" {
+data "aws_iam_policy_document" "config_access" {
   statement {
     effect    = "Allow"
     actions   = ["iam:GetRole"]
     resources = [aws_iam_role.batch.arn, aws_iam_role.replication.arn]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.main["managed"].arn]
   }
 
   statement {
@@ -110,9 +116,9 @@ data "aws_iam_policy_document" "role_access" {
   }
 }
 
-resource "aws_iam_role_policy" "role_access" {
+resource "aws_iam_role_policy" "config_access" {
   for_each = local.functions
 
   role   = aws_iam_role.lambda[each.key].name
-  policy = data.aws_iam_policy_document.role_access.json
+  policy = data.aws_iam_policy_document.config_access.json
 }

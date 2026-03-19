@@ -83,46 +83,10 @@ impl ChecksumVerifier {
     ) -> Result<Self, ChecksumError> {
         let conn = Connection::open_in_memory()?;
 
-        let sources = source_reports
-            .iter()
-            .map(|f| format!("'{}'", f.as_ref().replace('\'', "''")))
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        let repls = replication_reports
-            .iter()
-            .map(|f| format!("'{}'", f.as_ref().replace('\'', "''")))
-            .collect::<Vec<_>>()
-            .join(", ");
-
         conn.execute_batch(&format!(
-            r#"
-            CREATE TABLE source AS
-            SELECT
-                column0 AS bucket,
-                column1 AS key,
-                column2 AS version_id,
-                column3 AS task_status,
-                column4 AS error_code,
-                column5 AS http_status_code,
-                column6 AS result_message,
-                json_extract_string(column6, '$.checksum_hex') AS checksum,
-                json_extract_string(column6, '$.checksumAlgorithm') AS checksum_algorithm
-            FROM read_csv([{sources}]);
-
-            CREATE TABLE replication AS
-            SELECT
-                column0 AS bucket,
-                column1 AS key,
-                column2 AS version_id,
-                column3 AS task_status,
-                column4 AS error_code,
-                column5 AS http_status_code,
-                column6 AS result_message,
-                json_extract_string(column6, '$.checksum_hex') AS checksum,
-                json_extract_string(column6, '$.checksumAlgorithm') AS checksum_algorithm
-            FROM read_csv([{repls}]);
-            "#
+            "{}\n{}",
+            ChecksumVerifier::create_table_stmt("source", source_reports),
+            ChecksumVerifier::create_table_stmt("replication", replication_reports)
         ))?;
 
         Ok(Self { conn })
@@ -311,6 +275,31 @@ impl ChecksumVerifier {
         }
 
         Ok(results)
+    }
+
+    fn create_table_stmt(name: &str, from: &[impl AsRef<str>]) -> String {
+        let from = from
+            .iter()
+            .map(|f| format!("'{}'", f.as_ref().replace('\'', "''")))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        format!(
+            r#"
+            CREATE TABLE {name} AS
+            SELECT
+                column0 AS bucket,
+                column1 AS key,
+                column2 AS version_id,
+                column3 AS task_status,
+                column4 AS error_code,
+                column5 AS http_status_code,
+                column6 AS result_message,
+                json_extract_string(column6, '$.checksum_hex') AS checksum,
+                json_extract_string(column6, '$.checksumAlgorithm') AS checksum_algorithm
+            FROM read_csv([{from}]);
+            "#
+        )
     }
 
     fn write_csv_and_stats(&self, writer: impl Write) -> Result<VerificationStats, ChecksumError> {

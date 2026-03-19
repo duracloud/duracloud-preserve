@@ -23,3 +23,16 @@ output "request_bucket_name" {
   description = "Name of the request bucket"
   value       = aws_s3_bucket.main["bucket-request"].id
 }
+
+# DNS validation records for another account to create
+output "acm_domain_validation_options" {
+  value = try(aws_acm_certificate.public["public"].domain_validation_options, null)
+}
+
+output "cloudfront_domain_name" {
+  value = try(aws_cloudfront_distribution.public["public"].domain_name, null)
+}
+
+output "cloudfront_hosted_zone_id" {
+  value = try(aws_cloudfront_distribution.public["public"].hosted_zone_id, null)
+}

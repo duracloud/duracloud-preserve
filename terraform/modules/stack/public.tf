@@ -1,38 +1,44 @@
 # Resources for the stack created CloudFront distribution for public file access
 locals {
-  cert_ready    = var.cert_ready && local.deploy_public
-  deploy_public = var.domain != ""
-  domain        = var.domain
-  fqdn          = "${local.subdomain}.${local.domain}"
-  subdomain     = split("-", local.stack)[1]
+  cert_ready           = var.cert_ready && local.deploy_public
+  deploy_public        = var.domain != ""
+  domain               = var.domain
+  fqdn                 = "${local.subdomain}.${local.domain}"
+  deploy_public_access = local.deploy_public ? { "public" = {} } : {}
+  subdomain            = split("-", local.stack)[1]
 }
 
 # https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html
+data "aws_iam_policy_document" "public_bucket" {
+  for_each = local.deploy_public_access
+
+  statement {
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.public.arn}/*"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.public[each.key].arn]
+    }
+  }
+}
+
 resource "aws_s3_bucket_policy" "public" {
-  count = local.deploy_public ? 1 : 0
+  for_each = local.deploy_public_access
 
-  bucket = aws_s3_bucket.public["public"].id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect    = "Allow"
-        Principal = { Service = "cloudfront.amazonaws.com" }
-        Action    = ["s3:GetObject"]
-        Resource  = "${aws_s3_bucket.public["public"].arn}/*"
-        Condition = {
-          StringEquals = {
-            "AWS:SourceArn" = aws_cloudfront_distribution.public[0].arn
-          }
-        }
-      }
-    ]
-  })
+  bucket = aws_s3_bucket.public.id
+  policy = data.aws_iam_policy_document.public_bucket[each.key].json
 }
 
 resource "aws_acm_certificate" "public" {
-  count = local.deploy_public ? 1 : 0
+  for_each = local.deploy_public_access
 
   provider          = aws.us_east_1
   domain_name       = local.fqdn
@@ -43,9 +49,8 @@ resource "aws_acm_certificate" "public" {
   }
 }
 
-
 resource "aws_cloudfront_origin_access_control" "public" {
-  count = local.deploy_public ? 1 : 0
+  for_each = local.deploy_public_access
 
   name                              = local.stack
   origin_access_control_origin_type = "s3"
@@ -54,11 +59,11 @@ resource "aws_cloudfront_origin_access_control" "public" {
 }
 
 resource "aws_cloudfront_distribution" "public" {
-  count = local.deploy_public ? 1 : 0
+  for_each = local.deploy_public_access
 
   origin {
-    domain_name              = aws_s3_bucket.public["public"].bucket_regional_domain_name
-    origin_access_control_id = aws_cloudfront_origin_access_control.public[0].id
+    domain_name              = aws_s3_bucket.public.bucket_regional_domain_name
+    origin_access_control_id = aws_cloudfront_origin_access_control.public[each.key].id
     origin_id                = local.stack
   }
 
@@ -98,7 +103,7 @@ resource "aws_cloudfront_distribution" "public" {
   dynamic "viewer_certificate" {
     for_each = local.cert_ready ? [1] : []
     content {
-      acm_certificate_arn = aws_acm_certificate.public[0].arn
+      acm_certificate_arn = aws_acm_certificate.public[each.key].arn
       ssl_support_method  = "sni-only"
     }
   }
@@ -109,17 +114,4 @@ resource "aws_cloudfront_distribution" "public" {
       cloudfront_default_certificate = true
     }
   }
-}
-
-# DNS validation records for another account to create
-output "acm_domain_validation_options" {
-  value = local.deploy_public ? aws_acm_certificate.public[0].domain_validation_options : null
-}
-
-output "cloudfront_domain_name" {
-  value = local.deploy_public ? aws_cloudfront_distribution.public[0].domain_name : null
-}
-
-output "cloudfront_hosted_zone_id" {
-  value = local.deploy_public ? aws_cloudfront_distribution.public[0].hosted_zone_id : null
 }

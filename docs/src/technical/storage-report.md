@@ -21,7 +21,9 @@ make run-storage-report s=digipres-dev1 p=default
 
 ## Remote testing
 
-TODO
+```bash
+make trigger f=storage-report s=digipres-dev1 p=default
+```
 
 ## Output
 

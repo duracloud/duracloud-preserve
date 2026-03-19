@@ -1,15 +1,16 @@
 [workspace]
 resolver = "3"
 members = [
-    "cli",
-    "functions/bucket-request",
-    "functions/compute-checksums",
-    "functions/checksum-report",
-    "functions/inventory-report",
-    "shared/app",
-    "shared/apputils",
-    "shared/awsutils",
-    "shared/test-support"
+  "cli",
+  "functions/bucket-request",
+  "functions/compute-checksums",
+  "functions/checksum-report",
+  "functions/inventory-report",
+  "functions/storage-report",
+  "shared/app",
+  "shared/apputils",
+  "shared/awsutils",
+  "shared/test-support",
 ]
 
 [workspace.dependencies]

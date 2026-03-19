@@ -1,0 +1,16 @@
+[package]
+name = "storage-report"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+app.workspace = true
+apputils.workspace = true
+aws_lambda_events = { workspace = true, features = ["cloudwatch_events"] }
+awsutils.workspace = true
+lambda_runtime.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+aws-config.workspace = true
+test-support.workspace = true

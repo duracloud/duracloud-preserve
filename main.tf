@@ -59,10 +59,10 @@ locals {
       bucket = local.functions_bucket
       file   = "target/lambda/inventory-report/bootstrap.zip"
     }
-    #   storage-report = {
-    #     bucket = local.functions_bucket
-    #     file   = "target/lambda/storage-report/bootstrap.zip"
-    #   }
+    storage-report = {
+      bucket = local.functions_bucket
+      file   = "target/lambda/storage-report/bootstrap.zip"
+    }
   }
 }
 

@@ -10,6 +10,7 @@ data "aws_iam_policy_document" "storage_report" {
     effect = "Allow"
     actions = [
       "s3:ListAllMyBuckets",
+      "s3:GetBucketTagging",
     ]
     resources = ["*"]
   }

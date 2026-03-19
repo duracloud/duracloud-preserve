@@ -1,114 +1,122 @@
 # Batch Operations Role - used for S3 Batch Operations jobs
-resource "aws_iam_role" "batch" {
-  name = local.batch_role_name
+data "aws_iam_policy_document" "batch_assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Service = "batchoperations.s3.amazonaws.com" }
-      Action    = "sts:AssumeRole"
-    }]
-  })
+    principals {
+      type        = "Service"
+      identifiers = ["batchoperations.s3.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "batch" {
+  name               = local.batch_role_name
+  assume_role_policy = data.aws_iam_policy_document.batch_assume_role.json
 
   tags = { Name = local.batch_role_name }
 }
 
-resource "aws_iam_role_policy" "batch" {
-  name = "${local.batch_role_name}-policy"
-  role = aws_iam_role.batch.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        # Source bucket for batch copy jobs may be outside the stack prefix
-        Effect = "Allow"
-        Action = [
-          "s3:GetBucketLocation",
-          "s3:ListBucket",
-          "s3:PutInventoryConfiguration",
-        ]
-        Resource = "arn:aws:s3:::*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:GetObjectVersion",
-          "s3:RestoreObject",
-          "s3:GetObjectAcl",
-          "s3:GetObjectTagging",
-          "s3:GetObjectVersionAcl",
-          "s3:GetObjectVersionTagging",
-        ]
-        Resource = "arn:aws:s3:::*/*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:PutObject",
-          "s3:PutObjectAcl",
-          "s3:PutObjectVersionAcl",
-          "s3:PutObjectTagging",
-          "s3:PutObjectVersionTagging",
-        ]
-        Resource = "arn:aws:s3:::${local.stack}*/*"
-      }
+data "aws_iam_policy_document" "batch" {
+  statement {
+    # Source bucket for batch copy jobs may be outside the stack prefix
+    effect = "Allow"
+    actions = [
+      "s3:GetBucketLocation",
+      "s3:ListBucket",
+      "s3:PutInventoryConfiguration",
     ]
-  })
+    resources = ["arn:aws:s3:::*"]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+      "s3:RestoreObject",
+      "s3:GetObjectAcl",
+      "s3:GetObjectTagging",
+      "s3:GetObjectVersionAcl",
+      "s3:GetObjectVersionTagging",
+    ]
+    resources = ["arn:aws:s3:::*/*"]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:PutObject",
+      "s3:PutObjectAcl",
+      "s3:PutObjectVersionAcl",
+      "s3:PutObjectTagging",
+      "s3:PutObjectVersionTagging",
+    ]
+    resources = [local.stack_object_arn_pattern]
+  }
+}
+
+resource "aws_iam_role_policy" "batch" {
+  name   = "${local.batch_role_name}-policy"
+  role   = aws_iam_role.batch.id
+  policy = data.aws_iam_policy_document.batch.json
 }
 
 # Replication Role - used for S3 same/cross-region replication
-resource "aws_iam_role" "replication" {
-  name = local.replication_role_name
+data "aws_iam_policy_document" "replication_assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Service = "s3.amazonaws.com" }
-      Action    = "sts:AssumeRole"
-    }]
-  })
+    principals {
+      type        = "Service"
+      identifiers = ["s3.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "replication" {
+  name               = local.replication_role_name
+  assume_role_policy = data.aws_iam_policy_document.replication_assume_role.json
 
   tags = { Name = local.replication_role_name }
 }
 
-resource "aws_iam_role_policy" "replication" {
-  name = "${local.replication_role_name}-policy"
-  role = aws_iam_role.replication.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetReplicationConfiguration",
-          "s3:ListBucket"
-        ]
-        Resource = "arn:aws:s3:::${local.stack}*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObjectVersion",
-          "s3:GetObjectVersionAcl",
-          "s3:GetObjectVersionTagging"
-        ]
-        Resource = "arn:aws:s3:::${local.stack}*/*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObjectVersionTagging",
-          "s3:ReplicateObject",
-          "s3:ReplicateDelete",
-          "s3:ReplicateTags"
-        ]
-        Resource = "arn:aws:s3:::${local.stack}*-repl/*"
-      }
+data "aws_iam_policy_document" "replication" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:GetReplicationConfiguration",
+      "s3:ListBucket",
     ]
-  })
+    resources = [local.stack_bucket_arn_pattern]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:GetObjectVersion",
+      "s3:GetObjectVersionAcl",
+      "s3:GetObjectVersionTagging",
+    ]
+    resources = [local.stack_object_arn_pattern]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:GetObjectVersionTagging",
+      "s3:ReplicateObject",
+      "s3:ReplicateDelete",
+      "s3:ReplicateTags",
+    ]
+    resources = [local.repl_object_arn_pattern]
+  }
+}
+
+resource "aws_iam_role_policy" "replication" {
+  name   = "${local.replication_role_name}-policy"
+  role   = aws_iam_role.replication.id
+  policy = data.aws_iam_policy_document.replication.json
 }

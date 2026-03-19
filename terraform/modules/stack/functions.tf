@@ -70,18 +70,23 @@ resource "aws_cloudwatch_log_group" "main" {
 #   alarm_actions = []
 # }
 
+data "aws_iam_policy_document" "lambda_assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
 resource "aws_iam_role" "lambda" {
   for_each = local.functions
 
-  name = "${local.stack}-${each.key}"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { Service = "lambda.amazonaws.com" }
-    }]
-  })
+  name               = "${local.stack}-${each.key}"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
 resource "aws_iam_role_policy_attachment" "lambda" {
@@ -91,26 +96,23 @@ resource "aws_iam_role_policy_attachment" "lambda" {
   role       = aws_iam_role.lambda[each.key].name
 }
 
+data "aws_iam_policy_document" "role_access" {
+  statement {
+    effect    = "Allow"
+    actions   = ["iam:GetRole"]
+    resources = [aws_iam_role.batch.arn, aws_iam_role.replication.arn]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["ssm:GetParameter"]
+    resources = [aws_ssm_parameter.storage_capacity.arn]
+  }
+}
+
 resource "aws_iam_role_policy" "role_access" {
   for_each = local.functions
 
-  role = aws_iam_role.lambda[each.key].name
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = "iam:GetRole"
-        Resource = [
-          aws_iam_role.batch.arn,
-          aws_iam_role.replication.arn,
-        ]
-      },
-      {
-        Effect   = "Allow"
-        Action   = "ssm:GetParameter"
-        Resource = aws_ssm_parameter.storage_capacity.arn
-      }
-    ]
-  })
+  role   = aws_iam_role.lambda[each.key].name
+  policy = data.aws_iam_policy_document.role_access.json
 }

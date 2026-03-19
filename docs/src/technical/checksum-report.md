@@ -24,7 +24,7 @@ A compute checksums job must already have been run and completed for the bucket 
 Testing begins the same way as for `compute-checksums`:
 
 ```bash
-make trigger-compute-checksums s=digipres-dev1 p=default
+make trigger f=compute-checksums s=digipres-dev1 p=default
 ```
 
 A compute checksum job, when completed, will automatically trigger the checksum report generation. This will happen once for each job (bucket), however, report generation cannot complete until both source and replication bucket (pair) jobs have completed, so the first time it is invoked it will exit.

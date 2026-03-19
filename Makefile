@@ -90,9 +90,9 @@ setup: ## Create base infrastructure (make setup s=stack p=profile)
 teardown: reset ## Destroy all infrastructure (make teardown s=stack p=profile)
 	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) TF_VAR_deploy=true terraform destroy
 
-.PHONY: trigger-compute-checksums
-trigger-compute-checksums: ## Trigger compute-checksums lambda remotely (make trigger-compute-checksums s=stack p=profile)
-	@./scripts/trigger-compute-checksums.sh $(s) $(p)
+.PHONY: trigger
+trigger: ## Trigger a lambda function remotely (make trigger f=function s=stack p=profile)
+	@./scripts/trigger-function.sh $(f) $(s) $(p)
 
 .PHONY: test
 test: ## Run local tests with no AWS calls (make test)

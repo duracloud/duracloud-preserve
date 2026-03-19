@@ -20,7 +20,7 @@ The CLI only supports targeting a single bucket at a time. The bucket will be ma
 ## Remote testing
 
 ```bash
-make trigger-compute-checksums s=digipres-dev1 p=default
+make trigger f=compute-checksums s=digipres-dev1 p=default
 ```
 
 This will trigger jobs for `ALL` stack buckets.

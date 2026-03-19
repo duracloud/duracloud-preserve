@@ -1,6 +1,6 @@
 # Introduction
 
-This project is a set of components built using AWS services centered around digital preservation use cases. It provides configuration and features on top of AWS S3 to support long term access to and preservation of files.
+DuraCloud Preserve is a set of components built using AWS services centered around digital preservation use cases. It provides configuration and features on top of AWS S3 to support long term access to and preservation of files.
 
 The goal is to make it easy for users to choose any off the shelf S3 client and interact with S3 gaining more advanced features by default. Advanced features are described in more detail throughout the user and technical documentation but in brief: versioning, inventory, replication, logging etc. is enabled as buckets are created without a user having to do anything in AWS.
 
@@ -16,7 +16,11 @@ AWS resources used:
 - [Lambda](#)
 - [S3](#)
 
-In the digital era, ensuring that critically important documents remain safe and available is a continual challenge. Physical computing hardware that is used to create and store documents can fail or become obsolete very quickly, providing a need for tools to ensure that these documents remain available. This project aims to address these concerns:
+## Context
+
+DuraCloud Preserve is a continuation of the [DuraCloud](#) project in a form that is intended to be more sustainable for the long term. It does this by focusing on the core mission of DuraCloud but with a significantly smaller technical footprint, made possible by leveraging AWS S3 features directly in contrast to the more abstracted approach that DuraCloud took in being open to support multiple backend storage providers.
+
+But the goals remain the same: in the digital era, ensuring that critically important documents remain safe and available is a continual challenge. Physical computing hardware that is used to create and store documents can fail or become obsolete very quickly, providing a need for tools to ensure that these documents remain available. DuraCloud Preserve aims to address these concerns:
 
 * How do I upload files to the storage service in a simple and reliable way?
 * How do I ensure that the storage service that I am using receives a copy of my local files?

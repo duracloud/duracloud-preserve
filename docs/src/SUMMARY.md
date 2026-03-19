@@ -2,6 +2,7 @@
 
 [Introduction](README.md)
 [Features](features.md)
+[Checksum verification](checksum-verification.md)
 
 # User guide
 

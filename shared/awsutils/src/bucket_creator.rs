@@ -14,8 +14,8 @@ use aws_sdk_s3::types::{
 use apputils::Stack;
 
 use crate::bucket::{BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, RequestError, Type};
-use crate::config;
 use crate::errors::S3ResultExt;
+use crate::{bucket_policy, config};
 
 pub const BUCKET_TAG_ORIGIN_KEY: &str = "BucketOrigin";
 pub const BUCKET_TAG_ORIGIN_VAL: &str = "bucket-request";
@@ -199,21 +199,10 @@ impl<'a> BucketCreator<'a> {
     async fn add_deny_upload_policy(&self) -> Result<(), RequestError> {
         let bucket_name = self.bucket.name();
 
-        let policy = serde_json::json!({
-            "Version": "2012-10-17",
-            "Statement": [{
-                "Sid": "DenyAllUploads",
-                "Effect": "Deny",
-                "Principal": "*",
-                "Action": "s3:PutObject",
-                "Resource": format!("arn:aws:s3:::{}/*", bucket_name)
-            }]
-        });
-
         self.client
             .put_bucket_policy()
             .bucket(bucket_name)
-            .policy(policy.to_string())
+            .policy(bucket_policy::deny_uploads_policy(bucket_name))
             .send()
             .await
             .s3_err(format!(
@@ -285,21 +274,10 @@ impl<'a> BucketCreator<'a> {
     async fn add_public_access_policy(&self) -> Result<(), RequestError> {
         let bucket_name = self.bucket.name();
 
-        let policy = serde_json::json!({
-            "Version": "2012-10-17",
-            "Statement": [{
-                "Sid": "AllowPublicRead",
-                "Effect": "Allow",
-                "Principal": "*",
-                "Action": "s3:GetObject",
-                "Resource": format!("arn:aws:s3:::{bucket_name}/*")
-            }]
-        });
-
         self.client
             .put_bucket_policy()
             .bucket(bucket_name)
-            .policy(policy.to_string())
+            .policy(bucket_policy::public_read_policy(bucket_name))
             .send()
             .await
             .s3_err(format!(

@@ -1,6 +1,7 @@
 pub mod batch;
 pub mod bucket;
 pub mod bucket_creator;
+pub mod bucket_policy;
 pub mod bucket_reconciliator;
 #[cfg(feature = "duckdb")]
 pub mod checksum;

@@ -4,25 +4,33 @@ use futures::stream::{self, TryStreamExt};
 use crate::{config::Config, errors::ChecksumInventoryError};
 
 const CONCURRENCY: usize = 64;
-const HEADERS: [&str; 5] = ["bucket", "key", "checksum", "size", "status"];
+const HEADERS: [&str; 6] = [
+    "bucket",
+    "key",
+    "size",
+    "content_type",
+    "checksum",
+    "status",
+];
 
 const STATUS_OK: &str = "ok";
 const STATUS_NOT_FOUND: &str = "not_found";
 const STATUS_MISSING_CHECKSUM: &str = "missing_checksum";
 const STATUS_ERROR: &str = "error";
 
+#[derive(Default)]
 struct ChecksumResult {
     bucket: String,
     key: String,
-    checksum: String,
     size: String,
+    content_type: String,
+    checksum: String,
     status: &'static str,
 }
 
 pub struct InventoryRow {
     pub bucket: String,
     pub key: String,
-    pub size: String,
 }
 
 pub async fn generate_inventory(
@@ -41,27 +49,23 @@ pub async fn generate_inventory(
                 Err(err) => {
                     let is_not_found = err.as_service_error().is_some_and(|e| e.is_not_found());
 
-                    if !is_not_found {
+                    let status = if is_not_found {
+                        STATUS_NOT_FOUND
+                    } else {
                         tracing::warn!(
                             bucket = row.bucket,
                             key = row.key,
                             %err,
                             "Head request failed",
                         );
-                    }
-
-                    let status = if is_not_found {
-                        STATUS_NOT_FOUND
-                    } else {
                         STATUS_ERROR
                     };
 
                     return Ok::<_, ChecksumInventoryError>(ChecksumResult {
                         bucket: row.bucket,
                         key: row.key,
-                        checksum: String::new(),
-                        size: row.size,
                         status,
+                        ..Default::default()
                     });
                 }
             };
@@ -71,11 +75,15 @@ pub async fn generate_inventory(
                 None => (String::new(), STATUS_MISSING_CHECKSUM),
             };
 
+            let size = head.content_length.unwrap_or(0).to_string();
+            let content_type = head.content_type.unwrap_or(String::new());
+
             Ok(ChecksumResult {
                 bucket: row.bucket,
                 key: row.key,
+                size,
+                content_type,
                 checksum,
-                size: row.size,
                 status,
             })
         })
@@ -83,7 +91,14 @@ pub async fn generate_inventory(
         .try_fold(
             (wtr, 0usize, 0usize),
             |(mut wtr, count, skipped), row| async move {
-                wtr.write_record([&row.bucket, &row.key, &row.checksum, &row.size, row.status])?;
+                wtr.write_record([
+                    &row.bucket,
+                    &row.key,
+                    &row.size,
+                    &row.content_type,
+                    &row.checksum,
+                    row.status,
+                ])?;
                 let skipped = if row.status == STATUS_OK {
                     skipped
                 } else {

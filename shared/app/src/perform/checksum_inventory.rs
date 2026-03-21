@@ -42,7 +42,6 @@ pub async fn perform(
             Ok(InventoryRow {
                 bucket: record[0].to_string(),
                 key: record[1].to_string(),
-                size: record[2].to_string(),
             })
         });
 
@@ -78,6 +77,8 @@ pub async fn perform(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use aws_sdk_s3::primitives::SdkBody;
     use test_support::TestClientBuilder;
 
@@ -105,10 +106,23 @@ mod tests {
         csv
     }
 
-    fn parse_output_csv(csv_bytes: &[u8]) -> Vec<Vec<String>> {
+    fn parse_output_csv(csv_bytes: &[u8]) -> Vec<HashMap<String, String>> {
         let mut rdr = csv::ReaderBuilder::new().from_reader(csv_bytes);
+        let headers: Vec<String> = rdr
+            .headers()
+            .unwrap()
+            .iter()
+            .map(|h| h.to_string())
+            .collect();
         rdr.records()
-            .map(|r| r.unwrap().iter().map(|f| f.to_string()).collect())
+            .map(|r| {
+                let record = r.unwrap();
+                headers
+                    .iter()
+                    .zip(record.iter())
+                    .map(|(h, v)| (h.clone(), v.to_string()))
+                    .collect()
+            })
             .collect()
     }
 
@@ -244,18 +258,18 @@ mod tests {
 
         // buffer_unordered doesn't preserve order, so check by key
         for row in &rows {
-            match row[1].as_str() {
+            match row["key"].as_str() {
                 "good.jpg" => {
-                    assert_eq!(row[2], TEST_CHECKSUM);
-                    assert_eq!(row[4], "ok");
+                    assert_eq!(row["checksum"], TEST_CHECKSUM);
+                    assert_eq!(row["status"], "ok");
                 }
                 "deleted.jpg" => {
-                    assert_eq!(row[2], "");
-                    assert_eq!(row[4], "not_found");
+                    assert_eq!(row["checksum"], "");
+                    assert_eq!(row["status"], "not_found");
                 }
                 "no-crc.jpg" => {
-                    assert_eq!(row[2], "");
-                    assert_eq!(row[4], "missing_checksum");
+                    assert_eq!(row["checksum"], "");
+                    assert_eq!(row["status"], "missing_checksum");
                 }
                 key => panic!("unexpected key: {key}"),
             }

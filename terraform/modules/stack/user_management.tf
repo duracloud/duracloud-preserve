@@ -32,7 +32,7 @@ locals {
     }
   }
 
-  # Scoped stack buckets (including bucket-request)
+  # Scoped stack buckets (including request)
   stack_bucket_resources = [
     local.stack_bucket_arn_pattern,
     local.stack_object_arn_pattern,

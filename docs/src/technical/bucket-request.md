@@ -15,7 +15,7 @@ rare-books
 ```
 
 The workflow is:
-1. A text file containing bucket names is uploaded to the S3 bucket named `${stack}-bucket-request`
+1. A text file containing bucket names is uploaded to the S3 bucket named `${stack}-request`
 2. The Lambda function is triggered by the upload event
 3. The file is downloaded and processed — either locally (for development/testing) or inside Lambda (for remote execution)
 4. Buckets are created according to the prefab configuration if they don't already exist
@@ -42,10 +42,11 @@ This is useful for one-off bucket creation or quick iteration without maintainin
 
 Use `make upload` to upload a file to S3 and trigger the Lambda function as it would run in production:
 ```bash
-make upload b=digipress-dev1-bucket-request f=files/buckets.txt p=default
+make upload b=digipress-dev1-request d=bucket-request f=files/buckets.txt p=default
 ```
 
-- `b=` — the name of the S3 request bucket (typically `${stack}-bucket-request`)
+- `b=` — the name of the S3 request bucket (typically `${stack}-request`)
+- `d=` — the S3 directory (path) to upload into (must be `bucket-request`)
 - `f=` — path to the local file containing [bucket names](#)
 - `p=` — the AWS profile to use
 

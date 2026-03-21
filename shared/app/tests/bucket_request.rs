@@ -25,9 +25,10 @@ async fn test_perform() {
 
     // Upload to the managed bucket (not the request bucket) intentionally so
     // deployed functions do not process the same request twice.
-    let file = File::new(
-        config.stack().managed_bucket(),
-        format!("bucket-request/test-{}.txt", ts),
+    let file = File::from(
+        config
+            .stack()
+            .bucket_request_path(&format!("test-{}.txt", ts)),
     );
     file::upload(
         config.s3(),

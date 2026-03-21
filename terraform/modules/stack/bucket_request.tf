@@ -12,7 +12,7 @@ data "aws_iam_policy_document" "bucket_request" {
       "s3:GetObject",
       "s3:DeleteObject",
     ]
-    resources = ["${aws_s3_bucket.main["bucket-request"].arn}/*"]
+    resources = ["${aws_s3_bucket.main["request"].arn}/*"]
   }
 
   statement {
@@ -74,18 +74,21 @@ resource "aws_lambda_permission" "bucket_request" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.main[each.key].function_name
   principal     = "s3.amazonaws.com"
-  source_arn    = aws_s3_bucket.main["bucket-request"].arn
+  source_arn    = aws_s3_bucket.main["request"].arn
 }
 
-resource "aws_s3_bucket_notification" "bucket_request" {
+// TODO: relocate: request_bucket.tf
+// Will need to also be used for checksum_inventory
+resource "aws_s3_bucket_notification" "request" {
   for_each = local.deploy_bucket_request
 
-  bucket      = aws_s3_bucket.main["bucket-request"].id
+  bucket      = aws_s3_bucket.main["request"].id
   eventbridge = true
 
   lambda_function {
     lambda_function_arn = aws_lambda_function.main[each.key].arn
     events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = local.bucket_request_prefix
     filter_suffix       = ".txt"
   }
 

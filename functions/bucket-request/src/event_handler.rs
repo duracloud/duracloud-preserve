@@ -2,6 +2,7 @@ use app::{
     config::Config,
     perform::bucket_request::{self, PerformOptions},
 };
+use apputils::stack::BUCKET_REQUEST_PREFIX;
 use aws_lambda_events::event::s3::S3Event;
 use awsutils::file::File;
 use lambda_runtime::{Error, LambdaEvent, tracing};
@@ -19,9 +20,9 @@ pub(crate) async fn function_handler(
 
     tracing::info!("Bucket: {:?}, Object: {:?}", bucket, object);
 
-    if bucket != &config.stack().request_bucket() {
+    if bucket != &config.stack().request_bucket() || !object.starts_with(BUCKET_REQUEST_PREFIX) {
         panic!(
-            "Not the request bucket for this stack: {:?}",
+            "Not the request bucket or path for this stack: {:?}",
             config.stack()
         );
     }
@@ -46,13 +47,13 @@ mod tests {
     use test_support::TestClientBuilder;
 
     #[tokio::test]
-    #[should_panic(expected = "Not the request bucket for this stack")]
+    #[should_panic(expected = "Not the request bucket or path for this stack")]
     async fn test_invalid_event_handler() {
         let json = include_str!("../events/sample.json");
         let mut s3_event: S3Event = serde_json::from_str(json).expect("failed to parse json");
 
         // make it so bucket name != the expected request bucket name
-        s3_event.records[0].s3.bucket.name = Some("test-other-bucket-request".to_string());
+        s3_event.records[0].s3.bucket.name = Some("test-other-request".to_string());
 
         let event = LambdaEvent::new(s3_event, Context::default());
         let sdk_config = TestClientBuilder::new().ok().build_sdk_config();

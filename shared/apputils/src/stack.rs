@@ -1,12 +1,11 @@
 pub const MANAGED_SUFFIX: &str = "-managed";
-pub const REQUEST_SUFFIX: &str = "-bucket-request";
+pub const REQUEST_SUFFIX: &str = "-request";
 
 const BATCH_CHECKSUM_PREFIX: &str = "batch/reports/checksum";
 const BATCH_MANIFEST_PREFIX: &str = "batch/manifests";
 const BATCH_POLICY_SUFFIX: &str = "-s3-batch-policy";
 const BATCH_REPORT_PREFIX: &str = "batch/reports";
 const BATCH_ROLE_SUFFIX: &str = "-s3-batch-role";
-const BUCKET_REQUEST_PREFIX: &str = "bucket-request";
 const FEEDBACK_PREFIX: &str = "feedback";
 const LOGGING_PREFIX: &str = "audit";
 const MANIFESTS_PREFIX: &str = "manifests";
@@ -18,6 +17,7 @@ const STORAGE_CAPACITY_SUFFIX: &str = "-storage-capacity";
 
 /// Minimum number of `STACK_BUCKET_DELIMITER` parts in a valid bucket name.
 pub const BUCKET_NAME_MIN_PARTS: usize = 3;
+pub const BUCKET_REQUEST_PREFIX: &str = "bucket-request";
 pub const DISALLOWED_AFFIXES: &[&str] = &[".", "-"];
 pub const STACK_BUCKET_DELIMITER: &str = "-";
 
@@ -442,7 +442,7 @@ mod tests {
     #[test]
     fn test_request_bucket() {
         let stack = Stack::new("test-stack").unwrap();
-        assert_eq!(stack.request_bucket(), "test-stack-bucket-request");
+        assert_eq!(stack.request_bucket(), "test-stack-request");
     }
 
     #[test]
@@ -450,7 +450,7 @@ mod tests {
         // Valid bucket names: (input, expected_stack)
         let valid_cases = [
             ("test-stack-managed", "test-stack"),
-            ("test-stack-bucket-request", "test-stack"),
+            ("test-stack-request", "test-stack"),
             ("test-stack-example", "test-stack"),
             ("test-stack-something-something", "test-stack"),
             ("test-stack-something-public", "test-stack"),

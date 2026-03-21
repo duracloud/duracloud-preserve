@@ -26,15 +26,16 @@ locals {
   storage_capacity_param_name = "${local.stack}-storage-capacity"
 
   # prefixes and suffixes shared with rust code (stack.rs)
-  batch_prefix      = "batch"
-  cloudtrail_prefix = "cloudtrail" # tf only
-  feedback_prefix   = "feedback"
-  inventory_prefix  = "manifests"
-  logging_prefix    = "audit"
-  managed_suffix    = "managed"
-  metadata_prefix   = "metadata"
-  repl_suffix       = "repl"
-  reports_prefix    = "reports"
+  batch_prefix          = "batch"
+  bucket_request_prefix = "bucket-request"
+  cloudtrail_prefix     = "cloudtrail" # tf only
+  feedback_prefix       = "feedback"
+  inventory_prefix      = "manifests"
+  logging_prefix        = "audit"
+  managed_suffix        = "managed"
+  metadata_prefix       = "metadata"
+  repl_suffix           = "repl"
+  reports_prefix        = "reports"
 
   # Common S3 ARN patterns
   stack_bucket_arn_pattern = "arn:aws:s3:::${local.stack}-*"

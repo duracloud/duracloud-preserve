@@ -4,8 +4,8 @@ locals {
 
   # c.f. stack.rs
   buckets = {
-    bucket-request = {}
-    managed        = {}
+    managed = {}
+    request = {}
   }
 }
 

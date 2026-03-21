@@ -319,12 +319,7 @@ mod tests {
 
     #[test]
     fn test_request_to_primary_reserved_validation() {
-        let test_cases = vec![
-            "test-stack",
-            "test-bucket-request",
-            "test-managed",
-            "test-repl",
-        ];
+        let test_cases = vec!["test-stack", "test-request", "test-managed", "test-repl"];
 
         let stack = Stack::new("test-stack").unwrap();
 

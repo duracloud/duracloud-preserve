@@ -1,0 +1,2 @@
+[advisories]
+ignore = ["RUSTSEC-2026-0049"]  # rustls-webpki - only in test-util dep, not production

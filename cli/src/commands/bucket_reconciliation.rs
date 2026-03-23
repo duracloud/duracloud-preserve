@@ -42,12 +42,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         );
 
         for step in &bucket_report.steps {
-            let status_str = match &step.status {
-                StepStatus::Ok => "ok",
-                StepStatus::Drift => "drift",
-                StepStatus::Error(_) => "error",
-            };
-            println!("\t{:18} {}", format!("{}:", step.name), status_str);
+            println!("\t{:18} {}", format!("{}:", step.name), step.status);
 
             if let StepStatus::Error(msg) = &step.status {
                 let compact_msg = msg.split_whitespace().collect::<Vec<_>>().join(" ");

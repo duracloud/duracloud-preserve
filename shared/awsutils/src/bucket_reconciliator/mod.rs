@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use aws_sdk_s3::error::ProvideErrorMetadata;
 use aws_sdk_s3::types::{
     BucketVersioningStatus, DeleteMarkerReplicationStatus, InventoryFrequency,
@@ -28,6 +30,16 @@ pub enum StepStatus {
     Drift,
     /// An error occurred reading or comparing configuration.
     Error(String),
+}
+
+impl Display for StepStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StepStatus::Ok => write!(f, "ok"),
+            StepStatus::Drift => write!(f, "drift"),
+            StepStatus::Error(_) => write!(f, "error"),
+        }
+    }
 }
 
 /// Result of a single reconciliation step.

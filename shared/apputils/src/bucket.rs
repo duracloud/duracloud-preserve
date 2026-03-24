@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
+
+use tokio::{fs, io};
 
 use crate::{
     Stack, content_type,
@@ -160,6 +162,38 @@ pub fn make_pairs(
         .collect()
 }
 
+/// Read prospective bucket names limited to the bucket request max
+pub async fn get_request_names(file: PathBuf) -> Result<Vec<String>, io::Error> {
+    Ok(parse_request_names(&fs::read_to_string(file).await?))
+}
+
+/// Parse prospective bucket names limited to the bucket request max
+pub fn parse_request_names(content: &str) -> Vec<String> {
+    content
+        .lines()
+        .map(String::from)
+        .take(MAX_BUCKETS_PER_REQUEST as usize)
+        .collect()
+}
+
+/// Check that user supplied bucket names are valid and convert
+/// to (primary, replication) pairs for the stack.
+pub fn review_request_names(
+    stack: &Stack,
+    names: &[String],
+) -> Result<Vec<BucketPair>, BucketValidationError> {
+    let mut buckets: Vec<BucketPair> = Vec::new();
+
+    for name in names {
+        let bucket = Name::new(name)?;
+        let primary = to_primary(stack, &bucket)?;
+        let replication = to_replication(stack, &bucket)?;
+        buckets.push(BucketPair::new(primary, replication));
+    }
+
+    Ok(buckets)
+}
+
 /// Convert a stack name + user requested bucket name to a full S3 primary bucket name.
 pub fn to_primary(stack: &Stack, partial: &Name) -> Result<Bucket, BucketValidationError> {
     if uses_reserved_prefix_or_suffix(stack.as_str(), partial.as_str()) {
@@ -192,24 +226,6 @@ pub fn to_replication(stack: &Stack, partial: &Name) -> Result<Bucket, BucketVal
         REPLICATION_SUFFIX
     );
     Bucket::new(&name, Type::Replication)
-}
-
-/// Check that user supplied bucket names are valid and convert
-/// to (primary, replication) pairs for the stack.
-pub fn review_request_names(
-    stack: &Stack,
-    names: &[String],
-) -> Result<Vec<BucketPair>, BucketValidationError> {
-    let mut buckets: Vec<BucketPair> = Vec::new();
-
-    for name in names {
-        let bucket = Name::new(name)?;
-        let primary = to_primary(stack, &bucket)?;
-        let replication = to_replication(stack, &bucket)?;
-        buckets.push(BucketPair::new(primary, replication));
-    }
-
-    Ok(buckets)
 }
 
 fn uses_reserved_prefix_or_suffix(prefix: &str, name: &str) -> bool {

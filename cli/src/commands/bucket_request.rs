@@ -1,9 +1,8 @@
-use std::path::PathBuf;
-
 use app::{config, perform::bucket_request};
-use apputils::{Stack, content_type};
+use apputils::{Stack, bucket, content_type, current_timestamp};
 use awsutils::file::{self, File};
 use clap::Args as ClapArgs;
+use std::path::PathBuf;
 
 #[derive(ClapArgs)]
 #[command(group(
@@ -28,21 +27,23 @@ pub struct Args {
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::new(&args.stack)?;
 
-    let (content, filename) = resolve_names(args.file, args.name).await?;
-    if content.lines().filter(|s| !s.is_empty()).count() == 0 {
-        return Err("No bucket names found in file".into());
+    let names = match (args.file, args.name) {
+        (Some(f), None) => bucket::get_request_names(f).await?,
+        (None, Some(n)) => vec![n],
+        _ => vec![],
+    };
+
+    if names.is_empty() {
+        return Err("No bucket names found".into());
     }
 
     let config = config::load(stack.clone()).await?;
-
-    // Note: we upload to the managed bucket (not the request bucket) intentionally
-    // because if the function is deployed we don't want to process twice
-    let file = File::from(stack.bucket_request_path(&filename));
+    let file = File::from(stack.bucket_request_path(&format!("{}.txt", current_timestamp()?)));
 
     file::upload(
         config.s3(),
         &file,
-        content.into_bytes(),
+        names.join("\n").into_bytes(),
         content_type::TEXT_PLAIN,
     )
     .await?;
@@ -58,24 +59,4 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 
     println!("All buckets created successfully");
     Ok(())
-}
-
-async fn resolve_names(
-    file: Option<PathBuf>,
-    name: Option<String>,
-) -> Result<(String, String), Box<dyn std::error::Error>> {
-    match (file, name) {
-        (Some(path), None) => {
-            let expanded = shellexpand::tilde(&path.to_string_lossy()).into_owned();
-            let content = tokio::fs::read_to_string(&expanded).await?;
-            let filename = path
-                .file_name()
-                .ok_or("invalid filename")?
-                .to_string_lossy()
-                .into_owned();
-            Ok((content, filename))
-        }
-        (None, Some(name)) => Ok((format!("{name}\n"), format!("{name}.txt"))),
-        _ => unreachable!(),
-    }
 }

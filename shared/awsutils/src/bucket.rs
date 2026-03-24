@@ -1,13 +1,10 @@
-use apputils::bucket::{
-    BUCKET_REQUEST_CONTENT_TYPE, MAX_BUCKETS_PER_REQUEST, MAX_REQUEST_FILE_SIZE,
-};
+use apputils::bucket::{BUCKET_REQUEST_CONTENT_TYPE, MAX_REQUEST_FILE_SIZE, parse_request_names};
 
 pub use apputils::bucket::{
     BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, BucketPair, Name, REPLICATION_SUFFIX, Type,
     make_pairs, review_request_names, to_primary, to_replication,
 };
 use aws_sdk_s3::Client;
-use tokio::io::AsyncBufReadExt;
 
 pub use crate::errors::RequestError;
 use crate::errors::S3ResultExt;
@@ -90,41 +87,6 @@ pub async fn exists(client: &Client, bucket: &str) -> bool {
     client.head_bucket().bucket(bucket).send().await.is_ok()
 }
 
-/// Retrieve bucket request file and verify it is valid.
-pub async fn read_request_names(client: &Client, file: &File) -> Result<Vec<String>, RequestError> {
-    let Ok(r) = file::download(client, file).await else {
-        return Err(RequestError::S3Error("failed to download file".to_string()));
-    };
-
-    if let Some(ct) = r.content_type()
-        && !ct.starts_with(BUCKET_REQUEST_CONTENT_TYPE)
-    {
-        return Err(RequestError::InvalidContentType);
-    }
-
-    if let Some(len) = r.content_length()
-        && len > MAX_REQUEST_FILE_SIZE as i64
-    {
-        return Err(RequestError::FileTooLarge {
-            actual: len,
-            max: MAX_REQUEST_FILE_SIZE as i64,
-        });
-    }
-
-    let reader = r.body.into_async_read();
-    let mut names = Vec::new();
-    let mut buf_reader = tokio::io::BufReader::new(reader).lines();
-
-    while let Ok(Some(line)) = buf_reader.next_line().await {
-        names.push(line);
-        if names.len() >= MAX_BUCKETS_PER_REQUEST as usize {
-            break;
-        }
-    }
-
-    Ok(names)
-}
-
 /// Fetch bucket from S3 and determine its type from tags.
 /// Returns `Ok(None)` if bucket doesn't exist or has no valid BucketType tag.
 pub async fn from_name(client: &Client, name: &str) -> Result<Option<Bucket>, RequestError> {
@@ -152,9 +114,43 @@ pub fn from_tags(
     }
 }
 
+/// Retrieve bucket request file and verify it is valid.
+pub async fn read_request_names(client: &Client, file: &File) -> Result<Vec<String>, RequestError> {
+    let Ok(r) = file::download(client, file).await else {
+        return Err(RequestError::S3Error("failed to download file".to_string()));
+    };
+
+    if let Some(ct) = r.content_type()
+        && !ct.starts_with(BUCKET_REQUEST_CONTENT_TYPE)
+    {
+        return Err(RequestError::InvalidContentType);
+    }
+
+    if let Some(len) = r.content_length()
+        && len > MAX_REQUEST_FILE_SIZE as i64
+    {
+        return Err(RequestError::FileTooLarge {
+            actual: len,
+            max: MAX_REQUEST_FILE_SIZE as i64,
+        });
+    }
+
+    let bytes = r
+        .body
+        .collect()
+        .await
+        .s3_err("failed to read response body")?
+        .into_bytes();
+    let content = String::from_utf8_lossy(&bytes);
+    let names = parse_request_names(&content);
+
+    Ok(names)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use apputils::bucket::MAX_BUCKETS_PER_REQUEST;
     use apputils::content_type::{APPLICATION_JSON, TEXT_PLAIN};
     use test_support::TestClientBuilder;
 

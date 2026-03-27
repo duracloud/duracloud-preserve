@@ -1,4 +1,7 @@
-use apputils::Stack;
+use apputils::{
+    Stack,
+    bucket::{BUCKET_REQUEST_CONTENT_TYPE, MAX_REQUEST_FILE_SIZE, parse_request_names},
+};
 use aws_sdk_s3::{
     Client,
     types::{Tag, TransitionStorageClass},
@@ -12,7 +15,7 @@ use awsutils::{
         BUCKET_TAG_ORIGIN_KEY, BUCKET_TAG_ORIGIN_VAL, BucketCreator, BucketCreatorParams,
     },
     errors::S3ResultExt,
-    file::File,
+    file::{self, File},
 };
 
 use crate::{config::Config, errors::FileKeyError};
@@ -218,6 +221,39 @@ pub fn name_from_file(file: &File) -> Result<&str, FileKeyError> {
         .ok_or(FileKeyError::MissingExtension(file.key().to_string()))
 }
 
+/// Retrieve bucket request file and verify it is valid.
+pub async fn read_request_names(client: &Client, file: &File) -> Result<Vec<String>, RequestError> {
+    let Ok(r) = file::download(client, file).await else {
+        return Err(RequestError::S3Error("failed to download file".to_string()));
+    };
+
+    if let Some(ct) = r.content_type()
+        && !ct.starts_with(BUCKET_REQUEST_CONTENT_TYPE)
+    {
+        return Err(RequestError::InvalidContentType);
+    }
+
+    if let Some(len) = r.content_length()
+        && len > MAX_REQUEST_FILE_SIZE as i64
+    {
+        return Err(RequestError::FileTooLarge {
+            actual: len,
+            max: MAX_REQUEST_FILE_SIZE as i64,
+        });
+    }
+
+    let bytes = r
+        .body
+        .collect()
+        .await
+        .s3_err("failed to read response body")?
+        .into_bytes();
+    let content = String::from_utf8_lossy(&bytes);
+    let names = parse_request_names(&content);
+
+    Ok(names)
+}
+
 fn type_from_tags(tags: &[Tag]) -> Option<Type> {
     tags.iter()
         .find(|tag| tag.key() == BUCKET_TAG_TYPE_KEY)
@@ -227,6 +263,10 @@ fn type_from_tags(tags: &[Tag]) -> Option<Type> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use apputils::{
+        bucket::MAX_BUCKETS_PER_REQUEST,
+        content_type::{APPLICATION_JSON, TEXT_PLAIN},
+    };
     use test_support::TestClientBuilder;
 
     fn list_buckets_xml(names: &[&str]) -> String {
@@ -469,5 +509,84 @@ mod tests {
         assert_eq!(buckets.len(), 1);
         assert_eq!(buckets[0].name(), "test-stack-bravo");
         assert_eq!(buckets[0].bucket_type(), &Type::Standard);
+    }
+
+    #[tokio::test]
+    async fn test_read_request_names() {
+        let content = "123\n456\n789\n234\n567\n890";
+        let file = File::new("test-bucket", "buckets.txt");
+        let client = TestClientBuilder::new()
+            .success(content, Some(TEXT_PLAIN.to_string()))
+            .build();
+
+        let names = read_request_names(&client, &file).await.unwrap();
+
+        assert_eq!(names.len(), 5);
+        assert_eq!(names[0], "123");
+        assert_eq!(names[1], "456");
+        assert_eq!(names[2], "789");
+        assert_eq!(names[3], "234");
+    }
+
+    #[tokio::test]
+    async fn test_read_request_names_content_type_with_charset() {
+        let content = "bucket1\nbucket2";
+        let file = File::new("test-bucket", "buckets.txt");
+        let client = TestClientBuilder::new()
+            .success(content, Some(TEXT_PLAIN.to_string()))
+            .build();
+
+        let names = read_request_names(&client, &file).await.unwrap();
+
+        assert_eq!(names.len(), 2);
+        assert_eq!(names[0], "bucket1");
+        assert_eq!(names[1], "bucket2");
+    }
+
+    #[tokio::test]
+    async fn test_read_request_names_exceeds_size_limit() {
+        let content = "a".repeat((MAX_REQUEST_FILE_SIZE + 1) as usize);
+        let file = File::new("test-bucket", "buckets.txt");
+        let client = TestClientBuilder::new()
+            .success(content, Some(TEXT_PLAIN.to_string()))
+            .build();
+
+        let result = read_request_names(&client, &file).await;
+
+        assert!(result.is_err());
+        match result {
+            Err(RequestError::FileTooLarge { actual, max }) => {
+                assert_eq!(actual, (MAX_REQUEST_FILE_SIZE + 1) as i64);
+                assert_eq!(max, MAX_REQUEST_FILE_SIZE as i64);
+            }
+            _ => panic!("Expected FileTooLarge error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_read_request_names_invalid_content_type() {
+        let content = "bucket1\nbucket2";
+        let file = File::new("test-bucket", "buckets.txt");
+        let client = TestClientBuilder::new()
+            .success(content, Some(APPLICATION_JSON.to_string()))
+            .build();
+
+        let result = read_request_names(&client, &file).await;
+
+        assert!(result.is_err());
+        assert!(matches!(result, Err(RequestError::InvalidContentType)));
+    }
+
+    #[tokio::test]
+    async fn test_read_request_names_truncates_at_max() {
+        let content = "a\nb\nc\nd\ne\nf\ng";
+        let file = File::new("test-bucket", "buckets.txt");
+        let client = TestClientBuilder::new()
+            .success(content, Some(TEXT_PLAIN.to_string()))
+            .build();
+
+        let names = read_request_names(&client, &file).await.unwrap();
+
+        assert_eq!(names.len(), MAX_BUCKETS_PER_REQUEST as usize);
     }
 }

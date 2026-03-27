@@ -97,7 +97,9 @@ name = "apputils"
 version = "0.1.0"
 dependencies = [
  "askama",
+ "base64",
  "chrono",
+ "crc-fast",
  "csv",
  "duckdb",
  "humansize",
@@ -1598,11 +1600,9 @@ dependencies = [
  "aws-sdk-s3",
  "aws-sdk-sts",
  "awsutils",
- "base64",
  "chrono",
  "clap",
  "crc-fast",
- "rand 0.10.0",
  "serde_json",
  "shellexpand",
  "tokio",

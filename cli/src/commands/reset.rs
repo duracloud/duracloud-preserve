@@ -5,7 +5,6 @@ use apputils::Stack;
 use awsutils::bucket::{self as aws_bucket, Type};
 use awsutils::config;
 use clap::Args as ClapArgs;
-use rand::RngExt;
 
 #[derive(ClapArgs)]
 pub struct Args {
@@ -41,7 +40,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     println!("\t- Empty {} internal bucket(s)", internal.len());
     println!("\t- Delete {} non-internal bucket(s)", non_internal.len());
 
-    let code = generate_confirmation_code();
+    let code = apputils::generate_confirmation_code();
     println!("\nTo proceed, enter this code: {}", code);
     print!("Confirmation: ");
     io::stdout().flush()?;
@@ -76,17 +75,4 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     println!("\nReset complete");
 
     Ok(())
-}
-
-/// Generate confirmation code for user input
-fn generate_confirmation_code() -> String {
-    const CHARSET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let mut rng = rand::rng();
-
-    (0..6)
-        .map(|_| {
-            let idx = rng.random_range(0..CHARSET.len());
-            CHARSET[idx] as char
-        })
-        .collect()
 }

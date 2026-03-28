@@ -1,9 +1,9 @@
 use crate::{batch, bucket as app_bucket, config::Config, errors::ComputeChecksumsError};
-use apputils::bucket::{BucketPair, Name};
 use awsutils::{
     batch as aws_batch,
     bucket::{self, Bucket},
 };
+use base::bucket::{BucketPair, Name};
 use constants::REPLICATION_SUFFIX;
 
 /// Trigger S3 batch compute checksum jobs
@@ -69,7 +69,7 @@ pub async fn perform(
 mod tests {
     use super::*;
     use crate::config as app_config;
-    use apputils::errors::BucketValidationError;
+    use base::errors::BucketValidationError;
     use test_support::TestClientBuilder;
 
     fn list_buckets_xml(names: &[&str]) -> String {

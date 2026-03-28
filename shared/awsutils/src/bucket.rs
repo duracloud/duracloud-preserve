@@ -1,5 +1,5 @@
-pub use apputils::bucket::{Bucket, Type};
 use aws_sdk_s3::Client;
+pub use base::bucket::{Bucket, Type};
 use constants::BUCKET_TAG_TYPE_KEY;
 
 pub use crate::errors::RequestError;

@@ -1,10 +1,10 @@
-use apputils::{ManagedFile, stack::DateCtx};
 use aws_sdk_s3::Client;
 use aws_sdk_s3::primitives::ByteStream;
 use awsutils::{
     bucket::RequestError,
     file::{self, File},
 };
+use base::{ManagedFile, stack::DateCtx};
 use bytes::Bytes;
 use constants::TEXT_PLAIN;
 use futures::future;

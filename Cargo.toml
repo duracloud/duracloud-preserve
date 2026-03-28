@@ -8,7 +8,7 @@ members = [
   "functions/inventory-report",
   "functions/storage-report",
   "shared/app",
-  "shared/apputils",
+  "shared/base",
   "shared/awsutils",
   "shared/constants",
   "shared/test-support",
@@ -17,8 +17,8 @@ members = [
 [workspace.dependencies]
 # Internal
 app = { path = "shared/app" }
-apputils = { path = "shared/apputils" }
 awsutils = { path = "shared/awsutils" }
+base = { path = "shared/base" }
 constants = { path = "shared/constants" }
 test-support = { path = "shared/test-support" }
 

@@ -1,4 +1,3 @@
-use apputils::bucket::{Bucket, BucketPair};
 use aws_sdk_s3::Client;
 use aws_sdk_s3control::{
     self as s3control,
@@ -10,6 +9,10 @@ use aws_sdk_s3control::{
         S3ComputeObjectChecksumOperation, S3CopyObjectOperation, S3JobManifestGenerator,
         S3ManifestOutputLocation,
     },
+};
+use base::{
+    ManagedFile, Stack,
+    bucket::{Bucket, BucketPair},
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -28,7 +31,7 @@ pub struct BatchConfig<'a> {
     pub client: &'a s3control::Client,
     pub account_id: &'a str,
     pub role_arn: &'a str,
-    pub stack: &'a apputils::Stack,
+    pub stack: &'a Stack,
 }
 
 /// Batch Manifest
@@ -196,7 +199,7 @@ pub async fn create_copy_job(
 fn build_manifest(
     account_id: &str,
     source_bucket: &str,
-    manifest: &apputils::ManagedFile,
+    manifest: &ManagedFile,
 ) -> Result<JobManifestGenerator, Box<dyn std::error::Error + Send + Sync>> {
     Ok(JobManifestGenerator::S3JobManifestGenerator(
         S3JobManifestGenerator::builder()
@@ -215,7 +218,7 @@ fn build_manifest(
     ))
 }
 
-fn build_report(account_id: &str, report: &apputils::ManagedFile) -> JobReport {
+fn build_report(account_id: &str, report: &ManagedFile) -> JobReport {
     JobReport::builder()
         .enabled(true)
         .bucket(format!("arn:aws:s3:::{}", report.bucket()))
@@ -275,15 +278,14 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use super::*;
-    use crate::errors::RequestError;
+    use crate::{bucket, errors::RequestError};
     use constants::REPLICATION_SUFFIX;
     use test_support::{mock_sdk_config, recorded_requests, replay_xml_event};
 
     fn test_config(client: &s3control::Client) -> BatchConfig<'_> {
         // Leak the stack to get a 'static lifetime that outlives the config.
         // This is fine in tests — the allocation is tiny and the process exits.
-        let stack: &'static apputils::Stack =
-            Box::leak(Box::new(apputils::Stack::new("test-stack").unwrap()));
+        let stack: &'static Stack = Box::leak(Box::new(Stack::new("test-stack").unwrap()));
         BatchConfig {
             client,
             account_id: "123456789012",
@@ -378,11 +380,11 @@ mod tests {
         assert!(!body.contains("<S3ComputeObjectChecksum>"));
     }
 
-    fn bucket_pair(name: &str, bucket_type: apputils::bucket::Type) -> BucketPair {
+    fn bucket_pair(name: &str, bucket_type: bucket::Type) -> BucketPair {
         let source = Bucket::new(name, bucket_type).expect("source should be valid");
         let replication = Bucket::new(
             format!("{name}{REPLICATION_SUFFIX}").as_str(),
-            apputils::bucket::Type::Replication,
+            bucket::Type::Replication,
         )
         .expect("replication should be valid");
         BucketPair::new(source, replication)
@@ -391,9 +393,9 @@ mod tests {
     #[tokio::test]
     async fn test_dispatch_bucket_pair_jobs_aggregates_partial_failures() {
         let bucket_pairs = vec![
-            bucket_pair("test-stack-alpha", apputils::bucket::Type::Standard),
-            bucket_pair("test-stack-bravo-public", apputils::bucket::Type::Public),
-            bucket_pair("test-stack-charlie", apputils::bucket::Type::Standard),
+            bucket_pair("test-stack-alpha", bucket::Type::Standard),
+            bucket_pair("test-stack-bravo-public", bucket::Type::Public),
+            bucket_pair("test-stack-charlie", bucket::Type::Standard),
         ];
 
         let issues = dispatch_bucket_pair_jobs(&bucket_pairs, |source, _repl| {
@@ -419,9 +421,9 @@ mod tests {
     #[tokio::test]
     async fn test_dispatch_bucket_pair_jobs_does_not_short_circuit_after_failure() {
         let bucket_pairs = vec![
-            bucket_pair("test-stack-alpha", apputils::bucket::Type::Standard),
-            bucket_pair("test-stack-bravo-public", apputils::bucket::Type::Public),
-            bucket_pair("test-stack-charlie", apputils::bucket::Type::Standard),
+            bucket_pair("test-stack-alpha", bucket::Type::Standard),
+            bucket_pair("test-stack-bravo-public", bucket::Type::Public),
+            bucket_pair("test-stack-charlie", bucket::Type::Standard),
         ];
         let calls: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
 
@@ -462,8 +464,8 @@ mod tests {
     #[tokio::test]
     async fn test_dispatch_bucket_pair_jobs_flattens_receipts_in_pair_order() {
         let bucket_pairs = vec![
-            bucket_pair("test-stack-alpha", apputils::bucket::Type::Standard),
-            bucket_pair("test-stack-bravo-public", apputils::bucket::Type::Public),
+            bucket_pair("test-stack-alpha", bucket::Type::Standard),
+            bucket_pair("test-stack-bravo-public", bucket::Type::Public),
         ];
 
         let receipts = dispatch_bucket_pair_jobs(&bucket_pairs, |source, _repl| {

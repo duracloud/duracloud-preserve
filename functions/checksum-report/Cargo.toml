@@ -5,9 +5,9 @@ edition = "2024"
 
 [dependencies]
 app = { workspace = true, features = ["duckdb"] }
-apputils = { workspace = true, features = ["duckdb"] }
 aws_lambda_events = { workspace = true, features = ["cloudwatch_events"] }
 awsutils = { workspace = true, features = ["duckdb"] }
+base = { workspace = true, features = ["duckdb"] }
 lambda_runtime.workspace = true
 serde.workspace = true
 serde_json.workspace = true

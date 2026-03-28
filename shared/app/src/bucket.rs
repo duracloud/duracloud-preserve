@@ -1,13 +1,13 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use apputils::{
-    Stack,
-    bucket::{BucketPair, Name},
-    errors::BucketValidationError,
-};
 use aws_sdk_s3::{
     Client,
     types::{Tag, TransitionStorageClass},
+};
+use base::{
+    Stack,
+    bucket::{BucketPair, Name},
+    errors::BucketValidationError,
 };
 use constants::*;
 use tokio::{fs, io};

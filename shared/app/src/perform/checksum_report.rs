@@ -1,9 +1,9 @@
-use apputils::{stack::DateCtx, stats::VerificationStats};
 use awsutils::{
     batch::ChecksumJobReceipt,
     checksum,
     file::{self, File},
 };
+use base::{stack::DateCtx, stats::VerificationStats};
 use bytes::Bytes;
 use constants::{APPLICATION_JSON, TEXT_CSV};
 

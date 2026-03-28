@@ -1,5 +1,5 @@
-use apputils::stack::DateCtx;
-use apputils::stats::InventoryStats;
+use base::stack::DateCtx;
+use base::stats::InventoryStats;
 use bytes::Bytes;
 use constants::{APPLICATION_JSON, TEXT_CSV};
 

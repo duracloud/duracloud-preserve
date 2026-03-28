@@ -155,8 +155,8 @@ impl File {
     }
 }
 
-impl From<apputils::ManagedFile> for File {
-    fn from(mf: apputils::ManagedFile) -> Self {
+impl From<base::ManagedFile> for File {
+    fn from(mf: base::ManagedFile) -> Self {
         File::new(mf.bucket(), mf.key())
     }
 }

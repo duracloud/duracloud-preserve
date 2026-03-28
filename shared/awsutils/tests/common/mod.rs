@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use apputils::Stack;
 use aws_sdk_s3::Client;
 use aws_sdk_s3::types::TransitionStorageClass;
+use base::Stack;
 
 use awsutils::{
     bucket::{self, Bucket},

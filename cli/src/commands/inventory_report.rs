@@ -3,8 +3,8 @@ use app::{
     inventory,
     perform::inventory_report,
 };
-use apputils::Stack;
 use awsutils::bucket;
+use base::Stack;
 use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]

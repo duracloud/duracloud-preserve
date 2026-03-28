@@ -3,7 +3,7 @@ use lambda_runtime::{Error, tracing};
 mod event_handler;
 
 use app::config;
-use apputils::Stack;
+use base::Stack;
 use std::env;
 
 #[tokio::main]

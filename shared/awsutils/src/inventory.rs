@@ -6,9 +6,9 @@ use crate::{
     file::{self, File},
 };
 
-// Re-export processing types from apputils
-pub use apputils::inventory::process;
-pub use apputils::stats::{InventoryStats, PrefixStats};
+// Re-export processing types from base
+pub use base::inventory::process;
+pub use base::stats::{InventoryStats, PrefixStats};
 
 /// Inventory Manifest
 #[derive(Debug, Deserialize)]

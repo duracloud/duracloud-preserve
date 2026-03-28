@@ -1,6 +1,7 @@
 use app::{config::Config, perform::checksum_report};
 use aws_lambda_events::event::cloudwatch_events::CloudWatchEvent;
 use awsutils::file::{self, File};
+use base::stack::DateCtx;
 use lambda_runtime::{Error, LambdaEvent, tracing};
 use serde::{Deserialize, Serialize};
 
@@ -56,7 +57,7 @@ pub(crate) async fn function_handler(
     let receipt_file = File::from(
         config
             .stack()
-            .metadata_checksums_receipts_path(&job.job_id, apputils::stack::DateCtx::Latest),
+            .metadata_checksums_receipts_path(&job.job_id, DateCtx::Latest),
     );
 
     if !file::exists(config.s3(), &receipt_file).await {

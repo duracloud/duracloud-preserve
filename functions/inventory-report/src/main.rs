@@ -4,7 +4,7 @@ mod event_handler;
 
 use app::config;
 use app::perform::inventory_report::PerformOptions;
-use apputils::Stack;
+use base::Stack;
 use std::env;
 
 #[tokio::main]

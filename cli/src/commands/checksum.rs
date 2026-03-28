@@ -20,7 +20,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let checksum = tokio::task::spawn_blocking(move || {
         let file = File::open(&path)?;
         let reader = BufReader::new(file);
-        apputils::generate_checksum(reader, CrcAlgorithm::Crc64Nvme)
+        base::generate_checksum(reader, CrcAlgorithm::Crc64Nvme)
     })
     .await
     .expect("failed to spawn blocking task")?;

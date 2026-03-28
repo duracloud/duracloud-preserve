@@ -7,7 +7,7 @@ use aws_sdk_s3::types::{
     ReplicationTimeStatus, TransitionStorageClass,
 };
 
-use apputils::Stack;
+use base::Stack;
 use constants::*;
 
 use crate::bucket::{Bucket, Type};

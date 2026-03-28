@@ -1,4 +1,4 @@
-use apputils::errors::BucketValidationError;
+use base::errors::BucketValidationError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -18,7 +18,7 @@ pub enum ChecksumError {
     #[error("JSON parse error: {0}")]
     Json(#[from] serde_json::Error),
     #[error("Processing error: {0}")]
-    Processing(#[from] apputils::errors::ChecksumError),
+    Processing(#[from] base::errors::ChecksumError),
     #[error("{0}")]
     Request(#[from] RequestError),
 }
@@ -32,7 +32,7 @@ pub enum InventoryError {
     #[error("JSON parse error: {0}")]
     Json(#[from] serde_json::Error),
     #[error("Processing error: {0}")]
-    Processing(#[from] apputils::errors::InventoryError),
+    Processing(#[from] base::errors::InventoryError),
     #[error("{0}")]
     Request(#[from] RequestError),
     #[error("S3 error: {0:#}")]

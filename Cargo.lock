@@ -73,13 +73,13 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 name = "app"
 version = "0.1.0"
 dependencies = [
- "apputils",
  "askama",
  "aws-config",
  "aws-sdk-s3",
  "aws-sdk-s3control",
  "aws-smithy-types",
  "awsutils",
+ "base",
  "bytes",
  "chrono",
  "constants",
@@ -91,25 +91,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "apputils"
-version = "0.1.0"
-dependencies = [
- "askama",
- "base64",
- "chrono",
- "constants",
- "crc-fast",
- "csv",
- "duckdb",
- "humansize",
- "rand 0.10.0",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
 ]
 
 [[package]]
@@ -958,7 +939,6 @@ dependencies = [
 name = "awsutils"
 version = "0.1.0"
 dependencies = [
- "apputils",
  "aws-config",
  "aws-sdk-iam",
  "aws-sdk-s3",
@@ -967,6 +947,7 @@ dependencies = [
  "aws-sdk-sts",
  "aws-smithy-runtime",
  "aws-smithy-types",
+ "base",
  "bytes",
  "chrono",
  "constants",
@@ -979,6 +960,25 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "base"
+version = "0.1.0"
+dependencies = [
+ "askama",
+ "base64",
+ "chrono",
+ "constants",
+ "crc-fast",
+ "csv",
+ "duckdb",
+ "humansize",
+ "rand 0.10.0",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -1083,11 +1083,11 @@ name = "bucket-request"
 version = "0.1.0"
 dependencies = [
  "app",
- "apputils",
  "aws-config",
  "aws-sdk-s3",
  "aws_lambda_events",
  "awsutils",
+ "base",
  "constants",
  "lambda_runtime",
  "serde_json",
@@ -1207,10 +1207,10 @@ name = "checksum-report"
 version = "0.1.0"
 dependencies = [
  "app",
- "apputils",
  "aws-config",
  "aws_lambda_events",
  "awsutils",
+ "base",
  "lambda_runtime",
  "serde",
  "serde_json",
@@ -1321,10 +1321,10 @@ name = "compute-checksums"
 version = "0.1.0"
 dependencies = [
  "app",
- "apputils",
  "aws-config",
  "aws_lambda_events",
  "awsutils",
+ "base",
  "lambda_runtime",
  "test-support",
  "tokio",
@@ -1602,12 +1602,12 @@ name = "duracloud"
 version = "0.1.0"
 dependencies = [
  "app",
- "apputils",
  "aws-config",
  "aws-sdk-iam",
  "aws-sdk-s3",
  "aws-sdk-sts",
  "awsutils",
+ "base",
  "chrono",
  "clap",
  "constants",
@@ -2364,10 +2364,10 @@ name = "inventory-report"
 version = "0.1.0"
 dependencies = [
  "app",
- "apputils",
  "aws-config",
  "aws_lambda_events",
  "awsutils",
+ "base",
  "lambda_runtime",
  "serde_json",
  "test-support",
@@ -3636,10 +3636,10 @@ name = "storage-report"
 version = "0.1.0"
 dependencies = [
  "app",
- "apputils",
  "aws-config",
  "aws_lambda_events",
  "awsutils",
+ "base",
  "lambda_runtime",
  "test-support",
  "tokio",
@@ -3748,10 +3748,10 @@ dependencies = [
 name = "test-support"
 version = "0.1.0"
 dependencies = [
- "apputils",
  "aws-config",
  "aws-sdk-s3",
  "aws-smithy-runtime",
+ "base",
  "constants",
  "http 1.4.0",
 ]

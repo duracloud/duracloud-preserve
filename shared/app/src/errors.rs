@@ -1,5 +1,5 @@
-use apputils::errors::BucketValidationError;
 use awsutils::{batch::BatchError, bucket::RequestError};
+use base::errors::BucketValidationError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -66,8 +66,8 @@ pub enum ChecksumReportError {
 }
 
 #[cfg(feature = "duckdb")]
-impl From<apputils::errors::ChecksumError> for ChecksumReportError {
-    fn from(value: apputils::errors::ChecksumError) -> Self {
+impl From<base::errors::ChecksumError> for ChecksumReportError {
+    fn from(value: base::errors::ChecksumError) -> Self {
         ChecksumReportError::Processing(value.to_string())
     }
 }
@@ -110,7 +110,7 @@ pub enum InventoryReportError {
     #[error("failed to fetch inventory manifest: {0}")]
     ManifestFetch(String),
     #[error("failed to process inventory: {0}")]
-    Processing(#[from] apputils::errors::InventoryError),
+    Processing(#[from] base::errors::InventoryError),
     #[error("failed to upload inventory report: {0}")]
     Upload(#[source] RequestError),
 }

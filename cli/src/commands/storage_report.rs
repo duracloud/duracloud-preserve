@@ -1,5 +1,5 @@
 use app::{config, perform::storage_report};
-use apputils::Stack;
+use base::Stack;
 use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]

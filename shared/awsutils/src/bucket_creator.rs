@@ -13,7 +13,7 @@ use aws_sdk_s3::types::{
 
 use constants::*;
 
-use apputils::Stack;
+use base::Stack;
 
 use crate::bucket::{Bucket, RequestError, Type};
 use crate::errors::S3ResultExt;
@@ -480,7 +480,7 @@ impl<'a> BucketCreator<'a> {
 
 #[cfg(test)]
 mod tests {
-    use apputils::Stack;
+    use base::Stack;
 
     use super::*;
     use test_support::TestClientBuilder;

@@ -1,4 +1,4 @@
-use apputils::stats::VerificationStats;
+use base::stats::VerificationStats;
 
 use crate::{
     batch::BatchResultEntry,
@@ -6,7 +6,7 @@ use crate::{
     file::{self, File},
 };
 
-pub use apputils::checksum::{ChecksumVerifier, process};
+pub use base::checksum::{ChecksumVerifier, process};
 
 pub async fn download_manifest_files(
     client: &aws_sdk_s3::Client,

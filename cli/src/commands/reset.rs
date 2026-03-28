@@ -1,9 +1,9 @@
 use std::io::{self, Write};
 
 use app::bucket as app_bucket;
-use apputils::Stack;
 use awsutils::bucket::{self as aws_bucket, Type};
 use awsutils::config;
+use base::Stack;
 use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
@@ -40,7 +40,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     println!("\t- Empty {} internal bucket(s)", internal.len());
     println!("\t- Delete {} non-internal bucket(s)", non_internal.len());
 
-    let code = apputils::generate_confirmation_code();
+    let code = base::generate_confirmation_code();
     println!("\nTo proceed, enter this code: {}", code);
     print!("Confirmation: ");
     io::stdout().flush()?;

@@ -4,8 +4,8 @@ mod event_handler;
 
 use app::config as app_config;
 use app::perform::bucket_request;
-use apputils::Stack;
 use awsutils::{bucket_creator, config};
+use base::Stack;
 use std::env;
 
 #[tokio::main]

@@ -5,10 +5,10 @@ edition = "2024"
 
 [dependencies]
 app.workspace = true
-apputils.workspace = true
 aws_lambda_events = { workspace = true, features = ["s3"] }
 aws-sdk-s3.workspace = true
 awsutils.workspace = true
+base.workspace = true
 constants.workspace = true
 lambda_runtime.workspace = true
 serde_json.workspace = true

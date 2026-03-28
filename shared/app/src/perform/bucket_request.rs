@@ -1,4 +1,3 @@
-use apputils::bucket as app_bucket;
 use aws_sdk_s3::types::TransitionStorageClass;
 use awsutils::{
     bucket_creator,
@@ -40,7 +39,7 @@ pub async fn perform(
     tracing::info!("Bucket names: {:?}", names);
     tracing::info!("Parsing bucket names");
 
-    let buckets = match app_bucket::review_request_names(config.stack(), &names) {
+    let buckets = match bucket::review_request_names(config.stack(), &names) {
         Ok(buckets) => buckets,
         Err(e) => {
             tracing::error!("Error parsing bucket names: {}", e);

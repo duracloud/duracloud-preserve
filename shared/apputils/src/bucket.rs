@@ -1,7 +1,3 @@
-use std::path::PathBuf;
-
-use tokio::{fs, io};
-
 use constants::*;
 
 use crate::{Stack, errors::BucketValidationError};
@@ -10,16 +6,50 @@ use crate::{Stack, errors::BucketValidationError};
 pub struct Bucket(Name, Type);
 
 impl Bucket {
-    pub fn new(name: &str, bucket_type: Type) -> Result<Self, BucketValidationError> {
-        Ok(Self(Name::new(name)?, bucket_type))
-    }
-
     pub fn bucket_type(&self) -> &Type {
         &self.1
     }
 
     pub fn name(&self) -> &str {
         self.0.as_str()
+    }
+
+    pub fn new(name: &str, bucket_type: Type) -> Result<Self, BucketValidationError> {
+        Ok(Self(Name::new(name)?, bucket_type))
+    }
+
+    /// Convert a stack name + user requested bucket name to a full S3 primary bucket name.
+    pub fn primary(stack: &Stack, partial: &Name) -> Result<Self, BucketValidationError> {
+        if uses_reserved_prefix_or_suffix(stack.as_str(), partial.as_str()) {
+            return Err(BucketValidationError::ValidationError(format!(
+                "cannot use reserved prefix or suffix ({})",
+                partial.as_str()
+            )));
+        }
+
+        let name = format!(
+            "{}{}{}",
+            stack.as_str(),
+            STACK_BUCKET_DELIMITER,
+            partial.as_str()
+        );
+        if name.ends_with(PUBLIC_SUFFIX) {
+            Bucket::new(&name, Type::Public)
+        } else {
+            Bucket::new(&name, Type::Standard)
+        }
+    }
+
+    /// Convert a stack name + user requested bucket name to a full S3 replication bucket name.
+    pub fn replication(stack: &Stack, partial: &Name) -> Result<Self, BucketValidationError> {
+        let name = format!(
+            "{}{}{}{}",
+            stack.as_str(),
+            STACK_BUCKET_DELIMITER,
+            partial.as_str(),
+            REPLICATION_SUFFIX
+        );
+        Bucket::new(&name, Type::Replication)
     }
 }
 
@@ -42,6 +72,10 @@ impl BucketPair {
 pub struct Name(String);
 
 impl Name {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
     pub fn new(name: &str) -> Result<Self, BucketValidationError> {
         let name = name.to_lowercase();
 
@@ -75,10 +109,6 @@ impl Name {
         }
 
         Ok(Self(name.to_string()))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
     }
 
     fn has_invalid_chars(name: &str) -> bool {
@@ -115,72 +145,6 @@ impl std::fmt::Display for Type {
             Type::Standard => write!(f, "standard"),
         }
     }
-}
-
-/// Read prospective bucket names limited to the bucket request max
-pub async fn get_request_names(file: PathBuf) -> Result<Vec<String>, io::Error> {
-    Ok(parse_request_names(&fs::read_to_string(file).await?))
-}
-
-/// Parse prospective bucket names limited to the bucket request max
-pub fn parse_request_names(content: &str) -> Vec<String> {
-    content
-        .lines()
-        .map(String::from)
-        .take(MAX_BUCKETS_PER_REQUEST as usize)
-        .collect()
-}
-
-/// Check that user supplied bucket names are valid and convert
-/// to (primary, replication) pairs for the stack.
-pub fn review_request_names(
-    stack: &Stack,
-    names: &[String],
-) -> Result<Vec<BucketPair>, BucketValidationError> {
-    let mut buckets: Vec<BucketPair> = Vec::new();
-
-    for name in names {
-        let bucket = Name::new(name)?;
-        let primary = to_primary(stack, &bucket)?;
-        let replication = to_replication(stack, &bucket)?;
-        buckets.push(BucketPair::new(primary, replication));
-    }
-
-    Ok(buckets)
-}
-
-/// Convert a stack name + user requested bucket name to a full S3 primary bucket name.
-pub fn to_primary(stack: &Stack, partial: &Name) -> Result<Bucket, BucketValidationError> {
-    if uses_reserved_prefix_or_suffix(stack.as_str(), partial.as_str()) {
-        return Err(BucketValidationError::ValidationError(format!(
-            "cannot use reserved prefix or suffix ({})",
-            partial.as_str()
-        )));
-    }
-
-    let name = format!(
-        "{}{}{}",
-        stack.as_str(),
-        STACK_BUCKET_DELIMITER,
-        partial.as_str()
-    );
-    if name.ends_with(PUBLIC_SUFFIX) {
-        Bucket::new(&name, Type::Public)
-    } else {
-        Bucket::new(&name, Type::Standard)
-    }
-}
-
-/// Convert a stack name + user requested bucket name to a full S3 replication bucket name.
-pub fn to_replication(stack: &Stack, partial: &Name) -> Result<Bucket, BucketValidationError> {
-    let name = format!(
-        "{}{}{}{}",
-        stack.as_str(),
-        STACK_BUCKET_DELIMITER,
-        partial.as_str(),
-        REPLICATION_SUFFIX
-    );
-    Bucket::new(&name, Type::Replication)
 }
 
 fn uses_reserved_prefix_or_suffix(prefix: &str, name: &str) -> bool {
@@ -224,24 +188,24 @@ mod tests {
     }
 
     #[test]
-    fn test_request_to_primary_public() {
+    fn test_primary_public() {
         let stack = Stack::new("test-stack").unwrap();
         let public = Name::new("example-public").unwrap();
 
-        let result = to_primary(&stack, &public).unwrap();
+        let result = Bucket::primary(&stack, &public).unwrap();
         assert_eq!(result.name(), "test-stack-example-public");
         assert_eq!(result.bucket_type(), &Type::Public);
     }
 
     #[test]
-    fn test_request_to_primary_reserved_validation() {
+    fn test_primary_reserved_validation() {
         let test_cases = vec!["test-stack", "test-request", "test-managed", "test-repl"];
 
         let stack = Stack::new("test-stack").unwrap();
 
         for name in test_cases {
             let bucket_name = Name::new(name).unwrap();
-            let result = to_primary(&stack, &bucket_name);
+            let result = Bucket::primary(&stack, &bucket_name);
 
             assert!(result.is_err(), "Expected error for name: {}", name);
             match result.unwrap_err() {
@@ -259,56 +223,33 @@ mod tests {
     }
 
     #[test]
-    fn test_request_to_primary_standard() {
+    fn test_primary_standard() {
         let stack = Stack::new("test-stack").unwrap();
         let standard = Name::new("example").unwrap();
 
-        let result = to_primary(&stack, &standard).unwrap();
+        let result = Bucket::primary(&stack, &standard).unwrap();
         assert_eq!(result.name(), "test-stack-example");
         assert_eq!(result.bucket_type(), &Type::Standard);
     }
 
     #[test]
-    fn test_request_to_replication_public() {
+    fn test_replication_public() {
         let stack = Stack::new("test-stack").unwrap();
         let public = Name::new("example-public").unwrap();
 
-        let result = to_replication(&stack, &public).unwrap();
+        let result = Bucket::replication(&stack, &public).unwrap();
         assert_eq!(result.name(), "test-stack-example-public-repl");
         assert_eq!(result.bucket_type(), &Type::Replication);
     }
 
     #[test]
-    fn test_request_to_replication_standard() {
+    fn test_replication_standard() {
         let stack = Stack::new("test-stack").unwrap();
         let standard = Name::new("example").unwrap();
 
-        let result = to_replication(&stack, &standard).unwrap();
+        let result = Bucket::replication(&stack, &standard).unwrap();
         assert_eq!(result.name(), "test-stack-example-repl");
         assert_eq!(result.bucket_type(), &Type::Replication);
-    }
-
-    #[test]
-    fn test_review_request_names() {
-        let stack = Stack::new("test-stack").unwrap();
-
-        let names = vec!["example".to_string(), "data-public".to_string()];
-
-        let result = review_request_names(&stack, &names).unwrap();
-
-        assert_eq!(result.len(), 2);
-
-        // First bucket pair (standard)
-        assert_eq!(result[0].source.name(), "test-stack-example");
-        assert_eq!(result[0].source.bucket_type(), &Type::Standard);
-        assert_eq!(result[0].replication.name(), "test-stack-example-repl");
-        assert_eq!(result[0].replication.bucket_type(), &Type::Replication);
-
-        // Second bucket pair (public)
-        assert_eq!(result[1].source.name(), "test-stack-data-public");
-        assert_eq!(result[1].source.bucket_type(), &Type::Public);
-        assert_eq!(result[1].replication.name(), "test-stack-data-public-repl");
-        assert_eq!(result[1].replication.bucket_type(), &Type::Replication);
     }
 
     #[test]

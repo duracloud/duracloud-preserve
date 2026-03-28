@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use apputils::{
     Stack,
-    bucket::{BucketPair, parse_request_names},
+    bucket::{BucketPair, Name},
     errors::BucketValidationError,
 };
 use aws_sdk_s3::{
@@ -10,6 +10,7 @@ use aws_sdk_s3::{
     types::{Tag, TransitionStorageClass},
 };
 use constants::*;
+use tokio::{fs, io};
 
 use awsutils::{
     bucket::{self, Bucket, RequestError, Type},
@@ -52,6 +53,43 @@ async fn create<'a>(
     Ok(creator)
 }
 
+/// Create a primary bucket and its replication bucket, then enable replication.
+pub async fn create_pair(
+    config: &Config,
+    primary: &Bucket,
+    replication: &Bucket,
+    primary_storage_tier_override: Option<TransitionStorageClass>,
+    replication_storage_tier_override: Option<TransitionStorageClass>,
+) -> Result<(), RequestError> {
+    let primary_creator = create(config, primary, primary_storage_tier_override).await?;
+
+    let repl_creator = match create(config, replication, replication_storage_tier_override).await {
+        Ok(creator) => creator,
+        Err(e) => {
+            if let Err(rollback_err) = primary_creator.rollback().await {
+                tracing::error!("Rollback of {} failed: {}", primary.name(), rollback_err);
+            }
+            return Err(e);
+        }
+    };
+
+    if let Err(e) = primary_creator.enable_replication(replication).await {
+        if let Err(rollback_err) = primary_creator.rollback().await {
+            tracing::error!("Rollback of {} failed: {}", primary.name(), rollback_err);
+        }
+        if let Err(rollback_err) = repl_creator.rollback().await {
+            tracing::error!(
+                "Rollback of {} failed: {}",
+                replication.name(),
+                rollback_err
+            );
+        }
+        return Err(e);
+    }
+
+    Ok(())
+}
+
 /// Arrange creation of primary and replication buckets.
 pub async fn create_pairs(
     config: &Config,
@@ -90,41 +128,9 @@ pub async fn create_pairs(
     issues
 }
 
-/// Create a primary bucket and its replication bucket, then enable replication.
-pub async fn create_pair(
-    config: &Config,
-    primary: &Bucket,
-    replication: &Bucket,
-    primary_storage_tier_override: Option<TransitionStorageClass>,
-    replication_storage_tier_override: Option<TransitionStorageClass>,
-) -> Result<(), RequestError> {
-    let primary_creator = create(config, primary, primary_storage_tier_override).await?;
-
-    let repl_creator = match create(config, replication, replication_storage_tier_override).await {
-        Ok(creator) => creator,
-        Err(e) => {
-            if let Err(rollback_err) = primary_creator.rollback().await {
-                tracing::error!("Rollback of {} failed: {}", primary.name(), rollback_err);
-            }
-            return Err(e);
-        }
-    };
-
-    if let Err(e) = primary_creator.enable_replication(replication).await {
-        if let Err(rollback_err) = primary_creator.rollback().await {
-            tracing::error!("Rollback of {} failed: {}", primary.name(), rollback_err);
-        }
-        if let Err(rollback_err) = repl_creator.rollback().await {
-            tracing::error!(
-                "Rollback of {} failed: {}",
-                replication.name(),
-                rollback_err
-            );
-        }
-        return Err(e);
-    }
-
-    Ok(())
+/// Read prospective bucket names limited to the bucket request max
+pub async fn get_request_names(file: PathBuf) -> Result<Vec<String>, io::Error> {
+    Ok(parse_request_names(&fs::read_to_string(file).await?))
 }
 
 /// Get stack buckets that were created via bucket-request (BucketOrigin=bucket-request).
@@ -253,6 +259,15 @@ pub fn name_from_file(file: &File) -> Result<&str, FileKeyError> {
         .ok_or(FileKeyError::MissingExtension(file.key().to_string()))
 }
 
+/// Parse prospective bucket names limited to the bucket request max
+pub fn parse_request_names(content: &str) -> Vec<String> {
+    content
+        .lines()
+        .map(String::from)
+        .take(MAX_BUCKETS_PER_REQUEST as usize)
+        .collect()
+}
+
 /// Retrieve bucket request file and verify it is valid.
 pub async fn read_request_names(client: &Client, file: &File) -> Result<Vec<String>, RequestError> {
     let Ok(r) = file::download(client, file).await else {
@@ -284,6 +299,24 @@ pub async fn read_request_names(client: &Client, file: &File) -> Result<Vec<Stri
     let names = parse_request_names(&content);
 
     Ok(names)
+}
+
+/// Check that user supplied bucket names are valid and convert
+/// to (primary, replication) pairs for the stack.
+pub fn review_request_names(
+    stack: &Stack,
+    names: &[String],
+) -> Result<Vec<BucketPair>, BucketValidationError> {
+    let mut buckets: Vec<BucketPair> = Vec::new();
+
+    for name in names {
+        let partial = Name::new(name)?;
+        let primary = Bucket::primary(stack, &partial)?;
+        let replication = Bucket::replication(stack, &partial)?;
+        buckets.push(BucketPair::new(primary, replication));
+    }
+
+    Ok(buckets)
 }
 
 fn type_from_tags(tags: &[Tag]) -> Option<Type> {
@@ -334,18 +367,6 @@ mod tests {
   <TagSet>{entries}</TagSet>
 </Tagging>"#
         )
-    }
-
-    #[tokio::test]
-    async fn test_name_from_file() {
-        let file = File::new("managed", "reports/latest/manifests/my-bucket.csv");
-        assert_eq!(name_from_file(&file).unwrap(), "my-bucket");
-    }
-
-    #[tokio::test]
-    async fn test_name_from_file_invalid() {
-        let file = File::new("managed", "reports/latest/manifests/no-extension");
-        assert!(name_from_file(&file).is_err());
     }
 
     #[tokio::test]
@@ -580,6 +601,18 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_name_from_file() {
+        let file = File::new("managed", "reports/latest/manifests/my-bucket.csv");
+        assert_eq!(name_from_file(&file).unwrap(), "my-bucket");
+    }
+
+    #[tokio::test]
+    async fn test_name_from_file_invalid() {
+        let file = File::new("managed", "reports/latest/manifests/no-extension");
+        assert!(name_from_file(&file).is_err());
+    }
+
+    #[tokio::test]
     async fn test_read_request_names() {
         let content = "123\n456\n789\n234\n567\n890";
         let file = File::new("test-bucket", "buckets.txt");
@@ -656,5 +689,28 @@ mod tests {
         let names = read_request_names(&client, &file).await.unwrap();
 
         assert_eq!(names.len(), MAX_BUCKETS_PER_REQUEST as usize);
+    }
+
+    #[test]
+    fn test_review_request_names() {
+        let stack = Stack::new("test-stack").unwrap();
+
+        let names = vec!["example".to_string(), "data-public".to_string()];
+
+        let result = review_request_names(&stack, &names).unwrap();
+
+        assert_eq!(result.len(), 2);
+
+        // First bucket pair (standard)
+        assert_eq!(result[0].source.name(), "test-stack-example");
+        assert_eq!(result[0].source.bucket_type(), &Type::Standard);
+        assert_eq!(result[0].replication.name(), "test-stack-example-repl");
+        assert_eq!(result[0].replication.bucket_type(), &Type::Replication);
+
+        // Second bucket pair (public)
+        assert_eq!(result[1].source.name(), "test-stack-data-public");
+        assert_eq!(result[1].source.bucket_type(), &Type::Public);
+        assert_eq!(result[1].replication.name(), "test-stack-data-public-repl");
+        assert_eq!(result[1].replication.bucket_type(), &Type::Replication);
     }
 }

@@ -1,5 +1,5 @@
-use app::{config, perform::bucket_request};
-use apputils::{Stack, bucket, current_timestamp};
+use app::{bucket, config, perform::bucket_request};
+use apputils::{Stack, current_timestamp};
 use awsutils::file::{self, File};
 use clap::Args as ClapArgs;
 use constants::TEXT_PLAIN;

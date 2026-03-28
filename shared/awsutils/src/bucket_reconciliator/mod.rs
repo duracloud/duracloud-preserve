@@ -676,3 +676,6 @@ where
     let message = e.message().unwrap_or("unknown");
     format!("{operation} failed (code={code}): {message}")
 }
+
+#[cfg(test)]
+mod tests;

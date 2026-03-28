@@ -1,11 +1,10 @@
 use crate::{batch, bucket as app_bucket, config::Config, errors::ComputeChecksumsError};
 use apputils::bucket::{BucketPair, Name};
 use awsutils::{
-    batch::BatchError,
+    batch as aws_batch,
     bucket::{self, Bucket},
 };
 use constants::REPLICATION_SUFFIX;
-use futures::future::BoxFuture;
 
 /// Trigger S3 batch compute checksum jobs
 pub async fn perform(
@@ -59,53 +58,18 @@ pub async fn perform(
         }
     };
 
-    dispatch_checksum_jobs(config, &bucket_pairs, |cfg, source, replication| {
-        Box::pin(batch::trigger_checksum_job(cfg, source, replication))
+    aws_batch::dispatch_bucket_pair_jobs(&bucket_pairs, |source, replication| {
+        Box::pin(batch::trigger_checksum_job(config, source, replication))
     })
     .await
-}
-
-async fn dispatch_checksum_jobs<F>(
-    config: &Config,
-    bucket_pairs: &[BucketPair],
-    trigger: F,
-) -> Result<Vec<String>, ComputeChecksumsError>
-where
-    F: for<'a> Fn(
-        &'a Config,
-        &'a Bucket,
-        &'a Bucket,
-    ) -> BoxFuture<'a, Result<Vec<String>, BatchError>>,
-{
-    let mut receipts = vec![];
-    let mut issues = vec![];
-
-    for BucketPair {
-        source,
-        replication,
-    } in bucket_pairs
-    {
-        match trigger(config, source, replication).await {
-            Ok(urls) => receipts.extend(urls),
-            Err(e) => issues.push(format!("{}: {e}", source.name())),
-        }
-    }
-
-    if !issues.is_empty() {
-        return Err(ComputeChecksumsError::PartialFailure(issues));
-    }
-
-    Ok(receipts)
+    .map_err(ComputeChecksumsError::PartialFailure)
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
-
     use super::*;
     use crate::config as app_config;
     use apputils::errors::BucketValidationError;
-    use awsutils::bucket::RequestError;
     use test_support::TestClientBuilder;
 
     fn list_buckets_xml(names: &[&str]) -> String {
@@ -144,133 +108,6 @@ mod tests {
   <TagSet>{entries}</TagSet>
 </Tagging>"#
         )
-    }
-
-    fn bucket_pair(name: &str, bucket_type: bucket::Type) -> BucketPair {
-        let source = Bucket::new(name, bucket_type).expect("source should be valid");
-        let replication = Bucket::new(
-            format!("{name}{REPLICATION_SUFFIX}").as_str(),
-            bucket::Type::Replication,
-        )
-        .expect("replication should be valid");
-        BucketPair::new(source, replication)
-    }
-
-    #[tokio::test]
-    async fn test_dispatch_checksum_jobs_aggregates_partial_failures() {
-        let bucket_pairs = vec![
-            bucket_pair("test-stack-alpha", bucket::Type::Standard),
-            bucket_pair("test-stack-bravo-public", bucket::Type::Public),
-            bucket_pair("test-stack-charlie", bucket::Type::Standard),
-        ];
-        let sdk_config = TestClientBuilder::new().build_sdk_config();
-        let config = app_config::Config::for_tests(sdk_config, false);
-
-        let err = dispatch_checksum_jobs(&config, &bucket_pairs, |_cfg, source, _repl| {
-            let source_name = source.name().to_string();
-            Box::pin(async move {
-                if source_name == "test-stack-bravo-public" || source_name == "test-stack-charlie" {
-                    Err(BatchError::Request(RequestError::ValidationError(
-                        source_name,
-                    )))
-                } else {
-                    Ok(vec![format!("https://example.local/{source_name}/latest")])
-                }
-            })
-        })
-        .await
-        .expect_err("dispatch should return partial failure");
-
-        match err {
-            ComputeChecksumsError::PartialFailure(issues) => {
-                assert_eq!(issues.len(), 2);
-                assert!(issues.iter().any(|m| m.contains("test-stack-bravo-public")));
-                assert!(issues.iter().any(|m| m.contains("test-stack-charlie")));
-            }
-            other => panic!("unexpected error: {other:?}"),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_dispatch_checksum_jobs_does_not_short_circuit_after_failure() {
-        let bucket_pairs = vec![
-            bucket_pair("test-stack-alpha", bucket::Type::Standard),
-            bucket_pair("test-stack-bravo-public", bucket::Type::Public),
-            bucket_pair("test-stack-charlie", bucket::Type::Standard),
-        ];
-        let sdk_config = TestClientBuilder::new().build_sdk_config();
-        let config = app_config::Config::for_tests(sdk_config, false);
-        let calls: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
-
-        let err = dispatch_checksum_jobs(&config, &bucket_pairs, {
-            let calls = Arc::clone(&calls);
-            move |_cfg, source, _repl| {
-                let calls = Arc::clone(&calls);
-                let source_name = source.name().to_string();
-                Box::pin(async move {
-                    calls.lock().unwrap().push(source_name.clone());
-                    if source_name == "test-stack-alpha" {
-                        Err(BatchError::Request(RequestError::ValidationError(
-                            source_name,
-                        )))
-                    } else {
-                        Ok(vec![format!("https://example.local/{source_name}/latest")])
-                    }
-                })
-            }
-        })
-        .await
-        .expect_err("dispatch should fail due to first bucket");
-
-        match err {
-            ComputeChecksumsError::PartialFailure(issues) => {
-                assert_eq!(issues.len(), 1);
-                assert!(issues[0].contains("test-stack-alpha"));
-            }
-            other => panic!("unexpected error: {other:?}"),
-        }
-
-        let seen = calls.lock().unwrap().clone();
-        assert_eq!(
-            seen,
-            vec![
-                "test-stack-alpha".to_string(),
-                "test-stack-bravo-public".to_string(),
-                "test-stack-charlie".to_string(),
-            ]
-        );
-    }
-
-    #[tokio::test]
-    async fn test_dispatch_checksum_jobs_flattens_receipts_in_pair_order() {
-        let bucket_pairs = vec![
-            bucket_pair("test-stack-alpha", bucket::Type::Standard),
-            bucket_pair("test-stack-bravo-public", bucket::Type::Public),
-        ];
-        let sdk_config = TestClientBuilder::new().build_sdk_config();
-        let config = app_config::Config::for_tests(sdk_config, false);
-
-        let receipts = dispatch_checksum_jobs(&config, &bucket_pairs, |_cfg, source, _repl| {
-            let source_name = source.name().to_string();
-            Box::pin(async move {
-                Ok(vec![
-                    format!("https://example.local/{source_name}/latest"),
-                    format!("https://example.local/{source_name}/today"),
-                ])
-            })
-        })
-        .await
-        .expect("dispatch should succeed");
-
-        assert_eq!(
-            receipts,
-            vec![
-                "https://example.local/test-stack-alpha/latest".to_string(),
-                "https://example.local/test-stack-alpha/today".to_string(),
-                "https://example.local/test-stack-bravo-public/latest".to_string(),
-                "https://example.local/test-stack-bravo-public/today".to_string(),
-            ]
-        );
     }
 
     #[tokio::test]

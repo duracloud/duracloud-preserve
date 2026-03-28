@@ -1,3 +1,4 @@
+use apputils::bucket::{Bucket, BucketPair};
 use aws_sdk_s3::Client;
 use aws_sdk_s3control::{
     self as s3control,
@@ -13,6 +14,8 @@ use aws_sdk_s3control::{
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use futures::future::BoxFuture;
 
 use crate::file::{self, File};
 
@@ -86,6 +89,37 @@ impl ChecksumJobReceipt {
 pub struct ReadyManifests {
     pub source_results: Vec<BatchResultEntry>,
     pub replication_results: Vec<BatchResultEntry>,
+}
+
+/// Dispatch a job for each bucket pair, collecting all receipts.
+/// Returns `Err` with formatted error messages if any pair fails.
+pub async fn dispatch_bucket_pair_jobs<'a, F, E>(
+    bucket_pairs: &'a [BucketPair],
+    trigger: F,
+) -> Result<Vec<String>, Vec<String>>
+where
+    F: Fn(&'a Bucket, &'a Bucket) -> BoxFuture<'a, Result<Vec<String>, E>>,
+    E: std::fmt::Display,
+{
+    let mut receipts = vec![];
+    let mut issues = vec![];
+
+    for BucketPair {
+        source,
+        replication,
+    } in bucket_pairs
+    {
+        match trigger(source, replication).await {
+            Ok(urls) => receipts.extend(urls),
+            Err(e) => issues.push(format!("{}: {e}", source.name())),
+        }
+    }
+
+    if issues.is_empty() {
+        Ok(receipts)
+    } else {
+        Err(issues)
+    }
 }
 
 struct JobParams<'a> {
@@ -238,7 +272,11 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Mutex};
+
     use super::*;
+    use crate::errors::RequestError;
+    use constants::REPLICATION_SUFFIX;
     use test_support::{mock_sdk_config, recorded_requests, replay_xml_event};
 
     fn test_config(client: &s3control::Client) -> BatchConfig<'_> {
@@ -338,5 +376,116 @@ mod tests {
         assert!(body.contains("<ManifestPrefix>batch/manifests/copy</ManifestPrefix>"));
         assert!(body.contains("<Prefix>batch/reports/copy/source-bucket</Prefix>"));
         assert!(!body.contains("<S3ComputeObjectChecksum>"));
+    }
+
+    fn bucket_pair(name: &str, bucket_type: apputils::bucket::Type) -> BucketPair {
+        let source = Bucket::new(name, bucket_type).expect("source should be valid");
+        let replication = Bucket::new(
+            format!("{name}{REPLICATION_SUFFIX}").as_str(),
+            apputils::bucket::Type::Replication,
+        )
+        .expect("replication should be valid");
+        BucketPair::new(source, replication)
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_bucket_pair_jobs_aggregates_partial_failures() {
+        let bucket_pairs = vec![
+            bucket_pair("test-stack-alpha", apputils::bucket::Type::Standard),
+            bucket_pair("test-stack-bravo-public", apputils::bucket::Type::Public),
+            bucket_pair("test-stack-charlie", apputils::bucket::Type::Standard),
+        ];
+
+        let issues = dispatch_bucket_pair_jobs(&bucket_pairs, |source, _repl| {
+            let source_name = source.name().to_string();
+            Box::pin(async move {
+                if source_name == "test-stack-bravo-public" || source_name == "test-stack-charlie" {
+                    Err(BatchError::Request(RequestError::ValidationError(
+                        source_name,
+                    )))
+                } else {
+                    Ok(vec![format!("https://example.local/{source_name}/latest")])
+                }
+            })
+        })
+        .await
+        .expect_err("dispatch should return partial failure");
+
+        assert_eq!(issues.len(), 2);
+        assert!(issues.iter().any(|m| m.contains("test-stack-bravo-public")));
+        assert!(issues.iter().any(|m| m.contains("test-stack-charlie")));
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_bucket_pair_jobs_does_not_short_circuit_after_failure() {
+        let bucket_pairs = vec![
+            bucket_pair("test-stack-alpha", apputils::bucket::Type::Standard),
+            bucket_pair("test-stack-bravo-public", apputils::bucket::Type::Public),
+            bucket_pair("test-stack-charlie", apputils::bucket::Type::Standard),
+        ];
+        let calls: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+
+        let issues = dispatch_bucket_pair_jobs(&bucket_pairs, {
+            let calls = Arc::clone(&calls);
+            move |source, _repl| {
+                let calls = Arc::clone(&calls);
+                let source_name = source.name().to_string();
+                Box::pin(async move {
+                    calls.lock().unwrap().push(source_name.clone());
+                    if source_name == "test-stack-alpha" {
+                        Err(BatchError::Request(RequestError::ValidationError(
+                            source_name,
+                        )))
+                    } else {
+                        Ok(vec![format!("https://example.local/{source_name}/latest")])
+                    }
+                })
+            }
+        })
+        .await
+        .expect_err("dispatch should fail due to first bucket");
+
+        assert_eq!(issues.len(), 1);
+        assert!(issues[0].contains("test-stack-alpha"));
+
+        let seen = calls.lock().unwrap().clone();
+        assert_eq!(
+            seen,
+            vec![
+                "test-stack-alpha".to_string(),
+                "test-stack-bravo-public".to_string(),
+                "test-stack-charlie".to_string(),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_bucket_pair_jobs_flattens_receipts_in_pair_order() {
+        let bucket_pairs = vec![
+            bucket_pair("test-stack-alpha", apputils::bucket::Type::Standard),
+            bucket_pair("test-stack-bravo-public", apputils::bucket::Type::Public),
+        ];
+
+        let receipts = dispatch_bucket_pair_jobs(&bucket_pairs, |source, _repl| {
+            let source_name = source.name().to_string();
+            Box::pin(async move {
+                Ok::<_, BatchError>(vec![
+                    format!("https://example.local/{source_name}/latest"),
+                    format!("https://example.local/{source_name}/today"),
+                ])
+            })
+        })
+        .await
+        .expect("dispatch should succeed");
+
+        assert_eq!(
+            receipts,
+            vec![
+                "https://example.local/test-stack-alpha/latest".to_string(),
+                "https://example.local/test-stack-alpha/today".to_string(),
+                "https://example.local/test-stack-bravo-public/latest".to_string(),
+                "https://example.local/test-stack-bravo-public/today".to_string(),
+            ]
+        );
     }
 }

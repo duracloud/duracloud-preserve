@@ -1,8 +1,6 @@
-pub use apputils::bucket::{
-    BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, BucketPair, Name, REPLICATION_SUFFIX, Type,
-    make_pairs, review_request_names, to_primary, to_replication,
-};
+pub use apputils::bucket::{Bucket, Type};
 use aws_sdk_s3::Client;
+use constants::BUCKET_TAG_TYPE_KEY;
 
 pub use crate::errors::RequestError;
 use crate::errors::S3ResultExt;

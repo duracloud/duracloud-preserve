@@ -1,4 +1,4 @@
-use apputils::{ManagedFile, content_type::TEXT_PLAIN, stack::DateCtx};
+use apputils::{ManagedFile, stack::DateCtx};
 use aws_sdk_s3::Client;
 use aws_sdk_s3::primitives::ByteStream;
 use awsutils::{
@@ -6,6 +6,7 @@ use awsutils::{
     file::{self, File},
 };
 use bytes::Bytes;
+use constants::TEXT_PLAIN;
 use futures::future;
 
 use crate::config::Config;

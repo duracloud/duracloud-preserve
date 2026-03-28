@@ -1,23 +1,10 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
 use tokio::{fs, io};
 
-use crate::{
-    Stack, content_type,
-    errors::BucketValidationError,
-    stack::{DISALLOWED_AFFIXES, MANAGED_SUFFIX, REQUEST_SUFFIX, STACK_BUCKET_DELIMITER},
-};
+use constants::*;
 
-pub const BUCKET_REQUEST_CONTENT_TYPE: &str = content_type::TEXT_PLAIN;
-pub const BUCKET_TAG_STACK_KEY: &str = "Stack";
-pub const BUCKET_TAG_TYPE_KEY: &str = "BucketType";
-
-pub const MAX_BUCKETS_PER_REQUEST: u8 = 5;
-pub const MAX_REQUEST_FILE_SIZE: u16 = 512;
-pub const MAX_LEN_FOR_NAME: u8 = 63;
-
-pub const PUBLIC_SUFFIX: &str = "-public";
-pub const REPLICATION_SUFFIX: &str = "-repl";
+use crate::{Stack, errors::BucketValidationError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bucket(Name, Type);
@@ -130,38 +117,6 @@ impl std::fmt::Display for Type {
     }
 }
 
-/// Pair source buckets with their replication buckets.
-/// Returns an error if any source bucket lacks a matching replication bucket.
-pub fn make_pairs(
-    source_buckets: Vec<Bucket>,
-    replication_buckets: Vec<Bucket>,
-) -> Result<Vec<BucketPair>, BucketValidationError> {
-    let mut repl_map: HashMap<String, Bucket> = replication_buckets
-        .into_iter()
-        .filter_map(|b| {
-            let name = b.name().to_string();
-            name.strip_suffix(REPLICATION_SUFFIX)
-                .map(|base| (base.to_string(), b))
-        })
-        .collect();
-
-    source_buckets
-        .into_iter()
-        .map(|source| {
-            let source_name = source.name().to_string();
-            repl_map
-                .remove(&source_name)
-                .map(|repl| BucketPair::new(source, repl))
-                .ok_or_else(|| {
-                    BucketValidationError::ValidationError(format!(
-                        "no replication bucket found for '{}'",
-                        source_name
-                    ))
-                })
-        })
-        .collect()
-}
-
 /// Read prospective bucket names limited to the bucket request max
 pub async fn get_request_names(file: PathBuf) -> Result<Vec<String>, io::Error> {
     Ok(parse_request_names(&fs::read_to_string(file).await?))
@@ -266,45 +221,6 @@ mod tests {
         assert!(Name::new("test_").is_err());
         assert!(Name::new("test@").is_err());
         assert!(Name::new("test.").is_err());
-    }
-
-    #[test]
-    fn test_make_pairs() {
-        let source_buckets = vec![
-            Bucket::new("alpha", Type::Standard).unwrap(),
-            Bucket::new("beta", Type::Public).unwrap(),
-        ];
-        let replication_buckets = vec![
-            Bucket::new("beta-repl", Type::Replication).unwrap(),
-            Bucket::new("alpha-repl", Type::Replication).unwrap(),
-        ];
-
-        let pairs = make_pairs(source_buckets, replication_buckets).unwrap();
-
-        assert_eq!(pairs.len(), 2);
-        assert_eq!(pairs[0].source.name(), "alpha");
-        assert_eq!(pairs[0].replication.name(), "alpha-repl");
-        assert_eq!(pairs[1].source.name(), "beta");
-        assert_eq!(pairs[1].replication.name(), "beta-repl");
-    }
-
-    #[test]
-    fn test_make_pairs_missing_replication() {
-        let source_buckets = vec![
-            Bucket::new("alpha", Type::Standard).unwrap(),
-            Bucket::new("beta", Type::Public).unwrap(),
-        ];
-        let replication_buckets = vec![
-            Bucket::new("alpha-repl", Type::Replication).unwrap(),
-            // missing beta-repl
-        ];
-
-        let result = make_pairs(source_buckets, replication_buckets);
-
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(matches!(err, BucketValidationError::ValidationError(_)));
-        assert!(err.to_string().contains("beta"));
     }
 
     #[test]

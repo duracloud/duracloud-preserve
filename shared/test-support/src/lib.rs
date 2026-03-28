@@ -1,7 +1,8 @@
-use apputils::{Stack, content_type::TEXT_XML};
+use apputils::Stack;
 use aws_config::{BehaviorVersion, SdkConfig};
 use aws_sdk_s3::{Client, primitives::SdkBody};
 use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
+use constants::TEXT_XML;
 use http::header::CONTENT_TYPE;
 
 const DEFAULT_TEST_URI: &str = "https://test.s3.amazonaws.com/";

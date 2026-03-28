@@ -1,6 +1,6 @@
 use app::{config, perform::compute_checksums};
 use apputils::Stack;
-use awsutils::bucket;
+use apputils::bucket;
 use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]

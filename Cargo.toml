@@ -10,6 +10,7 @@ members = [
   "shared/app",
   "shared/apputils",
   "shared/awsutils",
+  "shared/constants",
   "shared/test-support",
 ]
 
@@ -18,6 +19,7 @@ members = [
 app = { path = "shared/app" }
 apputils = { path = "shared/apputils" }
 awsutils = { path = "shared/awsutils" }
+constants = { path = "shared/constants" }
 test-support = { path = "shared/test-support" }
 
 # AWS

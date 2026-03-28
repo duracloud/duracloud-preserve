@@ -1,7 +1,8 @@
 use app::{config, perform::bucket_request};
-use apputils::{Stack, bucket, content_type, current_timestamp};
+use apputils::{Stack, bucket, current_timestamp};
 use awsutils::file::{self, File};
 use clap::Args as ClapArgs;
+use constants::TEXT_PLAIN;
 use std::path::PathBuf;
 
 #[derive(ClapArgs)]
@@ -44,7 +45,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         config.s3(),
         &file,
         names.join("\n").into_bytes(),
-        content_type::TEXT_PLAIN,
+        TEXT_PLAIN,
     )
     .await?;
 

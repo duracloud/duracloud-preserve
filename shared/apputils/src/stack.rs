@@ -1,25 +1,4 @@
-pub const MANAGED_SUFFIX: &str = "-managed";
-pub const REQUEST_SUFFIX: &str = "-request";
-
-const BATCH_CHECKSUM_PREFIX: &str = "batch/reports/checksum";
-const BATCH_MANIFEST_PREFIX: &str = "batch/manifests";
-const BATCH_POLICY_SUFFIX: &str = "-s3-batch-policy";
-const BATCH_REPORT_PREFIX: &str = "batch/reports";
-const BATCH_ROLE_SUFFIX: &str = "-s3-batch-role";
-const FEEDBACK_PREFIX: &str = "feedback";
-const LOGGING_PREFIX: &str = "audit";
-const MANIFESTS_PREFIX: &str = "manifests";
-const METADATA_PREFIX: &str = "metadata";
-const REPLICATION_POLICY_SUFFIX: &str = "-s3-replication-policy";
-const REPLICATION_ROLE_SUFFIX: &str = "-s3-replication-role";
-const REPORTS_PREFIX: &str = "reports";
-const STORAGE_CAPACITY_SUFFIX: &str = "-storage-capacity";
-
-/// Minimum number of `STACK_BUCKET_DELIMITER` parts in a valid bucket name.
-pub const BUCKET_NAME_MIN_PARTS: usize = 3;
-pub const BUCKET_REQUEST_PREFIX: &str = "bucket-request";
-pub const DISALLOWED_AFFIXES: &[&str] = &[".", "-"];
-pub const STACK_BUCKET_DELIMITER: &str = "-";
+use constants::*;
 
 /// Date context for stack related outputs (reports etc.)
 #[derive(Debug, Clone, Copy)]

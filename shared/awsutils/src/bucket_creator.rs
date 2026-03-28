@@ -11,22 +11,15 @@ use aws_sdk_s3::types::{
     TransitionStorageClass, VersioningConfiguration,
 };
 
+use constants::*;
+
 use apputils::Stack;
 
-use crate::bucket::{BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, RequestError, Type};
+use crate::bucket::{Bucket, RequestError, Type};
 use crate::errors::S3ResultExt;
 use crate::{bucket_policy, config};
 
-pub const BUCKET_TAG_ORIGIN_KEY: &str = "BucketOrigin";
-pub const BUCKET_TAG_ORIGIN_VAL: &str = "bucket-request";
-pub(crate) const BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY: &str = "TransitionStorageClass";
-
-pub(crate) const EXPIRE_ABORTED_MULTIPART_DAYS: u8 = 3;
-pub(crate) const EXPIRE_NONCURRENT_VERSION_DAYS: u8 = 14;
-
 pub const INVENTORY_FORMAT: InventoryFormat = InventoryFormat::Parquet;
-pub(crate) const INVENTORY_ID: &str = "inventory";
-pub(crate) const INVENTORY_PREFIX: &str = "manifests";
 
 pub const STORAGE_CLASS_STANDARD_DEFAULT: TransitionStorageClass =
     TransitionStorageClass::GlacierIr;
@@ -34,12 +27,6 @@ pub(crate) const STORAGE_CLASS_PUBLIC_DEFAULT: TransitionStorageClass =
     TransitionStorageClass::IntelligentTiering;
 pub(crate) const STORAGE_CLASS_REPLICATION_DEFAULT: TransitionStorageClass =
     TransitionStorageClass::DeepArchive;
-
-pub(crate) const STORAGE_TRANSITION_DAYS: u8 = 7;
-
-pub(crate) const REPLICATION_RULE_ID: &str = "ReplicateAll";
-pub(crate) const REPLICATION_RULE_PRIORITY: i32 = 1;
-pub(crate) const REPLICATION_TIME_MINUTES: i32 = 15;
 
 /// Handles bucket setup by delegating to the appropriate methods per bucket type.
 #[derive(Debug)]
@@ -338,7 +325,7 @@ impl<'a> BucketCreator<'a> {
                                     .account_id(self.account_id)
                                     .bucket(format!("arn:aws:s3:::{}", dest_bucket))
                                     .format(INVENTORY_FORMAT)
-                                    .prefix(INVENTORY_PREFIX)
+                                    .prefix(MANIFESTS_PREFIX)
                                     .build()
                                     .s3_err("failed to build inventory destination")?,
                             )

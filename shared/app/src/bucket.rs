@@ -1,19 +1,19 @@
+use std::collections::HashMap;
+
 use apputils::{
     Stack,
-    bucket::{BUCKET_REQUEST_CONTENT_TYPE, MAX_REQUEST_FILE_SIZE, parse_request_names},
+    bucket::{BucketPair, parse_request_names},
+    errors::BucketValidationError,
 };
 use aws_sdk_s3::{
     Client,
     types::{Tag, TransitionStorageClass},
 };
+use constants::*;
 
 use awsutils::{
-    bucket::{
-        self, BUCKET_TAG_STACK_KEY, BUCKET_TAG_TYPE_KEY, Bucket, BucketPair, RequestError, Type,
-    },
-    bucket_creator::{
-        BUCKET_TAG_ORIGIN_KEY, BUCKET_TAG_ORIGIN_VAL, BucketCreator, BucketCreatorParams,
-    },
+    bucket::{self, Bucket, RequestError, Type},
+    bucket_creator::{BucketCreator, BucketCreatorParams},
     errors::S3ResultExt,
     file::{self, File},
 };
@@ -52,7 +52,7 @@ async fn create<'a>(
     Ok(creator)
 }
 
-/// Create primary and replication buckets.
+/// Arrange creation of primary and replication buckets.
 pub async fn create_pairs(
     config: &Config,
     buckets: &[BucketPair],
@@ -211,6 +211,38 @@ pub async fn list_for_stack_by_type(
     .await
 }
 
+/// Pair source buckets with their replication buckets.
+/// Returns an error if any source bucket lacks a matching replication bucket.
+pub fn make_pairs(
+    source_buckets: Vec<Bucket>,
+    replication_buckets: Vec<Bucket>,
+) -> Result<Vec<BucketPair>, BucketValidationError> {
+    let mut repl_map: HashMap<String, Bucket> = replication_buckets
+        .into_iter()
+        .filter_map(|b| {
+            let name = b.name().to_string();
+            name.strip_suffix(REPLICATION_SUFFIX)
+                .map(|base| (base.to_string(), b))
+        })
+        .collect();
+
+    source_buckets
+        .into_iter()
+        .map(|source| {
+            let source_name = source.name().to_string();
+            repl_map
+                .remove(&source_name)
+                .map(|repl| BucketPair::new(source, repl))
+                .ok_or_else(|| {
+                    BucketValidationError::ValidationError(format!(
+                        "no replication bucket found for '{}'",
+                        source_name
+                    ))
+                })
+        })
+        .collect()
+}
+
 /// Extract the name from an object key.
 /// Key format example: `reports/{date_ctx}/manifests/{bucket}.csv`
 pub fn name_from_file(file: &File) -> Result<&str, FileKeyError> {
@@ -228,7 +260,7 @@ pub async fn read_request_names(client: &Client, file: &File) -> Result<Vec<Stri
     };
 
     if let Some(ct) = r.content_type()
-        && !ct.starts_with(BUCKET_REQUEST_CONTENT_TYPE)
+        && !ct.starts_with(TEXT_PLAIN)
     {
         return Err(RequestError::InvalidContentType);
     }
@@ -263,10 +295,7 @@ fn type_from_tags(tags: &[Tag]) -> Option<Type> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apputils::{
-        bucket::MAX_BUCKETS_PER_REQUEST,
-        content_type::{APPLICATION_JSON, TEXT_PLAIN},
-    };
+    use constants::{APPLICATION_JSON, MAX_BUCKETS_PER_REQUEST, TEXT_PLAIN};
     use test_support::TestClientBuilder;
 
     fn list_buckets_xml(names: &[&str]) -> String {
@@ -509,6 +538,45 @@ mod tests {
         assert_eq!(buckets.len(), 1);
         assert_eq!(buckets[0].name(), "test-stack-bravo");
         assert_eq!(buckets[0].bucket_type(), &Type::Standard);
+    }
+
+    #[test]
+    fn test_make_pairs() {
+        let source_buckets = vec![
+            Bucket::new("alpha", Type::Standard).unwrap(),
+            Bucket::new("beta", Type::Public).unwrap(),
+        ];
+        let replication_buckets = vec![
+            Bucket::new("beta-repl", Type::Replication).unwrap(),
+            Bucket::new("alpha-repl", Type::Replication).unwrap(),
+        ];
+
+        let pairs = make_pairs(source_buckets, replication_buckets).unwrap();
+
+        assert_eq!(pairs.len(), 2);
+        assert_eq!(pairs[0].source.name(), "alpha");
+        assert_eq!(pairs[0].replication.name(), "alpha-repl");
+        assert_eq!(pairs[1].source.name(), "beta");
+        assert_eq!(pairs[1].replication.name(), "beta-repl");
+    }
+
+    #[test]
+    fn test_make_pairs_missing_replication() {
+        let source_buckets = vec![
+            Bucket::new("alpha", Type::Standard).unwrap(),
+            Bucket::new("beta", Type::Public).unwrap(),
+        ];
+        let replication_buckets = vec![
+            Bucket::new("alpha-repl", Type::Replication).unwrap(),
+            // missing beta-repl
+        ];
+
+        let result = make_pairs(source_buckets, replication_buckets);
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, BucketValidationError::ValidationError(_)));
+        assert!(err.to_string().contains("beta"));
     }
 
     #[tokio::test]

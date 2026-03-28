@@ -1,14 +1,11 @@
-use apputils::{
-    content_type::{APPLICATION_JSON, TEXT_CSV},
-    stack::DateCtx,
-    stats::VerificationStats,
-};
+use apputils::{stack::DateCtx, stats::VerificationStats};
 use awsutils::{
     batch::{BatchResultEntry, ChecksumJobReceipt},
     checksum,
     file::{self, File},
 };
 use bytes::Bytes;
+use constants::{APPLICATION_JSON, TEXT_CSV};
 
 use crate::{batch, config::Config, errors::ChecksumReportError, upload};
 

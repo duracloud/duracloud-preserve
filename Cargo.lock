@@ -82,6 +82,7 @@ dependencies = [
  "awsutils",
  "bytes",
  "chrono",
+ "constants",
  "csv",
  "futures",
  "serde_json",
@@ -99,6 +100,7 @@ dependencies = [
  "askama",
  "base64",
  "chrono",
+ "constants",
  "crc-fast",
  "csv",
  "duckdb",
@@ -967,6 +969,7 @@ dependencies = [
  "aws-smithy-types",
  "bytes",
  "chrono",
+ "constants",
  "futures",
  "http 1.4.0",
  "serde",
@@ -1085,6 +1088,7 @@ dependencies = [
  "aws-sdk-s3",
  "aws_lambda_events",
  "awsutils",
+ "constants",
  "lambda_runtime",
  "serde_json",
  "test-support",
@@ -1353,6 +1357,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "constants"
+version = "0.1.0"
+
+[[package]]
 name = "core-foundation"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1602,6 +1610,7 @@ dependencies = [
  "awsutils",
  "chrono",
  "clap",
+ "constants",
  "crc-fast",
  "serde_json",
  "shellexpand",
@@ -3743,6 +3752,7 @@ dependencies = [
  "aws-config",
  "aws-sdk-s3",
  "aws-smithy-runtime",
+ "constants",
  "http 1.4.0",
 ]
 

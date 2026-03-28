@@ -1,6 +1,7 @@
-use apputils::{content_type::TEXT_CSV, stack::DateCtx};
+use apputils::stack::DateCtx;
 use awsutils::file::{self, File};
 use bytes::Bytes;
+use constants::TEXT_CSV;
 
 use crate::{
     bucket, checksum, checksum::InventoryRow, config::Config, errors::ChecksumInventoryError,

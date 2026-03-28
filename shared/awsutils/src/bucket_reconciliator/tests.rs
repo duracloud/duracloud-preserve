@@ -440,7 +440,7 @@ fn inventory_xml(dest_bucket_arn: &str, account_id: &str) -> String {
       <AccountId>{account_id}</AccountId>
       <Bucket>{dest_bucket_arn}</Bucket>
       <Format>Parquet</Format>
-      <Prefix>{INVENTORY_PREFIX}</Prefix>
+      <Prefix>{MANIFESTS_PREFIX}</Prefix>
     </S3BucketDestination>
   </Destination>
   <OptionalFields>

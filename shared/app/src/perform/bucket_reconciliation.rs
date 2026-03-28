@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use apputils::bucket::{REPLICATION_SUFFIX, Type};
+use apputils::bucket::Type;
 use awsutils::{
     bucket_creator::BucketCreatorParams,
     bucket_reconciliator::{BucketReconciliator, ReconcileReport},
 };
+use constants::REPLICATION_SUFFIX;
 
 use crate::{bucket, config::Config, errors::BucketReconciliationError};
 

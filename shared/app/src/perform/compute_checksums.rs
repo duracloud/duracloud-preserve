@@ -1,8 +1,10 @@
 use crate::{batch, bucket as app_bucket, config::Config, errors::ComputeChecksumsError};
+use apputils::bucket::{BucketPair, Name};
 use awsutils::{
     batch::BatchError,
-    bucket::{self, Bucket, BucketPair, Name, REPLICATION_SUFFIX},
+    bucket::{self, Bucket},
 };
+use constants::REPLICATION_SUFFIX;
 use futures::future::BoxFuture;
 
 /// Trigger S3 batch compute checksum jobs
@@ -52,7 +54,7 @@ pub async fn perform(
                 }
             }
 
-            bucket::make_pairs(source_buckets, replication_buckets)
+            app_bucket::make_pairs(source_buckets, replication_buckets)
                 .map_err(ComputeChecksumsError::PairBuckets)?
         }
     };

@@ -8,10 +8,10 @@
 //!   - Run: make setup s=<stack> p=<profile>
 
 use app::{config, perform::bucket_request};
-use apputils::content_type;
 use aws_smithy_types::body::SdkBody;
 use awsutils::bucket::{self};
 use awsutils::file::{self, File};
+use constants::TEXT_PLAIN;
 
 #[tokio::test]
 #[ignore]
@@ -34,7 +34,7 @@ async fn test_perform() {
         config.s3(),
         &file,
         SdkBody::from(bucket_name.as_bytes()),
-        content_type::TEXT_PLAIN,
+        TEXT_PLAIN,
     )
     .await
     .unwrap();

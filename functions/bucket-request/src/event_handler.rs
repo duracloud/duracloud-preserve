@@ -2,9 +2,9 @@ use app::{
     config::Config,
     perform::bucket_request::{self, PerformOptions},
 };
-use apputils::stack::BUCKET_REQUEST_PREFIX;
 use aws_lambda_events::event::s3::S3Event;
 use awsutils::file::File;
+use constants::BUCKET_REQUEST_PREFIX;
 use lambda_runtime::{Error, LambdaEvent, tracing};
 
 pub(crate) async fn function_handler(

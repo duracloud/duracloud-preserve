@@ -8,14 +8,12 @@ use aws_sdk_s3::types::{
 };
 
 use apputils::Stack;
+use constants::*;
 
 use crate::bucket::{Bucket, Type};
 use crate::bucket_creator::{
-    BUCKET_TAG_TRANSITION_STORAGE_CLASS_KEY, EXPIRE_ABORTED_MULTIPART_DAYS,
-    EXPIRE_NONCURRENT_VERSION_DAYS, INVENTORY_FORMAT, INVENTORY_ID, INVENTORY_PREFIX,
-    REPLICATION_RULE_ID, REPLICATION_RULE_PRIORITY, REPLICATION_TIME_MINUTES,
-    STORAGE_CLASS_PUBLIC_DEFAULT, STORAGE_CLASS_REPLICATION_DEFAULT,
-    STORAGE_CLASS_STANDARD_DEFAULT, STORAGE_TRANSITION_DAYS,
+    INVENTORY_FORMAT, STORAGE_CLASS_PUBLIC_DEFAULT, STORAGE_CLASS_REPLICATION_DEFAULT,
+    STORAGE_CLASS_STANDARD_DEFAULT,
 };
 
 pub use crate::bucket_creator::BucketCreatorParams;
@@ -528,7 +526,7 @@ impl<'a> BucketReconciliator<'a> {
                         .is_some_and(|d| {
                             d.bucket() == managed_bucket_arn.as_str()
                                 && d.format() == &INVENTORY_FORMAT
-                                && d.prefix() == Some(INVENTORY_PREFIX)
+                                && d.prefix() == Some(MANIFESTS_PREFIX)
                                 && d.account_id() == Some(self.account_id)
                         })
                     && inv

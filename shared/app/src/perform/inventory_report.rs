@@ -1,7 +1,7 @@
-use apputils::content_type::{APPLICATION_JSON, TEXT_CSV};
 use apputils::stack::DateCtx;
 use apputils::stats::InventoryStats;
 use bytes::Bytes;
+use constants::{APPLICATION_JSON, TEXT_CSV};
 
 use awsutils::{
     bucket_creator::INVENTORY_FORMAT,

@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 use apputils::{
     bucket::Type,
-    content_type::{APPLICATION_JSON, TEXT_HTML},
     stack::DateCtx,
     stats::InventoryStats,
     storage::{StorageReport, StorageReportMeta},
@@ -10,6 +9,7 @@ use apputils::{
 use awsutils::file::{self, File};
 use bytes::Bytes;
 use chrono::Utc;
+use constants::{APPLICATION_JSON, TEXT_HTML};
 
 use crate::{bucket, config::Config, errors::StorageReportError, upload};
 

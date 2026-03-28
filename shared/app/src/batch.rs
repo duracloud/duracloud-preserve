@@ -1,5 +1,6 @@
-use apputils::{content_type::APPLICATION_JSON, stack::DateCtx};
+use apputils::stack::DateCtx;
 use aws_sdk_s3control::types::JobStatus;
+use constants::APPLICATION_JSON;
 
 use awsutils::{
     batch::{self as aws_batch, BatchManifest, ChecksumJobReceipt},

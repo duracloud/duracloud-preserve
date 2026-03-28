@@ -82,6 +82,12 @@ impl ChecksumJobReceipt {
     }
 }
 
+#[derive(Debug)]
+pub struct ReadyManifests {
+    pub source_results: Vec<BatchResultEntry>,
+    pub replication_results: Vec<BatchResultEntry>,
+}
+
 struct JobParams<'a> {
     config: &'a BatchConfig<'a>,
     job_type: &'a str,

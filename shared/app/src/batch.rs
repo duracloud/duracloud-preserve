@@ -3,7 +3,7 @@ use aws_sdk_s3control::types::JobStatus;
 use constants::APPLICATION_JSON;
 
 use awsutils::{
-    batch::{self as aws_batch, BatchManifest, ChecksumJobReceipt},
+    batch::{self as aws_batch, BatchManifest, ChecksumJobReceipt, ReadyManifests},
     bucket::Bucket,
     file::{self, File},
 };
@@ -74,6 +74,32 @@ pub async fn get_job_status(config: &Config, job_id: &str) -> Result<JobStatus, 
         .ok_or(BatchStatusError::MissingStatus(job_id.to_string()))?;
 
     Ok(status)
+}
+
+/// Resolve both source and replication manifests for a checksum job receipt.
+/// Returns `None` if either job is not yet complete.
+pub async fn resolve_ready_manifests(
+    config: &Config,
+    receipt: &ChecksumJobReceipt,
+) -> Result<Option<ReadyManifests>, BatchStatusError> {
+    let Some(source) = get_manifest(config, &receipt.source_bucket, &receipt.source_job_id).await?
+    else {
+        tracing::info!("Source job {} not ready yet", receipt.source_job_id);
+        return Ok(None);
+    };
+
+    tracing::info!("Source job file found: {:?}", &source);
+
+    let Some(repl) = get_manifest(config, &receipt.repl_bucket, &receipt.repl_job_id).await? else {
+        tracing::info!("Replication job {} not ready yet", receipt.repl_job_id);
+        return Ok(None);
+    };
+
+    tracing::info!("Replication job file found: {:?}", &repl);
+    Ok(Some(ReadyManifests {
+        source_results: source.results,
+        replication_results: repl.results,
+    }))
 }
 
 /// Trigger compute checksum jobs for source and replication bucket pair

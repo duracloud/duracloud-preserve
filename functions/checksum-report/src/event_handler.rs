@@ -1,25 +1,11 @@
 use app::{config::Config, perform::checksum_report};
 use aws_lambda_events::event::cloudwatch_events::CloudWatchEvent;
-use awsutils::file::{self, File};
+use awsutils::{
+    batch::S3BatchJobDetail,
+    file::{self, File},
+};
 use base::stack::DateCtx;
 use lambda_runtime::{Error, LambdaEvent, tracing};
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct S3BatchJobDetail {
-    pub service_event_details: S3BatchJobStatusChange,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct S3BatchJobStatusChange {
-    pub job_id: String,
-    pub job_arn: String,
-    pub status: String,
-    pub failure_codes: Vec<String>,
-    pub status_change_reason: Vec<String>,
-}
 
 pub(crate) async fn function_handler(
     config: &Config,

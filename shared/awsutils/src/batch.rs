@@ -88,43 +88,6 @@ impl ChecksumJobReceipt {
     }
 }
 
-#[derive(Debug)]
-pub struct ReadyManifests {
-    pub source_results: Vec<BatchResultEntry>,
-    pub replication_results: Vec<BatchResultEntry>,
-}
-
-/// Dispatch a job for each bucket pair, collecting all receipts.
-/// Returns `Err` with formatted error messages if any pair fails.
-pub async fn dispatch_bucket_pair_jobs<'a, F, E>(
-    bucket_pairs: &'a [BucketPair],
-    trigger: F,
-) -> Result<Vec<String>, Vec<String>>
-where
-    F: Fn(&'a Bucket, &'a Bucket) -> BoxFuture<'a, Result<Vec<String>, E>>,
-    E: std::fmt::Display,
-{
-    let mut receipts = vec![];
-    let mut issues = vec![];
-
-    for BucketPair {
-        source,
-        replication,
-    } in bucket_pairs
-    {
-        match trigger(source, replication).await {
-            Ok(urls) => receipts.extend(urls),
-            Err(e) => issues.push(format!("{}: {e}", source.name())),
-        }
-    }
-
-    if issues.is_empty() {
-        Ok(receipts)
-    } else {
-        Err(issues)
-    }
-}
-
 struct JobParams<'a> {
     config: &'a BatchConfig<'a>,
     job_type: &'a str,
@@ -132,6 +95,28 @@ struct JobParams<'a> {
     operation: JobOperation,
     manifest_generator: JobManifestGenerator,
     report: JobReport,
+}
+
+#[derive(Debug)]
+pub struct ReadyManifests {
+    pub source_results: Vec<BatchResultEntry>,
+    pub replication_results: Vec<BatchResultEntry>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct S3BatchJobDetail {
+    pub service_event_details: S3BatchJobStatusChange,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct S3BatchJobStatusChange {
+    pub job_id: String,
+    pub job_arn: String,
+    pub status: String,
+    pub failure_codes: Vec<String>,
+    pub status_change_reason: Vec<String>,
 }
 
 pub async fn create_checksum_job(
@@ -194,6 +179,37 @@ pub async fn create_copy_job(
         report,
     })
     .await
+}
+
+/// Dispatch a job for each bucket pair, collecting all receipts.
+/// Returns `Err` with formatted error messages if any pair fails.
+pub async fn dispatch_bucket_pair_jobs<'a, F, E>(
+    bucket_pairs: &'a [BucketPair],
+    trigger: F,
+) -> Result<Vec<String>, Vec<String>>
+where
+    F: Fn(&'a Bucket, &'a Bucket) -> BoxFuture<'a, Result<Vec<String>, E>>,
+    E: std::fmt::Display,
+{
+    let mut receipts = vec![];
+    let mut issues = vec![];
+
+    for BucketPair {
+        source,
+        replication,
+    } in bucket_pairs
+    {
+        match trigger(source, replication).await {
+            Ok(urls) => receipts.extend(urls),
+            Err(e) => issues.push(format!("{}: {e}", source.name())),
+        }
+    }
+
+    if issues.is_empty() {
+        Ok(receipts)
+    } else {
+        Err(issues)
+    }
 }
 
 fn build_manifest(

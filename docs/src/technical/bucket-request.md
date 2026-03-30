@@ -1,49 +1,65 @@
 # bucket-request
 
-- Lambda triggered by: s3 event (user uploaded file)
-- Dependencies: None
+- **Lambda trigger:** S3 event (fires when a user uploads a file to the request bucket)
+- **Dependencies:** None
 
 ## Overview
 
-This function is used to create s3 buckets with [prefab configuration](#).
-To do this, a text file is uploaded to `${stack}-bucket-request` then
-downloaded for processing (either locally or in Lambda).
+This Lambda function creates S3 buckets with [prefab configuration](#) based on a list of bucket names provided in a plain text file.
 
-## CLI testing
-
+**Example buckets.txt**
 ```bash
-make run-bucket-request f=files/buckets.txt s=digipress-dev1 p=default
+manuscripts
+newspapers
+rare-books
 ```
 
-- `f=` is the path to a local file that contains [bucket names](#).
+The workflow is:
+1. A text file containing bucket names is uploaded to the S3 bucket named `${stack}-bucket-request`
+2. The Lambda function is triggered by the upload event
+3. The file is downloaded and processed — either locally (for development/testing) or inside Lambda (for remote execution)
+4. Buckets are created according to the prefab configuration if they don't already exist
 
-You can also specify a single bucket name using:
+## CLI Testing
 
+Use `make run-bucket-request` to process a file locally without uploading to S3:
+```bash
+make run-bucket-request f=files/buckets.txt s=digipres-dev1 p=default
+```
+
+- `f=` — path to a local file containing [bucket names](#)
+- `s=` — the stack name (used as a prefix for created buckets)
+- `p=` — the AWS profile to use
+
+You can also create a single bucket by name without a file, using the `cargo` CLI directly:
 ```bash
 cargo run -p duracloud -- bucket-request --stack=digipres-dev1 --name=rare-books
 ```
 
-## Remote testing
+This is useful for one-off bucket creation or quick iteration without maintaining a file.
 
+## Remote Testing
+
+Use `make upload` to upload a file to S3 and trigger the Lambda function as it would run in production:
 ```bash
 make upload b=digipress-dev1-bucket-request f=files/buckets.txt p=default
 ```
 
-- `f=` is the path to a local file that contains [bucket names](#).
+- `b=` — the name of the S3 request bucket (typically `${stack}-bucket-request`)
+- `f=` — path to the local file containing [bucket names](#)
+- `p=` — the AWS profile to use
 
 ## Output
 
-Give the example file `files/buckets.txt` two buckets should be created
-(assuming they do not already exist).
+Given the example file `files/buckets.txt`, two buckets should be created (assuming they do not already exist):
 
-- `digipres-dev1-private` (private s3 bucket)
-- `digipres-dev1-private-repl` (private s3 bucket replication destination)
+- `digipres-dev1-private` — private S3 bucket
+- `digipres-dev1-private-repl` — private S3 bucket used as the replication destination for the above
 
-You can view these using:
-
+You can verify the buckets were created using:
 ```bash
 make bucket a=list p=default
-# or with grep to filter by stack
+# Filter results by stack name using grep
 make bucket a=list p=default | grep digipres-dev1
 ```
 

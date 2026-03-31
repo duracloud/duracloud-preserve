@@ -469,6 +469,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-sdk-account"
+version = "1.100.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bbc75bcce5b26fe7e2f37f9ebb51e934cad915924f7c0b88eb48ed07faeeba1"
+dependencies = [
+ "aws-credential-types",
+ "aws-runtime",
+ "aws-smithy-async",
+ "aws-smithy-http",
+ "aws-smithy-json",
+ "aws-smithy-observability",
+ "aws-smithy-runtime",
+ "aws-smithy-runtime-api",
+ "aws-smithy-types",
+ "aws-types",
+ "bytes",
+ "fastrand",
+ "http 0.2.12",
+ "http 1.4.0",
+ "regex-lite",
+ "tracing",
+]
+
+[[package]]
 name = "aws-sdk-iam"
 version = "1.107.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -940,6 +964,7 @@ name = "awsutils"
 version = "0.1.0"
 dependencies = [
  "aws-config",
+ "aws-sdk-account",
  "aws-sdk-iam",
  "aws-sdk-s3",
  "aws-sdk-s3control",

@@ -9,6 +9,7 @@ use crate::stats::{BucketStats, InventoryStats};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageReportHeader {
+    pub owner: String,
     pub stack_name: String,
     pub generated_at: String,
     pub storage_capacity_bytes: Option<u64>,
@@ -34,6 +35,7 @@ pub struct StorageReport {
 #[derive(Template)]
 #[template(path = "storage_report.html")]
 struct StorageReportView {
+    owner: String,
     stack_name: String,
     generated_at: String,
     total_files: u64,
@@ -189,6 +191,7 @@ impl StorageReportView {
         );
 
         Self {
+            owner: header.owner.clone(),
             stack_name: header.stack_name.clone(),
             generated_at: header.generated_at.clone(),
             total_files: data.total_files,
@@ -231,6 +234,7 @@ mod tests {
 
     fn test_header(storage_capacity_bytes: Option<u64>) -> StorageReportHeader {
         StorageReportHeader {
+            owner: "Example Owner".to_string(),
             stack_name: "test-stack".to_string(),
             generated_at: "2026-03-06T00:00:00Z".to_string(),
             storage_capacity_bytes,
@@ -375,6 +379,8 @@ mod tests {
         let report = test_report(None);
         let html = report.to_html().unwrap();
 
+        assert!(html.contains("<title>Example Owner Storage Report</title>"));
+        assert!(html.contains("<h1>Example Owner Storage Report</h1>"));
         assert!(html.contains("Stack: test-stack"));
         assert!(html.contains("Generated: 2026-03-06T00:00:00Z"));
         assert!(html.contains("1. Big Picture"));
@@ -446,5 +452,20 @@ mod tests {
         assert!(!html.contains("KiB"));
         assert!(!html.contains("MiB"));
         assert!(!html.contains("GiB"));
+    }
+
+    #[test]
+    fn test_storage_report_serializes_flat_owner_and_header_fields() {
+        let report = test_report(Some(200_000_000));
+        let json = serde_json::to_value(&report).unwrap();
+
+        assert_eq!(json["owner"], "Example Owner");
+        assert_eq!(json["stack_name"], "test-stack");
+        assert_eq!(json["generated_at"], "2026-03-06T00:00:00Z");
+        assert_eq!(json["storage_capacity_bytes"], 200_000_000);
+        assert_eq!(json["total_files"], 30);
+        assert_eq!(json["total_size"], 100_000_000);
+        assert!(json.get("header").is_none());
+        assert!(json.get("data").is_none());
     }
 }

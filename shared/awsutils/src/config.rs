@@ -21,6 +21,25 @@ pub async fn get_account_id(config: &SdkConfig) -> Result<String, RequestError> 
         .ok_or_else(|| RequestError::ConfigError("no account ID in caller identity".to_string()))
 }
 
+/// Get the AWS account name for the current caller's account.
+pub async fn get_account_name(config: &SdkConfig) -> Result<String, RequestError> {
+    let account_client = aws_sdk_account::Client::new(config);
+    let account = account_client
+        .get_account_information()
+        .send()
+        .await
+        .map_err(|e| {
+            RequestError::ConfigError(format!("failed to get account information: {}", e))
+        })?;
+
+    account
+        .account_name()
+        .map(|s| s.to_string())
+        .ok_or_else(|| {
+            RequestError::ConfigError("no account name in account information".to_string())
+        })
+}
+
 /// Extract the region from AWS S3 client configuration.
 pub fn get_region(client: &aws_sdk_s3::Client) -> Result<String, RequestError> {
     client
@@ -110,6 +129,45 @@ mod tests {
             .expect("get_account_id should succeed");
 
         assert_eq!(account_id, "123456789012");
+    }
+
+    #[tokio::test]
+    async fn test_get_account_name_returns_account_name() {
+        let body = r#"{"AccountCreatedDate":"2024-01-01T00:00:00Z","AccountId":"123456789012","AccountName":"Example Owner"}"#;
+        let (sdk_config, _replay) = mock_sdk_config(replay_event_with_content_type(
+            "https://account.us-east-1.amazonaws.com/",
+            200,
+            body,
+            Some("application/x-amz-json-1.1"),
+        ));
+
+        let account_name = get_account_name(&sdk_config)
+            .await
+            .expect("get_account_name should succeed");
+
+        assert_eq!(account_name, "Example Owner");
+    }
+
+    #[tokio::test]
+    async fn test_get_account_name_maps_lookup_failures_to_config_error() {
+        let body = r#"{"__type":"AccessDeniedException","message":"not authorized"}"#;
+        let (sdk_config, _replay) = mock_sdk_config(replay_event_with_content_type(
+            "https://account.us-east-1.amazonaws.com/",
+            403,
+            body,
+            Some("application/x-amz-json-1.1"),
+        ));
+
+        let err = get_account_name(&sdk_config)
+            .await
+            .expect_err("account lookup should return an error");
+
+        match err {
+            RequestError::ConfigError(message) => {
+                assert!(message.contains("failed to get account information"));
+            }
+            other => panic!("unexpected error variant: {other:?}"),
+        }
     }
 
     #[tokio::test]

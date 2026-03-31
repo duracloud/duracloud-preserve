@@ -60,6 +60,7 @@ pub async fn perform(
     }
 
     let header = StorageReportHeader {
+        owner: config.owner().to_string(),
         stack_name: config.stack().as_str().to_string(),
         generated_at: Utc::now().format("%m/%d/%Y %H:%M:%S UTC").to_string(),
         storage_capacity_bytes: opts.storage_capacity_bytes,

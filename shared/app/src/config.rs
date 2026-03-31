@@ -26,6 +26,7 @@ pub struct Config {
     account_id: String,
     clients: Clients,
     pub debug_handler: bool,
+    owner: String,
     roles: Roles,
     sdk_config: SdkConfig,
     stack: Stack,
@@ -37,6 +38,7 @@ impl std::fmt::Debug for Config {
         f.debug_struct("Config")
             .field("account_id", &self.account_id)
             .field("debug_handler", &self.debug_handler)
+            .field("owner", &self.owner)
             .field("roles", &self.roles)
             .field("stack", &self.stack)
             .finish_non_exhaustive()
@@ -47,6 +49,7 @@ impl Config {
     pub fn new(
         sdk_config: SdkConfig,
         account_id: String,
+        owner: String,
         roles: Roles,
         stack: Stack,
         storage_capacity: u64,
@@ -56,6 +59,7 @@ impl Config {
         Self {
             account_id,
             debug_handler,
+            owner,
             roles,
             stack,
             clients,
@@ -76,6 +80,7 @@ impl Config {
         Self {
             account_id: "123456789".to_string(),
             debug_handler,
+            owner: "Test Owner".to_string(),
             roles,
             stack,
             clients,
@@ -90,6 +95,10 @@ impl Config {
 
     pub fn batch_role_arn(&self) -> &str {
         &self.roles.batch
+    }
+
+    pub fn owner(&self) -> &str {
+        &self.owner
     }
 
     pub fn replication_role_arn(&self) -> &str {
@@ -141,9 +150,10 @@ pub async fn load(stack: Stack) -> Result<Config, RequestError> {
     let storage_capacity_param_name = stack.storage_capacity_param_name();
     let replication_role_name = stack.replication_role_name();
 
-    let (batch_role, replication_role, storage_capacity) = tokio::try_join!(
+    let (batch_role, replication_role, owner, storage_capacity) = tokio::try_join!(
         aws_config_utils::get_role_arn(&sdk_config, &batch_role_name),
         aws_config_utils::get_role_arn(&sdk_config, &replication_role_name),
+        aws_config_utils::get_account_name(&sdk_config),
         aws_config_utils::get_parameter(&sdk_config, &storage_capacity_param_name),
     )?;
 
@@ -159,6 +169,7 @@ pub async fn load(stack: Stack) -> Result<Config, RequestError> {
     Ok(Config::new(
         sdk_config,
         account_id,
+        owner,
         roles,
         stack,
         storage_capacity,

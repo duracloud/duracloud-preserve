@@ -11,6 +11,7 @@ data "aws_iam_policy_document" "storage_report" {
   statement {
     effect = "Allow"
     actions = [
+      "account:GetAccountInformation",
       "s3:ListAllMyBuckets",
       "s3:GetBucketTagging",
     ]

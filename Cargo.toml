@@ -47,7 +47,7 @@ tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread"] }
 http = "1.4.0"
 
 # Templating
-askama = "0.15.4"
+askama = "0.15.6"
 
 # Time
 chrono = "0.4.44"

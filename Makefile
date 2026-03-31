@@ -57,6 +57,11 @@ job: ## Lookup job by id (make job i=id p=profile)
 	    --account-id $$(AWS_PROFILE=$(p) aws sts get-caller-identity --query 'Account' --output text) \
 	    --job-id $(i)
 
+.PHONY: job-by-checksum-receipt
+job-by-checksum-receipt: ## Lookup job by checksum receipt (make job-by-checksum-receipt b=bucket p=profile)
+	@stack="$(b)"; stack="$${stack%-*}"; \
+	    $(MAKE) job i=$$(AWS_PROFILE=$(p) aws s3 cp s3://$${stack}-managed/metadata/latest/checksums/receipts/$(b).json - | jq -r .repl_job_id) p=$(p)
+
 .PHONY: reset
 reset: ## Reset (empty) stack buckets (make reset s=stack p=profile)
 	@AWS_PROFILE=$(p) cargo run -p duracloud -- reset --stack=$(s)

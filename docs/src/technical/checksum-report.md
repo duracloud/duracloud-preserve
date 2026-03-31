@@ -37,18 +37,7 @@ When a compute checksum job completes, it automatically triggers checksum report
 
 #### Tracking job status
 ```bash
-export AWS_PROFILE=default
-export RECEIPT=digipres-dev1-private.json
-
-# Download the job receipt
-aws s3 cp \
-    s3://digipres-dev1-managed/metadata/latest/checksums/${RECEIPT} .
-
-# Check job status
-aws s3control describe-job \
-    --account-id $(aws sts get-caller-identity --query 'Account' --output text) \
-    --job-id $(cat ${RECEIPT} | jq -r .repl_job_id) \
-    | jq '{JobId: .Job.JobId, Status: .Job.Status}'
+make job-by-checksum-receipt b=digipres-dev1-private p=default
 ```
 
 A status of `"Active"` means the job is still running.

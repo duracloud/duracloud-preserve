@@ -13,7 +13,7 @@ chrono.workspace = true
 constants.workspace = true
 crc-fast = "1"
 csv = { workspace = true, optional = true }
-duckdb = { version = "1.10500", features = [
+duckdb = { version = "1.10501", features = [
   "bundled",
   "json",
   "parquet",

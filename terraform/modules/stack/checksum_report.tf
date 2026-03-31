@@ -13,8 +13,8 @@ data "aws_iam_policy_document" "checksum_report" {
     ]
     resources = [
       "${aws_s3_bucket.main["managed"].arn}/${local.metadata_prefix}/*",
-      "${aws_s3_bucket.main["managed"].arn}/${local.batch_prefix}/reports/checksum/*",
-      "${aws_s3_bucket.main["managed"].arn}/${local.batch_prefix}/manifests/checksum/*",
+      "${aws_s3_bucket.main["managed"].arn}/${local.batch_checksum_prefix}/*",
+      "${aws_s3_bucket.main["managed"].arn}/${local.batch_manifest_prefix}/*",
     ]
   }
 

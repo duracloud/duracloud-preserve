@@ -1,11 +1,11 @@
 locals {
   # "Public" bucket pair for cloudfront: primary + replication target
   public_bucket = {
-    noncurrent_days      = 14
+    noncurrent_days      = local.expire_noncurrent_version_days
     storage_class        = "INTELLIGENT_TIERING"
-    transition_days      = 7
+    transition_days      = local.storage_transition_days
     repl_storage_class   = "DEEP_ARCHIVE"
-    repl_transition_days = 7
+    repl_transition_days = local.storage_transition_days
   }
 }
 
@@ -15,9 +15,9 @@ resource "aws_s3_bucket" "public" {
   force_destroy = true
 
   tags = {
-    BucketOrigin = local.bucket_origin
-    BucketType   = "public"
-    Stack        = local.stack
+    (local.bucket_tag_origin_key) = local.bucket_origin
+    (local.bucket_tag_type_key)   = "public"
+    (local.bucket_tag_stack_key)  = local.stack
   }
 }
 
@@ -26,9 +26,9 @@ resource "aws_s3_bucket" "public_repl" {
   force_destroy = true
 
   tags = {
-    BucketOrigin = local.bucket_origin
-    BucketType   = "replication"
-    Stack        = local.stack
+    (local.bucket_tag_origin_key) = local.bucket_origin
+    (local.bucket_tag_type_key)   = "replication"
+    (local.bucket_tag_stack_key)  = local.stack
   }
 }
 
@@ -60,7 +60,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "public" {
     }
 
     abort_incomplete_multipart_upload {
-      days_after_initiation = 3
+      days_after_initiation = local.expire_aborted_multipart_days
     }
 
     expiration {
@@ -99,7 +99,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "public_repl" {
     }
 
     abort_incomplete_multipart_upload {
-      days_after_initiation = 3
+      days_after_initiation = local.expire_aborted_multipart_days
     }
 
     expiration {
@@ -128,7 +128,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "public_repl" {
 
 resource "aws_s3_bucket_inventory" "public" {
   bucket = aws_s3_bucket.public.id
-  name   = "inventory"
+  name   = local.inventory_id
 
   included_object_versions = "Current"
 
@@ -141,7 +141,7 @@ resource "aws_s3_bucket_inventory" "public" {
       account_id = local.account_id
       bucket_arn = aws_s3_bucket.main["managed"].arn
       format     = "Parquet"
-      prefix     = local.inventory_prefix
+      prefix     = local.manifests_prefix
     }
   }
 
@@ -163,9 +163,9 @@ resource "aws_s3_bucket_replication_configuration" "public" {
   role   = aws_iam_role.replication.arn
 
   rule {
-    id       = "ReplicateAll"
+    id       = local.replication_rule_id
     status   = "Enabled"
-    priority = 1
+    priority = local.replication_rule_priority
 
     filter {
       prefix = ""
@@ -177,14 +177,14 @@ resource "aws_s3_bucket_replication_configuration" "public" {
       replication_time {
         status = "Enabled"
         time {
-          minutes = 15
+          minutes = local.replication_time_minutes
         }
       }
 
       metrics {
         status = "Enabled"
         event_threshold {
-          minutes = 15
+          minutes = local.replication_time_minutes
         }
       }
     }

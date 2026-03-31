@@ -1,6 +1,8 @@
 # Storage report policy, permissions and notifications
 locals {
-  deploy_storage_report = contains(keys(local.functions), "storage-report") ? { "storage-report" = {} } : {}
+  deploy_storage_report       = contains(keys(local.functions), "storage-report") ? { "storage-report" = {} } : {}
+  storage_capacity            = var.storage_capacity
+  storage_capacity_param_name = "${local.stack}${local.storage_capacity_suffix}"
 }
 
 data "aws_iam_policy_document" "storage_report" {

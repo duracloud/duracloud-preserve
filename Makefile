@@ -31,7 +31,7 @@ ci: test ## Run the ci checks locally
 	@cargo audit
 
 .PHONY: deploy
-deploy: build-lambda-release ## Deploy all resources including functions (make deploy s=stack p=profile)
+deploy: locals build-lambda-release ## Deploy all resources including functions (make deploy s=stack p=profile)
 	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) TF_VAR_deploy=true terraform apply
 
 .PHONY: docs
@@ -43,9 +43,9 @@ event: ## Generate event file from sample (make event f=function s=stack)
 	@mkdir -p payloads
 	@sed 's/test-stack/$(s)/g' functions/$(f)/events/sample.json > payloads/$(f).json
 
-.PHONY: help
-help:
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'
+.PHONY: locals
+locals: ## Generate _locals.tf from Rust constants (make locals)
+	@./scripts/gen-locals.sh
 
 .PHONY: invoke
 invoke: ## Invoke lambda function (make invoke f=function e=event)
@@ -82,7 +82,7 @@ run-storage-report: ## Run run-storage-report cli (make run-storage-report s=sta
 	@AWS_PROFILE=$(p) cargo run -p duracloud -- storage-report --stack=$(s)
 
 .PHONY: setup
-setup: ## Create base infrastructure (make setup s=stack p=profile)
+setup: locals ## Create base infrastructure (make setup s=stack p=profile)
 	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) terraform init -upgrade
 	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) terraform apply
 
@@ -105,3 +105,8 @@ test-integration: ## Run integration tests, makes AWS calls (make test-integrati
 .PHONY: upload
 upload: ## Upload a file to a bucket (make upload b=bucket [d=dir] f=file p=profile)
 	@AWS_PROFILE=$(p) aws s3 cp $(f) s3://$(b)$(if $(d),/$(d))/$(f)
+
+# Last, to handle syntax highlighting wonkiness
+.PHONY: help
+help:
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'

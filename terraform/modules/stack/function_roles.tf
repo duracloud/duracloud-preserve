@@ -1,4 +1,10 @@
 # Batch Operations Role - used for S3 Batch Operations jobs
+locals {
+  # names derived from generated constants (_locals.tf)
+  batch_role_name       = "${local.stack}${local.batch_role_suffix}"
+  replication_role_name = "${local.stack}${local.replication_role_suffix}"
+}
+
 data "aws_iam_policy_document" "batch_assume_role" {
   statement {
     effect  = "Allow"

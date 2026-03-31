@@ -21,7 +21,7 @@ output "replication_role_arn" {
 
 output "request_bucket_name" {
   description = "Name of the request bucket"
-  value       = aws_s3_bucket.main["bucket-request"].id
+  value       = aws_s3_bucket.main["request"].id
 }
 
 # DNS validation records for another account to create

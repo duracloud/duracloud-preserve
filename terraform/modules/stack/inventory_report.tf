@@ -9,7 +9,7 @@ data "aws_iam_policy_document" "inventory_report" {
   statement {
     effect    = "Allow"
     actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.main["managed"].arn}/${local.inventory_prefix}/*"]
+    resources = ["${aws_s3_bucket.main["managed"].arn}/${local.manifests_prefix}/*"]
   }
 
   statement {

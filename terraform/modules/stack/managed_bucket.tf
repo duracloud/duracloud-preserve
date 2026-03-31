@@ -11,7 +11,7 @@ data "aws_iam_policy_document" "managed_bucket" {
     effect  = "Allow"
     actions = ["s3:PutObject"]
     resources = [
-      "${aws_s3_bucket.main["managed"].arn}/${local.inventory_prefix}/*"
+      "${aws_s3_bucket.main["managed"].arn}/${local.manifests_prefix}/*"
     ]
 
     principals {
@@ -140,7 +140,7 @@ resource "aws_s3_bucket_notification" "managed" {
   lambda_function {
     lambda_function_arn = aws_lambda_function.main[each.key].arn
     events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = "${local.inventory_prefix}/"
+    filter_prefix       = "${local.manifests_prefix}/"
     filter_suffix       = "manifest.json"
   }
 

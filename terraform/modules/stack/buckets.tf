@@ -17,9 +17,9 @@ resource "aws_s3_bucket" "main" {
 
   # c.f. bucket_creator.rs
   tags = {
-    BucketOrigin = local.bucket_origin
-    BucketType   = local.bucket_type
-    Stack        = local.stack
+    (local.bucket_tag_origin_key) = local.bucket_origin
+    (local.bucket_tag_type_key)   = local.bucket_type
+    (local.bucket_tag_stack_key)  = local.stack
   }
 }
 

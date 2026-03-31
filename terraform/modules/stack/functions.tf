@@ -31,7 +31,7 @@ resource "aws_lambda_function" "main" {
 
   environment {
     variables = merge(
-      { NAME = local.name, STACK = local.stack },
+      { STACK = local.stack },
       each.value.env
     )
   }
@@ -48,27 +48,6 @@ resource "aws_cloudwatch_log_group" "main" {
   name              = "/aws/lambda/${local.stack}-${each.key}"
   retention_in_days = 7
 }
-
-# resource "aws_cloudwatch_metric_alarm" "main" {
-#   for_each = local.functions
-
-#   alarm_name          = "${local.stack}-${each.key}-alarm"
-#   comparison_operator = "GreaterThanThreshold"
-#   evaluation_periods  = "1"
-#   metric_name         = "Errors"
-#   namespace           = "AWS/Lambda"
-#   period              = "300"
-#   statistic           = "Sum"
-#   threshold           = "0"
-#   alarm_description   = "Error processing ${local.stack} ${each.key}"
-#   treat_missing_data  = "notBreaching"
-
-#   dimensions = {
-#     FunctionName = aws_lambda_function.main[each.key].function_name
-#   }
-
-#   alarm_actions = []
-# }
 
 data "aws_iam_policy_document" "lambda_assume_role" {
   statement {
@@ -97,6 +76,12 @@ resource "aws_iam_role_policy_attachment" "lambda" {
 }
 
 data "aws_iam_policy_document" "config_access" {
+  statement {
+    effect    = "Allow"
+    actions   = ["account:GetAccountInformation"]
+    resources = ["*"]
+  }
+
   statement {
     effect    = "Allow"
     actions   = ["iam:GetRole"]

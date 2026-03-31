@@ -80,11 +80,6 @@ variable "functions" {
   default = {}
 }
 
-variable "name" {
-  description = "Friendly name to asscociate with this stack (i.e. Lyrasis)"
-  type        = string
-}
-
 variable "stack" {
   description = "Stack name (prefix for resources)"
   type        = string

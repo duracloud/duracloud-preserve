@@ -8,11 +8,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
-
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
   }
 }
 
@@ -23,19 +18,10 @@ provider "aws" {
   region = "us-east-1" # for cloudfront
 }
 
-resource "random_pet" "name" {
-  count = var.name == null ? 1 : 0
-}
-
 variable "cloudfront_domain" { default = "" }
 variable "cloudfront_enabled" { default = true }
 variable "deploy" { default = false }
-variable "name" { default = null }
 variable "stack" {}
-
-locals {
-  name = coalesce(var.name, one(random_pet.name[*].id))
-}
 
 locals {
   deploy = var.deploy
@@ -78,7 +64,6 @@ module "stack" {
   cloudfront_domain  = var.cloudfront_domain
   cloudfront_enabled = var.cloudfront_enabled
   deploy_functions   = var.deploy
-  name               = local.name
   stack              = local.stack
   storage_capacity   = pow(10, 12) # 1TB
 

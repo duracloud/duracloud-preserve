@@ -29,6 +29,7 @@ ci: test ## Run the ci checks locally
 	@cargo fmt -- --check
 	@cargo clippy --workspace --all-features -- -D warnings
 	@cargo audit
+	@terraform fmt .
 
 .PHONY: deploy
 deploy: locals build-lambda-release ## Deploy all resources including functions (make deploy s=stack p=profile)

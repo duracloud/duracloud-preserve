@@ -23,14 +23,16 @@ To create a **publicly accessible bucket**, the name must end with `-public`.
 ## Reserved Prefixes and Suffixes
 The following **cannot** be used in bucket names:
 - `duracloud-` — already included as the foremost prefix
-- `-bucket-requested` — used for bucket request files
 - `-logs` — used for access logging buckets
 - `-managed` — used for system-managed buckets (reports, logs, and other system data appear here)
 - `-repl` — used for replication target buckets (Amazon Glacier replication)
+- `-request` — used for bucket request files
 
 ## Steps
 1. Open a text editor (such as Notepad or Notepad++) and decide on your bucket names.
-2. Upload your text file to the `duracloud-$ID-bucket-requested` bucket.
+2. Upload your text file to the `duracloud-$ID-request` bucket, inside the `bucket-request` folder.
+   - If the `bucket-request` folder does not exist then create it first.
+   - Buckets can only be created from files uploaded to the `bucket-request` folder in the request bucket.
 3. The file will be processed in the background and an attempt will be made to create each bucket.
    - Processing normally takes **0–2 minutes**.
 4. A report file will be uploaded to the `logs` folder inside the `-managed` bucket, providing details about the outcome.
@@ -48,5 +50,5 @@ The following **cannot** be used in bucket names:
 > If you're using Cyberduck or another GUI client, the client may ask you to confirm that you wish to overwrite the existing `.txt` file if re-using the original file (option 1 in Step 8).
 
 ## Troubleshooting
-- If you do not see any new buckets created, check the logs in the `$ID-managed` bucket for error messages.
+- If you do not see any new buckets created, check the logs in the `$ID-managed` bucket `feedback` folder for error messages.
 - If you attempt to create multiple buckets at one time and one bucket has an error (for example, the name is too long or you attempted to create more than five buckets), **none of the buckets will be created**. You must correct the issue and start again for all buckets.

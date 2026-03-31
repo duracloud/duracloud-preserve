@@ -57,6 +57,12 @@ variable "deploy_functions" {
   default     = false
 }
 
+variable "emails_to_notify" {
+  description = "Email addresses that will receive metric alarm notifications"
+  type        = list(string)
+  default     = []
+}
+
 variable "functions" {
   description = "Function configurations"
   type = map(object({

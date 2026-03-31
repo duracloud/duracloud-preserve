@@ -10,21 +10,51 @@ variable "billing_alert_threshold" {
 }
 
 variable "cert_ready" {
-  description = "Set to true after the ACM certificate has been validated (if using domain)"
+  description = "Set to true after the ACM certificate has been validated (if using cloudfront domain)"
   type        = bool
   default     = false
+}
+
+variable "cloudfront_enabled" {
+  description = "Enable CloudFront distribution for public file access"
+  type        = bool
+  default     = false
+}
+
+variable "cloudfront_domain" {
+  description = "The domain that will be used with CloudFront for public file access"
+  type        = string
+  default     = ""
+}
+
+variable "cloudfront_geo_restriction_type" {
+  description = "The type of geo restriction to use for CloudFront"
+  type        = string
+  default     = "none"
+
+  validation {
+    condition     = contains(["none", "blacklist", "whitelist"], var.cloudfront_geo_restriction_type)
+    error_message = "cloudfront_geo_restriction_type must be one of: none, blacklist, whitelist"
+  }
+}
+
+variable "cloudfront_geo_restriction_list" {
+  description = "List of country codes to include for the CloudFront geo restriction"
+  type        = list(string)
+  default     = []
+}
+
+
+variable "cloudfront_price_class" {
+  description = "Price class to use for CloudFront (requires domain to be set)"
+  type        = string
+  default     = "PriceClass_100"
 }
 
 variable "deploy_functions" {
   description = "Enable to deploy functions"
   type        = bool
   default     = false
-}
-
-variable "domain" {
-  description = "The domain that will be used for public file access"
-  type        = string
-  default     = ""
 }
 
 variable "functions" {

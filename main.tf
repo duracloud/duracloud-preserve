@@ -27,8 +27,9 @@ resource "random_pet" "name" {
   count = var.name == null ? 1 : 0
 }
 
+variable "cloudfront_domain" { default = "" }
+variable "cloudfront_enabled" { default = true }
 variable "deploy" { default = false }
-variable "domain" { default = "duracloud.org" } # omit or "" for no cloudfront resources
 variable "name" { default = null }
 variable "stack" {}
 
@@ -74,11 +75,12 @@ module "stack" {
     aws.us_east_1 = aws.us_east_1
   }
 
-  deploy_functions = var.deploy
-  domain           = var.domain
-  name             = local.name
-  stack            = local.stack
-  storage_capacity = pow(10, 12) # 1TB
+  cloudfront_domain  = var.cloudfront_domain
+  cloudfront_enabled = var.cloudfront_enabled
+  deploy_functions   = var.deploy
+  name               = local.name
+  stack              = local.stack
+  storage_capacity   = pow(10, 12) # 1TB
 
   functions = local.functions
 

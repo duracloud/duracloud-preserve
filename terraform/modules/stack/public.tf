@@ -1,16 +1,20 @@
 # Resources for the stack created CloudFront distribution for public file access
 locals {
-  cert_ready           = var.cert_ready && local.deploy_public
-  deploy_public        = var.domain != ""
-  domain               = var.domain
-  fqdn                 = "${local.subdomain}.${local.domain}"
-  deploy_public_access = local.deploy_public ? { "public" = {} } : {}
-  subdomain            = split("-", local.stack)[1]
+  custom_domain                   = local.cloudfront_enabled && var.cloudfront_domain != ""
+  cert_ready                      = local.custom_domain && var.cert_ready
+  cloudfront_enabled              = var.cloudfront_enabled
+  cloudfront_geo_restriction_list = var.cloudfront_geo_restriction_list
+  cloudfront_geo_restriction_type = var.cloudfront_geo_restriction_type
+  cloudfront_price_class          = var.cloudfront_price_class
+  deploy_cloudfront               = local.cloudfront_enabled ? { "public" = {} } : {}
+  deploy_acm                      = local.custom_domain ? { "public" = {} } : {}
+  fqdn                            = "${local.subdomain}.${var.cloudfront_domain}"
+  subdomain                       = split("-", local.stack)[1]
 }
 
 # https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html
 data "aws_iam_policy_document" "public_bucket" {
-  for_each = local.deploy_public_access
+  for_each = local.deploy_cloudfront
 
   statement {
     effect    = "Allow"
@@ -31,14 +35,14 @@ data "aws_iam_policy_document" "public_bucket" {
 }
 
 resource "aws_s3_bucket_policy" "public" {
-  for_each = local.deploy_public_access
+  for_each = local.deploy_cloudfront
 
   bucket = aws_s3_bucket.public.id
   policy = data.aws_iam_policy_document.public_bucket[each.key].json
 }
 
 resource "aws_acm_certificate" "public" {
-  for_each = local.deploy_public_access
+  for_each = local.deploy_acm
 
   provider          = aws.us_east_1
   domain_name       = local.fqdn
@@ -50,7 +54,7 @@ resource "aws_acm_certificate" "public" {
 }
 
 resource "aws_cloudfront_origin_access_control" "public" {
-  for_each = local.deploy_public_access
+  for_each = local.deploy_cloudfront
 
   name                              = local.stack
   origin_access_control_origin_type = "s3"
@@ -59,7 +63,7 @@ resource "aws_cloudfront_origin_access_control" "public" {
 }
 
 resource "aws_cloudfront_distribution" "public" {
-  for_each = local.deploy_public_access
+  for_each = local.deploy_cloudfront
 
   origin {
     domain_name              = aws_s3_bucket.public.bucket_regional_domain_name
@@ -91,12 +95,12 @@ resource "aws_cloudfront_distribution" "public" {
     viewer_protocol_policy = "redirect-to-https"
   }
 
-  price_class = "PriceClass_100"
+  price_class = local.cloudfront_price_class
 
   restrictions {
     geo_restriction {
-      restriction_type = "whitelist"
-      locations        = ["US", "CA"]
+      restriction_type = local.cloudfront_geo_restriction_type
+      locations        = local.cloudfront_geo_restriction_list
     }
   }
 

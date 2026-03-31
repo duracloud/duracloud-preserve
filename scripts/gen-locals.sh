@@ -32,9 +32,10 @@ HEADER
       value="${BASH_REMATCH[3]}"
       printf '  %-45s = %s\n' "$name" "$value"
     fi
-  done < "$RUST_SRC"
+  done <"$RUST_SRC"
 
   echo "}"
-} > "$TF_OUT"
+} >"$TF_OUT"
 
+terraform fmt $TF_OUT
 echo "Generated $TF_OUT"

@@ -5,7 +5,7 @@ use base::{
     bucket::Type,
     stack::DateCtx,
     stats::InventoryStats,
-    storage::{StorageReport, StorageReportMeta},
+    storage::{StorageReport, StorageReportData, StorageReportHeader},
 };
 use bytes::Bytes;
 use chrono::Utc;
@@ -59,15 +59,16 @@ pub async fn perform(
         bucket_stats.insert(bucket_name, stats);
     }
 
-    let storage_report = StorageReport::from_inventory(bucket_stats);
-    let meta = StorageReportMeta {
+    let header = StorageReportHeader {
         stack_name: config.stack().as_str().to_string(),
         generated_at: Utc::now().format("%m/%d/%Y %H:%M:%S UTC").to_string(),
         storage_capacity_bytes: opts.storage_capacity_bytes,
     };
+    let data = StorageReportData::from_inventory(bucket_stats);
+    let storage_report = StorageReport { header, data };
 
     let stats_bytes = Bytes::from(serde_json::to_vec(&storage_report)?);
-    let html_bytes = Bytes::from(storage_report.to_html(meta)?);
+    let html_bytes = Bytes::from(storage_report.to_html()?);
 
     upload::put_versioned_bytes(
         config,

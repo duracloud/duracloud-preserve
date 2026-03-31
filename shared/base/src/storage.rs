@@ -7,19 +7,28 @@ use serde_json::json;
 
 use crate::stats::{BucketStats, InventoryStats};
 
-#[derive(Debug, Clone)]
-pub struct StorageReportMeta {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StorageReportHeader {
     pub stack_name: String,
     pub generated_at: String,
     pub storage_capacity_bytes: Option<u64>,
 }
 
-/// Consolidated storage report across all buckets
+/// Aggregated inventory data across all buckets
 #[derive(Debug, Serialize, Deserialize)]
-pub struct StorageReport {
+pub struct StorageReportData {
     pub total_files: u64,
     pub total_size: u64,
     pub buckets: Vec<BucketStats>,
+}
+
+/// Consolidated storage report across all buckets
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StorageReport {
+    #[serde(flatten)]
+    pub header: StorageReportHeader,
+    #[serde(flatten)]
+    pub data: StorageReportData,
 }
 
 #[derive(Template)]
@@ -57,7 +66,7 @@ struct PrefixView {
     pct_bucket_size: String,
 }
 
-impl StorageReport {
+impl StorageReportData {
     pub fn from_inventory(bucket_stats: BTreeMap<String, InventoryStats>) -> Self {
         let total_files: u64 = bucket_stats.values().map(|s| s.total_files).sum();
         let total_size: u64 = bucket_stats.values().map(|s| s.total_size).sum();
@@ -73,34 +82,39 @@ impl StorageReport {
             buckets,
         }
     }
+}
 
-    pub fn to_html(&self, meta: StorageReportMeta) -> Result<String, askama::Error> {
-        StorageReportView::from_report(self, meta).render()
+impl StorageReport {
+    pub fn to_html(&self) -> Result<String, askama::Error> {
+        StorageReportView::from_report(self).render()
     }
 }
 
 impl StorageReportView {
-    fn from_report(report: &StorageReport, meta: StorageReportMeta) -> Self {
-        let bucket_count = report.buckets.len();
-        let prefix_count: usize = report
+    fn from_report(report: &StorageReport) -> Self {
+        let data = &report.data;
+        let header = &report.header;
+
+        let bucket_count = data.buckets.len();
+        let prefix_count: usize = data
             .buckets
             .iter()
             .map(|bucket| bucket.stats.by_prefix.len())
             .sum();
 
-        let (has_capacity, capacity_used_pct) = match meta.storage_capacity_bytes {
+        let (has_capacity, capacity_used_pct) = match header.storage_capacity_bytes {
             Some(capacity) if capacity > 0 => (
                 true,
                 format!(
                     "{} (of {})",
-                    format_percent(percent(report.total_size, capacity)),
+                    format_percent(percent(data.total_size, capacity)),
                     format_decimal_bytes(capacity)
                 ),
             ),
             _ => (false, String::new()),
         };
 
-        let buckets = report
+        let buckets = data
             .buckets
             .iter()
             .map(|bucket| {
@@ -126,11 +140,11 @@ impl StorageReportView {
                     total_size_formatted: format_decimal_bytes(bucket.stats.total_size),
                     pct_total_size: format_percent(percent(
                         bucket.stats.total_size,
-                        report.total_size,
+                        data.total_size,
                     )),
                     pct_total_files: format_percent(percent(
                         bucket.stats.total_files,
-                        report.total_files,
+                        data.total_files,
                     )),
                     prefix_count,
                     prefixes,
@@ -138,17 +152,17 @@ impl StorageReportView {
             })
             .collect::<Vec<_>>();
 
-        let chart_labels = report
+        let chart_labels = data
             .buckets
             .iter()
             .map(|bucket| bucket.bucket.clone())
             .collect::<Vec<_>>();
-        let chart_sizes = report
+        let chart_sizes = data
             .buckets
             .iter()
             .map(|bucket| bucket.stats.total_size)
             .collect::<Vec<_>>();
-        let chart_files = report
+        let chart_files = data
             .buckets
             .iter()
             .map(|bucket| bucket.stats.total_files)
@@ -164,7 +178,7 @@ impl StorageReportView {
 
         let chart_files_json = script_safe_json(
             json!({
-                "labels": report
+                "labels": data
                     .buckets
                     .iter()
                     .map(|bucket| bucket.bucket.clone())
@@ -175,10 +189,10 @@ impl StorageReportView {
         );
 
         Self {
-            stack_name: meta.stack_name,
-            generated_at: meta.generated_at,
-            total_files: report.total_files,
-            total_size_formatted: format_decimal_bytes(report.total_size),
+            stack_name: header.stack_name.clone(),
+            generated_at: header.generated_at.clone(),
+            total_files: data.total_files,
+            total_size_formatted: format_decimal_bytes(data.total_size),
             bucket_count,
             prefix_count,
             has_capacity,
@@ -215,15 +229,15 @@ mod tests {
     use super::*;
     use crate::stats::PrefixStats;
 
-    fn test_meta(storage_capacity_bytes: Option<u64>) -> StorageReportMeta {
-        StorageReportMeta {
+    fn test_header(storage_capacity_bytes: Option<u64>) -> StorageReportHeader {
+        StorageReportHeader {
             stack_name: "test-stack".to_string(),
             generated_at: "2026-03-06T00:00:00Z".to_string(),
             storage_capacity_bytes,
         }
     }
 
-    fn test_report() -> StorageReport {
+    fn test_report(storage_capacity_bytes: Option<u64>) -> StorageReport {
         let stats_a = InventoryStats {
             total_files: 10,
             total_size: 60_000_000,
@@ -257,18 +271,21 @@ mod tests {
             )]),
         };
 
-        StorageReport::from_inventory(BTreeMap::from([
-            ("alpha-bucket".to_string(), stats_a),
-            ("beta-bucket".to_string(), stats_b),
-        ]))
+        StorageReport {
+            header: test_header(storage_capacity_bytes),
+            data: StorageReportData::from_inventory(BTreeMap::from([
+                ("alpha-bucket".to_string(), stats_a),
+                ("beta-bucket".to_string(), stats_b),
+            ])),
+        }
     }
 
     #[test]
     fn test_from_inventory_empty() {
-        let report = StorageReport::from_inventory(BTreeMap::new());
-        assert_eq!(report.total_files, 0);
-        assert_eq!(report.total_size, 0);
-        assert!(report.buckets.is_empty());
+        let data = StorageReportData::from_inventory(BTreeMap::new());
+        assert_eq!(data.total_files, 0);
+        assert_eq!(data.total_size, 0);
+        assert!(data.buckets.is_empty());
     }
 
     #[test]
@@ -284,15 +301,15 @@ mod tests {
             by_prefix: BTreeMap::new(),
         };
 
-        let report = StorageReport::from_inventory(BTreeMap::from([
+        let data = StorageReportData::from_inventory(BTreeMap::from([
             ("zebra-bucket".to_string(), stats_a),
             ("alpha-bucket".to_string(), stats_b),
         ]));
 
-        assert_eq!(report.total_files, 30);
-        assert_eq!(report.total_size, 13000);
-        assert_eq!(report.buckets[0].bucket, "alpha-bucket");
-        assert_eq!(report.buckets[1].bucket, "zebra-bucket");
+        assert_eq!(data.total_files, 30);
+        assert_eq!(data.total_size, 13000);
+        assert_eq!(data.buckets[0].bucket, "alpha-bucket");
+        assert_eq!(data.buckets[1].bucket, "zebra-bucket");
     }
 
     #[test]
@@ -318,16 +335,16 @@ mod tests {
             ]),
         };
 
-        let report =
-            StorageReport::from_inventory(BTreeMap::from([("my-bucket".to_string(), stats)]));
+        let data =
+            StorageReportData::from_inventory(BTreeMap::from([("my-bucket".to_string(), stats)]));
 
-        assert_eq!(report.total_files, 10);
-        assert_eq!(report.total_size, 5000);
-        assert_eq!(report.buckets.len(), 1);
-        assert_eq!(report.buckets[0].bucket, "my-bucket");
-        assert_eq!(report.buckets[0].stats.total_files, 10);
+        assert_eq!(data.total_files, 10);
+        assert_eq!(data.total_size, 5000);
+        assert_eq!(data.buckets.len(), 1);
+        assert_eq!(data.buckets[0].bucket, "my-bucket");
+        assert_eq!(data.buckets[0].stats.total_files, 10);
 
-        let mut prefixes = report.buckets[0].stats.by_prefix.keys();
+        let mut prefixes = data.buckets[0].stats.by_prefix.keys();
         assert_eq!(prefixes.next().unwrap(), "docs");
         assert_eq!(prefixes.next().unwrap(), "images");
     }
@@ -347,16 +364,16 @@ mod tests {
             })
             .collect();
 
-        let report = StorageReport::from_inventory(buckets);
-        assert_eq!(report.total_files, 500);
-        assert_eq!(report.total_size, 5000);
-        assert_eq!(report.buckets.len(), 5);
+        let data = StorageReportData::from_inventory(buckets);
+        assert_eq!(data.total_files, 500);
+        assert_eq!(data.total_size, 5000);
+        assert_eq!(data.buckets.len(), 5);
     }
 
     #[test]
     fn test_to_html_contains_meta_and_sections() {
-        let report = test_report();
-        let html = report.to_html(test_meta(None)).unwrap();
+        let report = test_report(None);
+        let html = report.to_html().unwrap();
 
         assert!(html.contains("Stack: test-stack"));
         assert!(html.contains("Generated: 2026-03-06T00:00:00Z"));
@@ -367,8 +384,8 @@ mod tests {
 
     #[test]
     fn test_to_html_shows_capacity_kpi_when_present() {
-        let report = test_report();
-        let html = report.to_html(test_meta(Some(200_000_000))).unwrap();
+        let report = test_report(Some(200_000_000));
+        let html = report.to_html().unwrap();
 
         assert!(html.contains("Capacity Used"));
         assert!(html.contains("50.0% (of 200 MB)"));
@@ -376,16 +393,19 @@ mod tests {
 
     #[test]
     fn test_to_html_omits_capacity_kpi_when_absent() {
-        let report = test_report();
-        let html = report.to_html(test_meta(None)).unwrap();
+        let report = test_report(None);
+        let html = report.to_html().unwrap();
 
         assert!(!html.contains("Capacity Used"));
     }
 
     #[test]
     fn test_to_html_empty_report_renders_empty_state() {
-        let report = StorageReport::from_inventory(BTreeMap::new());
-        let html = report.to_html(test_meta(None)).unwrap();
+        let report = StorageReport {
+            header: test_header(None),
+            data: StorageReportData::from_inventory(BTreeMap::new()),
+        };
+        let html = report.to_html().unwrap();
 
         assert!(html.contains("No bucket stats available."));
         assert!(html.contains("No prefix stats available."));
@@ -393,22 +413,25 @@ mod tests {
 
     #[test]
     fn test_to_html_escapes_bucket_and_prefix_names() {
-        let report = StorageReport::from_inventory(BTreeMap::from([(
-            "<bucket>&name".to_string(),
-            InventoryStats {
-                total_files: 1,
-                total_size: 1,
-                by_prefix: BTreeMap::from([(
-                    "<prefix>&name".to_string(),
-                    PrefixStats {
-                        total_files: 1,
-                        total_size: 1,
-                    },
-                )]),
-            },
-        )]));
+        let report = StorageReport {
+            header: test_header(None),
+            data: StorageReportData::from_inventory(BTreeMap::from([(
+                "<bucket>&name".to_string(),
+                InventoryStats {
+                    total_files: 1,
+                    total_size: 1,
+                    by_prefix: BTreeMap::from([(
+                        "<prefix>&name".to_string(),
+                        PrefixStats {
+                            total_files: 1,
+                            total_size: 1,
+                        },
+                    )]),
+                },
+            )])),
+        };
 
-        let html = report.to_html(test_meta(None)).unwrap();
+        let html = report.to_html().unwrap();
 
         assert!(html.contains("&#60;bucket&#62;&#38;name"));
         assert!(html.contains("&#60;prefix&#62;&#38;name"));
@@ -416,8 +439,8 @@ mod tests {
 
     #[test]
     fn test_to_html_uses_si_units_not_binary_units() {
-        let report = test_report();
-        let html = report.to_html(test_meta(None)).unwrap();
+        let report = test_report(None);
+        let html = report.to_html().unwrap();
 
         assert!(html.contains("MB") || html.contains("GB") || html.contains("TB"));
         assert!(!html.contains("KiB"));

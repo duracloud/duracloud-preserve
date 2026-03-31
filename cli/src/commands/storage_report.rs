@@ -20,7 +20,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 
     println!(
         "Usage: {} files, {} bytes total",
-        stats.total_files, stats.total_size
+        stats.data.total_files, stats.data.total_size
     );
 
     Ok(())

@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use askama::Template;
+use chrono::DateTime;
 use humansize::DECIMAL;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -193,7 +194,9 @@ impl StorageReportView {
         Self {
             owner: header.owner.clone(),
             stack_name: header.stack_name.clone(),
-            generated_at: header.generated_at.clone(),
+            generated_at: DateTime::parse_from_rfc3339(&header.generated_at)
+                .map(|dt| dt.format("%m/%d/%Y %H:%M:%S UTC").to_string())
+                .unwrap_or_else(|_| header.generated_at.clone()),
             total_files: data.total_files,
             total_size_formatted: format_decimal_bytes(data.total_size),
             bucket_count,
@@ -382,7 +385,7 @@ mod tests {
         assert!(html.contains("<title>Example Owner Storage Report</title>"));
         assert!(html.contains("<h1>Example Owner Storage Report</h1>"));
         assert!(html.contains("Stack: test-stack"));
-        assert!(html.contains("Generated: 2026-03-06T00:00:00Z"));
+        assert!(html.contains("Generated: 03/06/2026 00:00:00 UTC"));
         assert!(html.contains("1. Big Picture"));
         assert!(html.contains("2. Per-Bucket Rundown"));
         assert!(html.contains("3. Per-Bucket / Per-Prefix"));

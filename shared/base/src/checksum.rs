@@ -3,12 +3,12 @@ use std::io::Write;
 
 use duckdb::Connection;
 
-use crate::{errors::ChecksumError, stats::VerificationStats};
+use crate::{errors::ProcessingError, stats::VerificationStats};
 
 pub fn process(
     source_reports: &[impl AsRef<str>],
     replication_reports: &[impl AsRef<str>],
-) -> Result<(Vec<u8>, VerificationStats), ChecksumError> {
+) -> Result<(Vec<u8>, VerificationStats), ProcessingError> {
     let verifier = ChecksumVerifier::load(source_reports, replication_reports)?;
     let mut csv = Vec::new();
     let stats = verifier.write_csv_and_stats(&mut csv)?;
@@ -80,7 +80,7 @@ impl ChecksumVerifier {
     pub fn load(
         source_reports: &[impl AsRef<str>],
         replication_reports: &[impl AsRef<str>],
-    ) -> Result<Self, ChecksumError> {
+    ) -> Result<Self, ProcessingError> {
         let conn = Connection::open_in_memory()?;
 
         conn.execute_batch(&format!(
@@ -93,7 +93,7 @@ impl ChecksumVerifier {
     }
 
     /// Find all objects where checksums match
-    pub fn find_matches(&self) -> Result<Vec<VerificationResult>, ChecksumError> {
+    pub fn find_matches(&self) -> Result<Vec<VerificationResult>, ProcessingError> {
         let mut stmt = self.conn.prepare(
             r#"
             SELECT
@@ -131,7 +131,7 @@ impl ChecksumVerifier {
     }
 
     /// Find all objects where checksums do not match
-    pub fn find_mismatches(&self) -> Result<Vec<VerificationResult>, ChecksumError> {
+    pub fn find_mismatches(&self) -> Result<Vec<VerificationResult>, ProcessingError> {
         let mut stmt = self.conn.prepare(
             r#"
             SELECT
@@ -170,7 +170,7 @@ impl ChecksumVerifier {
     }
 
     /// Find objects that exist in source but not in replication
-    pub fn objects_only_in_source(&self) -> Result<Vec<MissingObject>, ChecksumError> {
+    pub fn objects_only_in_source(&self) -> Result<Vec<MissingObject>, ProcessingError> {
         let mut stmt = self.conn.prepare(
             r#"
             SELECT s.bucket, s.key, s.version_id
@@ -198,7 +198,7 @@ impl ChecksumVerifier {
     }
 
     /// Find objects that exist in replication but not in source
-    pub fn objects_only_in_replication(&self) -> Result<Vec<MissingObject>, ChecksumError> {
+    pub fn objects_only_in_replication(&self) -> Result<Vec<MissingObject>, ProcessingError> {
         let mut stmt = self.conn.prepare(
             r#"
             SELECT r.bucket, r.key, r.version_id
@@ -226,7 +226,7 @@ impl ChecksumVerifier {
     }
 
     /// Find failed tasks in source
-    pub fn failed_in_source(&self) -> Result<Vec<FailedTask>, ChecksumError> {
+    pub fn failed_in_source(&self) -> Result<Vec<FailedTask>, ProcessingError> {
         let mut stmt = self.conn.prepare(
             r#"
             SELECT bucket, key, version_id, error_code, http_status_code
@@ -252,7 +252,7 @@ impl ChecksumVerifier {
     }
 
     /// Find failed tasks in replication
-    pub fn failed_in_replication(&self) -> Result<Vec<FailedTask>, ChecksumError> {
+    pub fn failed_in_replication(&self) -> Result<Vec<FailedTask>, ProcessingError> {
         let mut stmt = self.conn.prepare(
             r#"
             SELECT bucket, key, version_id, error_code, http_status_code
@@ -302,7 +302,10 @@ impl ChecksumVerifier {
         )
     }
 
-    fn write_csv_and_stats(&self, writer: impl Write) -> Result<VerificationStats, ChecksumError> {
+    fn write_csv_and_stats(
+        &self,
+        writer: impl Write,
+    ) -> Result<VerificationStats, ProcessingError> {
         let mut csv_writer = csv::Writer::from_writer(writer);
         csv_writer.write_record([
             "bucket",

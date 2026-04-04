@@ -4,13 +4,13 @@ use std::io::Write;
 use duckdb::Connection;
 
 use crate::{
-    errors::InventoryError,
+    errors::ProcessingError,
     stats::{InventoryStats, PrefixStats},
 };
 
 pub fn process(
     parquet_files: &[impl AsRef<str>],
-) -> Result<(Vec<u8>, InventoryStats), InventoryError> {
+) -> Result<(Vec<u8>, InventoryStats), ProcessingError> {
     let processor = InventoryProcessor::load(parquet_files)?;
     let mut csv = Vec::new();
     let stats = processor.write_csv_and_stats(&mut csv)?;
@@ -24,7 +24,7 @@ pub struct InventoryProcessor {
 }
 
 impl InventoryProcessor {
-    pub fn load(parquet_files: &[impl AsRef<str>]) -> Result<Self, InventoryError> {
+    pub fn load(parquet_files: &[impl AsRef<str>]) -> Result<Self, ProcessingError> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch("LOAD parquet;")?;
 
@@ -53,7 +53,7 @@ impl InventoryProcessor {
         Ok(Self { conn })
     }
 
-    fn write_csv_and_stats(&self, writer: impl Write) -> Result<InventoryStats, InventoryError> {
+    fn write_csv_and_stats(&self, writer: impl Write) -> Result<InventoryStats, ProcessingError> {
         let mut stmt = self.conn.prepare(
             "SELECT bucket, key, size, last_modified_date::VARCHAR, storage_class, replication_status, url FROM inventory",
         )?;

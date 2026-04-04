@@ -212,7 +212,7 @@ pub async fn list_for_stack_by_type(
     list_for_stack(
         client,
         stack,
-        Some(&|tags: &[Tag]| type_from_tags(tags).is_some_and(|t| types.contains(&t))),
+        Some(&|tags: &[Tag]| bucket::type_from_tags(tags).is_some_and(|t| types.contains(&t))),
     )
     .await
 }
@@ -317,12 +317,6 @@ pub fn review_request_names(
     }
 
     Ok(buckets)
-}
-
-fn type_from_tags(tags: &[Tag]) -> Option<Type> {
-    tags.iter()
-        .find(|tag| tag.key() == BUCKET_TAG_TYPE_KEY)
-        .and_then(|tag| Type::from_tag_value(tag.value()))
 }
 
 #[cfg(test)]

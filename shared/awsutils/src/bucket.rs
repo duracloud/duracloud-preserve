@@ -98,15 +98,17 @@ pub fn from_tags(
     name: &str,
     tags: &[aws_sdk_s3::types::Tag],
 ) -> Result<Option<Bucket>, RequestError> {
-    let bucket_type = tags
-        .iter()
-        .find(|tag| tag.key() == BUCKET_TAG_TYPE_KEY)
-        .and_then(|tag| Type::from_tag_value(tag.value()));
-
-    match bucket_type {
+    match type_from_tags(tags) {
         Some(t) => Ok(Some(Bucket::new(name, t)?)),
         None => Ok(None),
     }
+}
+
+/// Extract the bucket type from an S3 tag set.
+pub fn type_from_tags(tags: &[aws_sdk_s3::types::Tag]) -> Option<Type> {
+    tags.iter()
+        .find(|tag| tag.key() == BUCKET_TAG_TYPE_KEY)
+        .and_then(|tag| Type::from_tag_value(tag.value()))
 }
 
 #[cfg(test)]

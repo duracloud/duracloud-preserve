@@ -26,7 +26,7 @@ pub struct PrefixStats {
 }
 
 /// Checksum verification stats
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct VerificationStats {
     pub total_objects: usize,
     pub matches: usize,

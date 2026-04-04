@@ -35,7 +35,7 @@ pub async fn perform(
     let source_bucket = receipt.source_bucket.clone();
 
     let Some(ready) = batch::resolve_ready_manifests(config, &receipt).await? else {
-        return Ok(checksum::empty_stats());
+        return Ok(VerificationStats::default());
     };
 
     let temp_dir = tempfile::tempdir()?;

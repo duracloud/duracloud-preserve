@@ -11,10 +11,7 @@ use base::Stack;
 use constants::*;
 
 use crate::bucket::{Bucket, Type};
-use crate::bucket_creator::{
-    INVENTORY_FORMAT, STORAGE_CLASS_PUBLIC_DEFAULT, STORAGE_CLASS_REPLICATION_DEFAULT,
-    STORAGE_CLASS_STANDARD_DEFAULT,
-};
+use crate::bucket_creator::{INVENTORY_FORMAT, default_storage_class};
 
 pub use crate::bucket_creator::BucketCreatorParams;
 use crate::{bucket_policy, config};
@@ -648,16 +645,6 @@ impl<'a> BucketReconciliator<'a> {
             name: "bucket-policy",
             status,
         }
-    }
-}
-
-/// Resolve the default transition storage class for a bucket type.
-fn default_storage_class(bucket_type: &Type) -> TransitionStorageClass {
-    match bucket_type {
-        Type::Public => STORAGE_CLASS_PUBLIC_DEFAULT,
-        Type::Replication => STORAGE_CLASS_REPLICATION_DEFAULT,
-        Type::Standard => STORAGE_CLASS_STANDARD_DEFAULT,
-        _ => STORAGE_CLASS_STANDARD_DEFAULT,
     }
 }
 

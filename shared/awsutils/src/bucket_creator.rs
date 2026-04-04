@@ -72,12 +72,7 @@ impl<'a> BucketCreator<'a> {
     fn storage_tier(&self) -> TransitionStorageClass {
         self.storage_tier_override
             .clone()
-            .unwrap_or_else(|| match self.bucket.bucket_type() {
-                Type::Public => STORAGE_CLASS_PUBLIC_DEFAULT,
-                Type::Replication => STORAGE_CLASS_REPLICATION_DEFAULT,
-                Type::Standard => STORAGE_CLASS_STANDARD_DEFAULT,
-                _ => STORAGE_CLASS_STANDARD_DEFAULT,
-            })
+            .unwrap_or_else(|| default_storage_class(self.bucket.bucket_type()))
     }
 
     pub async fn create(&self) -> Result<(), RequestError> {
@@ -475,6 +470,16 @@ impl<'a> BucketCreator<'a> {
             ))?;
 
         Ok(())
+    }
+}
+
+/// Resolve the default transition storage class for a bucket type.
+pub fn default_storage_class(bucket_type: &Type) -> TransitionStorageClass {
+    match bucket_type {
+        Type::Public => STORAGE_CLASS_PUBLIC_DEFAULT,
+        Type::Replication => STORAGE_CLASS_REPLICATION_DEFAULT,
+        Type::Standard => STORAGE_CLASS_STANDARD_DEFAULT,
+        _ => STORAGE_CLASS_STANDARD_DEFAULT,
     }
 }
 

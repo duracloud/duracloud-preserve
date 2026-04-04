@@ -1,3 +1,7 @@
+use crate::bucket_creator::{
+    STORAGE_CLASS_PUBLIC_DEFAULT, STORAGE_CLASS_REPLICATION_DEFAULT, STORAGE_CLASS_STANDARD_DEFAULT,
+};
+
 use super::*;
 
 #[test]

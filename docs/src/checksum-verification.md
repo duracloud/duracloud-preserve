@@ -1,19 +1,22 @@
 # Checksum Verification
 
-The process for checksum verification works like this:
+DuraCloud Preserve stores and replicates files using Amazon S3. Checksum verification is the process by which the system confirms that stored files have not been silently corrupted over time. Even in highly durable storage systems, subtle errors (known as "bit rot") can alter file content without any obvious warning. By regularly comparing checksums across independent copies of each object, the system can detect and remediate corruption before it affects both copies.
 
-## Source file upload
+## How It Works
 
-AWS S3 provides integrity guarantees on file upload. Using integrity checking mechanisms S3 validates the received data and rejects uploads where the computed checksum does not match. A successful upload response from S3 confirms that the stored object matches exactly what was transmitted. We presume AWS is correct in claiming this, and our system's integrity position begins at the point of successful upload.
+### 1. Upload Integrity
 
-- [Checking object integrity in Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html)
-- [Checking object integrity for data uploads in Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity-upload.html)
+AWS S3 provides integrity guarantees at the point of upload. Using built-in integrity checking mechanisms, S3 validates received data and rejects any upload where the computed checksum does not match. A successful upload response from S3 confirms that the stored object matches exactly what was transmitted.
 
-The AWS cli can be used to view an object's checksum (`ChecksumCRC64NVME` by default):
+The system's integrity guarantee begins at this point of successful upload.
+
+The checksum and version of any stored object can be retrieved using the AWS CLI:
 
 ```bash
 aws s3api head-object --bucket ${bucket} --key ${key} --checksum-mode ENABLED
 ```
+
+Example response:
 
 ```json
 {
@@ -32,14 +35,15 @@ aws s3api head-object --bucket ${bucket} --key ${key} --checksum-mode ENABLED
 }
 ```
 
-## Replication
+**Further reading:**
+- [Checking object integrity in Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html)
+- [Checking object integrity for data uploads in Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity-upload.html)
 
-AWS S3 replication creates a copy of uploaded files within 15 minutes of upload with the same guarantees around file upload integrity (i.e. the replicated object is an exact copy of the source file).
+### 2. Replication
 
-- [Meeting compliance requirements with S3 Replication Time Control](https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-time-control.html)
-- [Replicating objects within and across Regions](https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication.html)
+After a successful upload, AWS S3 replication creates a copy of the object in a second independent bucket, typically within 15 minutes. The same upload integrity guarantees apply to replication, ensuring the replicated object is an exact copy of the source.
 
-The AWS cli view of a replicated object's checksum will match the source object:
+The checksum and version ID of the replica will match the source object exactly:
 
 ```json
 {
@@ -58,67 +62,94 @@ The AWS cli view of a replicated object's checksum will match the source object:
 }
 ```
 
-Most significantly the `ChecksumCRC64NVME` and `VersionId` values match.
+Note that `ChecksumCRC64NVME` and `VersionId` are identical across both objects.
 
-## Durability
+**Further reading:**
+- [Meeting compliance requirements with S3 Replication Time Control](https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-time-control.html)
+- [Replicating objects within and across Regions](https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication.html)
 
-Given AWS durability guarantees we believe with a high degree of confidence that uploaded and replicated objects are correct and consistent at the point of replication (i.e. integrity is preserved and they have the same checksum).
+### 3. Durability
 
-- [Durability in S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/DataDurability.html)
+AWS S3 is designed for 99.999999999% (eleven nines) durability. Given S3's upload integrity guarantees and its documented durability, uploaded and replicated objects can be considered correct and consistent at the point of replication with a very high degree of confidence.
 
-## Verification Process
+**Further reading:** [Durability in Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/DataDurability.html)
 
-We use S3 batch operations to generate checksum reports of all objects in source and replication buckets.
+### 4. Ongoing Verification
 
-If object version and checksum match then we consider the verification to be successful.
+S3 Batch Operations are used to generate checksum reports across all objects in both the source and replica buckets. These reports are compared on a regular schedule.
 
-If they do not match then one or the other file is corrupted. In this case a previously generated checksum report can be used to identify which file is corrupt.
+| Result | Meaning |
+|---|---|
+| Version ID and checksum **match** | Verification successful — objects are identical |
+| Version ID or checksum **do not match** | One object may be corrupted — investigation required |
 
-If a prior report containing the objects in question is not available then request the object's metadata to get the stored checksum function, value and version to compare them. For more thorough inspection download the objects and compute the checksums locally using the same checksum function as S3 (`CRC-64/NVME` by default) to verify the state of the objects:
+## If a Mismatch Is Detected
+
+If verification finds that checksums do not match, the following steps identify and repair the corruption.
+
+**Step 1 — Check prior reports.** A previously generated checksum report may already contain the expected checksum values, making it straightforward to determine which copy — source or replica — is corrupt.
+
+**Step 2 — Request object metadata.** If no prior report is available, retrieve the stored checksum, value, and version directly from each object's metadata and compare them:
 
 ```bash
-# get the originally computed checksum
 aws s3api head-object --bucket ${bucket} --key ${key} --checksum-mode ENABLED
-# download the file
-aws a3 cp s3://${bucket}/${key} .
-# checksum the file locally using the duracloud cli
+```
+
+**Step 3 — Download and verify locally.** For a more thorough inspection, download the objects and compute checksums locally using the same algorithm S3 uses (`CRC-64/NVME` by default):
+
+```bash
+# Retrieve the stored checksum
+aws s3api head-object --bucket ${bucket} --key ${key} --checksum-mode ENABLED
+
+# Download the file
+aws s3 cp s3://${bucket}/${key} .
+
+# Compute the checksum locally using the DuraCloud CLI
 duracloud checksum --file ${key}
 ```
 
-Re-upload the checksum validated file to the source bucket to repair the original or replicated object.
+**Step 4 — Restore.** Once the valid copy is confirmed, re-upload it to the source bucket to repair the corrupted object.
 
+> [!IMPORTANT]
+> **Hosted clients:** Lyrasis will handle checksum verification and file restoration on your behalf if errors are found.
+
+Learn more about [Lyrasis Hosting](lyrasis.md)
+
+**Further reading:**
 - [Compute checksums](https://docs.aws.amazon.com/AmazonS3/latest/userguide/batch-ops-compute-checksums.html)
 - [Examples: S3 Batch Operations completion reports](https://docs.aws.amazon.com/AmazonS3/latest/userguide/batch-ops-examples-reports.html)
 - [Efficiently verify Amazon S3 data at scale with compute checksum operation](https://aws.amazon.com/blogs/storage/efficiently-verify-amazon-s3-data-at-scale-with-compute-checksum-operation/)
 
-**For hosted clients Lyrasis will handle checksum verification and file restore if errors are found.**
+## What Successful Verification Confirms
 
-## Successful verification
+Successful verification confirms that the source and replica objects are identical to each other. Given S3's upload integrity guarantees and its documented durability, this means objects are also identical to what was originally uploaded to a very high degree of confidence.
 
-Successful verification confirms that the source and replica objects are identical to each other. Given S3's upload integrity guarantees and documented durability (99.999999999%), this means objects are also identical to what was originally uploaded to a very high degree of confidence. However, for the strongest guarantee of the latter independent verification using locally managed checksums is required (see Stricter Compliance Requirements below for more information and best practices).
+This strategy is considered sufficient for the vast majority of standard use cases. In the unlikely event that corruption is not automatically addressed by the S3 infrastructure, it is highly improbable that both independent copies would be corrupted in exactly the same way — which would be required to produce a false verification result.
 
+For the strongest possible guarantee, independent verification using locally managed checksums is required. See [Stricter Compliance Requirements](#stricter-compliance-requirements) below.
+
+**Further reading:**
 - [Data protection in Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/DataDurability.html)
 - [Amazon S3 Storage Classes](https://aws.amazon.com/s3/storage-classes/)
 
-## Report Retention
+## Checksum Reports
 
-Checksum reports are stored in S3 for the duration of the stack retention policy. Users can download these reports at any time. For users requiring independent verification or stricter compliance, we recommend downloading and storing reports locally or in a separate system.
+Checksum reports are stored in S3 for the duration of the stack's retention policy and can be downloaded at any time.
 
-## Summary
-
-Checksum verification serves to detect silent data corruption (bit rot) that may occur over time, even in highly durable storage systems. By comparing checksums across independent copies on a regular schedule, we can identify and remediate corruption before it affects both copies.
-
-We regard this strategy to be sufficient for the vast majority of standard use cases. We believe that objects in S3 are correct the vast majority of the time and if there is any corruption that is not automatically addressed by the S3 infrastructure then corruption wouldn't happen to both independent copies of a file in the exact same way (thereby creating a false impression that the checksums are verified when in reality both are corrupted).
+For organizations requiring independent verification or stricter compliance, reports should be downloaded and stored locally or in a system separate from S3.
 
 ## Stricter Compliance Requirements
 
-If a greater guarantee of file integrity is required than has been described then a best practice is to create and manage a local checksum inventory (filename + checksum at least) before uploading files. After retrieving a file perform a local integrity check to confirm the retrieved file is exactly as expected. For the strictest compliance standards this is necessary in any case because it's the only way to not be wholly dependent on the claims of a third party (and of course some other 3rd party service or audit mechanism can be used so long as it's independent of one, single primary source).
+For organizations with higher assurance requirements — such as regulated industries or formal digital preservation programs — the approach described above may not be sufficient on its own, as it is ultimately dependent on the claims of a single third-party provider (Amazon AWS). An independent audit mechanism, separate from the primary storage provider, is required for the strictest compliance standards.
 
-We recommend using a tool like [QuickHash](https://www.quickhash-gui.org/) to generate checksums for all files before they are uploaded to S3. You must then keep the checksum files safe to reference in the future if a local checksum verification is required. You can store these files in S3.
+**Best practice for stricter compliance:**
 
-For guidance on digital preservation standards and assessment frameworks, see:
+1. **Generate checksums locally before uploading.** Use a tool such as [QuickHash](https://www.quickhash-gui.org/) to compute a checksum for each file before it is uploaded to S3.
+2. **Maintain a local checksum inventory.** Keep a record of each filename and its corresponding checksum in a safe location. This inventory can be stored in S3, but must also exist independently.
+3. **Verify on retrieval.** When downloading a file, recompute its checksum locally and compare it against the inventory record.
 
-- [NDSA Levels of Digital Preservation](https://ndsa.org/publications/levels-of-digital-preservation/) - A tiered framework for assessing digital preservation practices
-- [Digital Preservation Coalition - Audit and Certification](https://www.dpconline.org/handbook/institutional-strategies/audit-and-certification) - Overview of audit standards and certification options
+It is also important to note that DuraCloud Preserve is entirely dependent on the Amazon AWS S3 service, its regional infrastructure, and its policies. Organizations with strict independence or sovereignty requirements should factor this into their preservation planning.
 
-Also, for more highly regulated use cases, it's important to fully consider that DuraCloud Preserve is entirely dependent upon the Amazon AWS S3 service, their regional infrastructure and their policies.
+**Frameworks and standards for reference:**
+- [NDSA Levels of Digital Preservation](https://ndsa.org/publications/levels-of-digital-preservation/) — A tiered framework for assessing digital preservation practices
+- [Digital Preservation Coalition — Audit and Certification](https://www.dpconline.org/handbook/institutional-strategies/audit-and-certification) — Overview of audit standards and certification options

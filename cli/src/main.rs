@@ -26,7 +26,7 @@ enum Commands {
     ComputeChecksums(commands::compute_checksums::Args),
     /// Generate inventory report and statistics
     InventoryReport(commands::inventory_report::Args),
-    /// Reset stack (empty buckets, optionally destroy resources)
+    /// Reset stack (empty buckets, requires confirmation)
     Reset(commands::reset::Args),
     /// Generate storage report
     StorageReport(commands::storage_report::Args),

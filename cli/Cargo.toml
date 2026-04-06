@@ -15,7 +15,7 @@ aws-config = { workspace = true, features = ["behavior-version-latest"] }
 aws-sdk-iam.workspace = true
 aws-sdk-s3.workspace = true
 aws-sdk-sts.workspace = true
-clap = { version = "4", default-features = false, features = ["derive", "std"] }
+clap = { version = "4", default-features = false, features = ["derive", "error-context", "help", "std", "suggestions", "usage"] }
 chrono.workspace = true
 constants.workspace = true
 crc-fast = "1"

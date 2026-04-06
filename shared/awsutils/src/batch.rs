@@ -23,6 +23,7 @@ use futures::future::BoxFuture;
 use crate::file::{self, File};
 
 pub use crate::errors::BatchError;
+use crate::errors::RequestError;
 
 const CHECKSUM_ALGORITHM: ComputeObjectChecksumAlgorithm =
     ComputeObjectChecksumAlgorithm::Crc64Nvme;
@@ -155,6 +156,13 @@ pub async fn create_copy_job(
     source_bucket: &str,
     dest_bucket: &str,
 ) -> Result<String, BatchError> {
+    if source_bucket == dest_bucket {
+        return Err(RequestError::ValidationError(
+            "Source and destination bucket must not be the same".into(),
+        )
+        .into());
+    }
+
     let operation = JobOperation::builder()
         .s3_put_object_copy(
             S3CopyObjectOperation::builder()

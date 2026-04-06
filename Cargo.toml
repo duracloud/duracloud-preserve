@@ -42,7 +42,7 @@ serde_json = "1.0.149"
 
 # Async
 futures = "0.3.32"
-tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.51.0", features = ["macros", "rt-multi-thread"] }
 
 # Web/HTTP
 http = "1.4.0"

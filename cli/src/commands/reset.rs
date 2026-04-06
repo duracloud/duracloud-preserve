@@ -40,15 +40,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     println!("\t- Empty {} internal bucket(s)", internal.len());
     println!("\t- Delete {} non-internal bucket(s)", non_internal.len());
 
-    let code = base::generate_confirmation_code();
-    println!("\nTo proceed, enter this code: {}", code);
-    print!("Confirmation: ");
-    io::stdout().flush()?;
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-
-    if input.trim() != code {
+    if !base::confirm_action()? {
         println!("Code does not match. Aborting.");
         return Ok(());
     }

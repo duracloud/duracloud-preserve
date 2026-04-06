@@ -36,7 +36,10 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     println!("\tSource bucket: {source}");
     println!("\tDestination bucket: {destination}");
 
-    // TODO: Prompt for confirmation
+    if !base::confirm_action()? {
+        println!("Code does not match. Aborting.");
+        return Ok(());
+    }
 
     let batch_config = batch::BatchConfig {
         client: config.s3control(),

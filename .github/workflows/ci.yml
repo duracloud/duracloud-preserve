@@ -58,8 +58,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Create swap
+      - name: Expand swap
         run: |
+          sudo swapoff /swapfile
           sudo fallocate -l 4G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile

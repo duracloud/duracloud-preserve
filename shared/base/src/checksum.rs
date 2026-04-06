@@ -317,15 +317,7 @@ impl ChecksumVerifier {
             "checksum_replication",
         ])?;
 
-        let mut stats = VerificationStats {
-            total_objects: 0,
-            matches: 0,
-            mismatches: 0,
-            missing_replica: 0,
-            missing_source: 0,
-            failed_source: 0,
-            failed_replication: 0,
-        };
+        let mut stats = VerificationStats::default();
 
         let matches = self.find_matches()?;
         stats.matches = matches.len();

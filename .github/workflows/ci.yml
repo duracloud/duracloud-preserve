@@ -19,7 +19,7 @@ on:
       - "Cargo*"
 
 env:
-  CARGO_BUILD_JOBS: "2"
+  CARGO_BUILD_JOBS: "1"
   CARGO_TERM_COLOR: always
   RUSTC_WRAPPER: sccache
   RUSTFLAGS: "-C debuginfo=0"

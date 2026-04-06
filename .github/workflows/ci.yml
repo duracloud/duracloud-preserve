@@ -22,7 +22,7 @@ env:
   CARGO_BUILD_JOBS: "1"
   CARGO_TERM_COLOR: always
   RUSTC_WRAPPER: sccache
-  RUSTFLAGS: "-C debuginfo=0"
+  RUSTFLAGS: "-C debuginfo=0 -C link-arg=-fuse-ld=bfd -C strip=symbols"
   SCCACHE_GHA_ENABLED: "true"
 
 jobs:

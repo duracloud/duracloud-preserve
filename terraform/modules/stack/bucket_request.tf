@@ -77,20 +77,3 @@ resource "aws_lambda_permission" "bucket_request" {
   source_arn    = aws_s3_bucket.main["request"].arn
 }
 
-// TODO: relocate: request_bucket.tf
-// Will need to also be used for checksum_inventory
-resource "aws_s3_bucket_notification" "request" {
-  for_each = local.deploy_bucket_request
-
-  bucket      = aws_s3_bucket.main["request"].id
-  eventbridge = true
-
-  lambda_function {
-    lambda_function_arn = aws_lambda_function.main[each.key].arn
-    events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = local.bucket_request_prefix
-    filter_suffix       = ".txt"
-  }
-
-  depends_on = [aws_lambda_permission.bucket_request]
-}

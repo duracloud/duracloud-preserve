@@ -1,4 +1,4 @@
-# Managed bucket specific resources
+# Managed bucket policy resources
 locals {
   # Constructed this way rather than via resource arn to break circular dependency
   cloudtrail_arn = "arn:aws:cloudtrail:${local.region}:${local.account_id}:trail/${local.stack}-cloudtrail"
@@ -128,21 +128,4 @@ data "aws_iam_policy_document" "managed_bucket" {
 resource "aws_s3_bucket_policy" "managed" {
   bucket = aws_s3_bucket.main["managed"].id
   policy = data.aws_iam_policy_document.managed_bucket.json
-}
-
-# TODO: this works while inventory report is the only receiver
-# but this may have to be generalized at some point in the future
-resource "aws_s3_bucket_notification" "managed" {
-  for_each = local.deploy_inventory_report
-
-  bucket = aws_s3_bucket.main["managed"].id
-
-  lambda_function {
-    lambda_function_arn = aws_lambda_function.main[each.key].arn
-    events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = "${local.manifests_prefix}/"
-    filter_suffix       = "manifest.json"
-  }
-
-  depends_on = [aws_lambda_permission.inventory_report]
 }

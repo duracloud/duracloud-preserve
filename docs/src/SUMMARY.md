@@ -14,6 +14,7 @@
 - [Reports](user/reports.md)
 - [Downloading Content](user/downloading-content.md)
 - [Making Content Public](user/making-content-public.md)
+- [Query audit and inventory data](user/query_audit_and_inventory_data.md)
 - [External Documentation](user/external-documentation.md)
 
 # Deployment guide

@@ -6,7 +6,7 @@ This project is built on Amazon S3, a robust and distributed file storage servic
 * Preconfiguring [CloudFront](#) access for making files publicly available.
 * Providing additional value-added features via a set of scheduled tasks.
 
-This is a brief overview of the functionality that is explained more throughly in the [user guide](user/index.html) and [technical documentation](technical/index.html):
+This is a brief overview of the functionality that is explained more thoroughly in the [user guide](user/index.html) and [technical documentation](technical/index.html):
 
 ## Access controls
 
@@ -32,6 +32,10 @@ Files can be stored in any AWS region supported by the infrastructure.
 ## CLI available
 
 For advanced users a command line interface is available for interacting with the AWS environment and performing tasks.
+
+## Hosting and support
+
+If creating an AWS account and deploying resources to it is not possible then Lyrasis provides a [hosting and technical support](./lyrasis.md) option to handle the infrastructure you.
 
 ## Inventory
 

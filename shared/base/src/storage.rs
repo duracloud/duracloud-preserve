@@ -8,6 +8,15 @@ use serde_json::json;
 
 use crate::stats::{BucketStats, InventoryStats};
 
+/// Consolidated storage report across all buckets
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StorageReport {
+    #[serde(flatten)]
+    pub header: StorageReportHeader,
+    #[serde(flatten)]
+    pub data: StorageReportData,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageReportHeader {
     pub owner: String,
@@ -22,15 +31,6 @@ pub struct StorageReportData {
     pub total_files: u64,
     pub total_size: u64,
     pub buckets: Vec<BucketStats>,
-}
-
-/// Consolidated storage report across all buckets
-#[derive(Debug, Serialize, Deserialize)]
-pub struct StorageReport {
-    #[serde(flatten)]
-    pub header: StorageReportHeader,
-    #[serde(flatten)]
-    pub data: StorageReportData,
 }
 
 #[derive(Template)]
@@ -69,6 +69,12 @@ struct PrefixView {
     pct_bucket_size: String,
 }
 
+impl StorageReport {
+    pub fn to_html(&self) -> Result<String, askama::Error> {
+        StorageReportView::from_report(self).render()
+    }
+}
+
 impl StorageReportData {
     pub fn from_inventory(bucket_stats: BTreeMap<String, InventoryStats>) -> Self {
         let total_files: u64 = bucket_stats.values().map(|s| s.total_files).sum();
@@ -84,12 +90,6 @@ impl StorageReportData {
             total_size,
             buckets,
         }
-    }
-}
-
-impl StorageReport {
-    pub fn to_html(&self) -> Result<String, askama::Error> {
-        StorageReportView::from_report(self).render()
     }
 }
 

@@ -6,16 +6,16 @@ use crate::{Stack, errors::BucketValidationError};
 pub struct Bucket(Name, Type);
 
 impl Bucket {
+    pub fn new(name: &str, bucket_type: Type) -> Result<Self, BucketValidationError> {
+        Ok(Self(Name::new(name)?, bucket_type))
+    }
+
     pub fn bucket_type(&self) -> &Type {
         &self.1
     }
 
     pub fn name(&self) -> &str {
         self.0.as_str()
-    }
-
-    pub fn new(name: &str, bucket_type: Type) -> Result<Self, BucketValidationError> {
-        Ok(Self(Name::new(name)?, bucket_type))
     }
 
     /// Convert a stack name + user requested bucket name to a full S3 primary bucket name.
@@ -72,10 +72,6 @@ impl BucketPair {
 pub struct Name(String);
 
 impl Name {
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
     pub fn new(name: &str) -> Result<Self, BucketValidationError> {
         let name = name.to_lowercase();
 
@@ -109,6 +105,10 @@ impl Name {
         }
 
         Ok(Self(name.to_string()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 
     fn has_invalid_chars(name: &str) -> bool {

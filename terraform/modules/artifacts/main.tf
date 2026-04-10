@@ -11,6 +11,7 @@ terraform {
 locals {
   bucket = var.bucket
   files  = var.files
+  org_id = var.org_id
 }
 
 resource "aws_s3_bucket" "artifacts" {
@@ -21,10 +22,10 @@ resource "aws_s3_bucket" "artifacts" {
 resource "aws_s3_bucket_public_access_block" "artifacts" {
   bucket = aws_s3_bucket.artifacts.id
 
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 resource "aws_s3_bucket_policy" "artifacts" {
@@ -32,21 +33,46 @@ resource "aws_s3_bucket_policy" "artifacts" {
 
   depends_on = [aws_s3_bucket_public_access_block.artifacts]
 
-  policy = data.aws_iam_policy_document.artifacts_public_read.json
+  policy = data.aws_iam_policy_document.artifacts_org_read.json
 }
 
-data "aws_iam_policy_document" "artifacts_public_read" {
+data "aws_iam_policy_document" "artifacts_org_read" {
   statement {
-    sid     = "PublicReadGetObject"
-    effect  = "Allow"
-    actions = ["s3:GetObject"]
-    resources = [
-      "${aws_s3_bucket.artifacts.arn}/*"
+    sid    = "OrgReadArtifacts"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion",
     ]
+    resources = ["${aws_s3_bucket.artifacts.arn}/*"]
 
     principals {
-      type        = "*"
+      type        = "AWS"
       identifiers = ["*"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:PrincipalOrgID"
+      values   = [local.org_id]
+    }
+  }
+
+  statement {
+    sid     = "OrgListArtifacts"
+    effect  = "Allow"
+    actions = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.artifacts.arn]
+
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:PrincipalOrgID"
+      values   = [local.org_id]
     }
   }
 }

@@ -8,3 +8,8 @@ variable "files" {
   type        = map(string)
   default     = {}
 }
+
+variable "org_id" {
+  description = "AWS Organization ID (e.g. o-abcd1234) allowed to read artifacts"
+  type        = string
+}

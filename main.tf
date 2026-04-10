@@ -13,10 +13,7 @@ terraform {
 
 provider "aws" {}
 
-provider "aws" {
-  alias  = "us_east_1"
-  region = "us-east-1" # for cloudfront
-}
+data "aws_organizations_organization" "current" {}
 
 variable "cloudfront_domain" { default = "" }
 variable "cloudfront_enabled" { default = true }
@@ -25,6 +22,7 @@ variable "stack" {}
 
 locals {
   deploy = var.deploy
+  org_id = data.aws_organizations_organization.current.id
   stack  = var.stack
 
   functions_bucket = "artifacts.${local.stack}"
@@ -77,6 +75,7 @@ module "artifacts" {
 
   bucket = local.functions_bucket
   files  = { for k, v in local.functions : k => v.file }
+  org_id = local.org_id
 }
 
 # Outputs for creating DNS records:

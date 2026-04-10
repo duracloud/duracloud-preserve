@@ -9,10 +9,10 @@ variable "billing_alert_threshold" {
   }
 }
 
-variable "cert_ready" {
-  description = "Set to true after the ACM certificate has been validated (if using cloudfront domain)"
-  type        = bool
-  default     = false
+variable "acm_cert_arn" {
+  description = "ARN of a pre-existing ACM certificate (in us-east-1) to use with CloudFront"
+  type        = string
+  default     = null
 }
 
 variable "cloudfront_enabled" {
@@ -43,7 +43,6 @@ variable "cloudfront_geo_restriction_list" {
   type        = list(string)
   default     = []
 }
-
 
 variable "cloudfront_price_class" {
   description = "Price class to use for CloudFront (requires domain to be set)"

@@ -1,13 +1,12 @@
 # Resources for the stack created CloudFront distribution for public file access
 locals {
-  custom_domain                   = local.cloudfront_enabled && var.cloudfront_domain != ""
-  cert_ready                      = local.custom_domain && var.cert_ready
+  acm_cert_arn                    = var.acm_cert_arn
+  custom_domain                   = local.cloudfront_enabled && var.cloudfront_domain != "" && local.acm_cert_arn != null
   cloudfront_enabled              = var.cloudfront_enabled
   cloudfront_geo_restriction_list = var.cloudfront_geo_restriction_list
   cloudfront_geo_restriction_type = var.cloudfront_geo_restriction_type
   cloudfront_price_class          = var.cloudfront_price_class
   deploy_cloudfront               = local.cloudfront_enabled ? { "public" = {} } : {}
-  deploy_acm                      = local.custom_domain ? { "public" = {} } : {}
   fqdn                            = "${local.subdomain}.${var.cloudfront_domain}"
   subdomain                       = split("-", local.stack)[1]
 }
@@ -41,18 +40,6 @@ resource "aws_s3_bucket_policy" "public" {
   policy = data.aws_iam_policy_document.public_bucket[each.key].json
 }
 
-resource "aws_acm_certificate" "public" {
-  for_each = local.deploy_acm
-
-  provider          = aws.us_east_1
-  domain_name       = local.fqdn
-  validation_method = "DNS"
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
 resource "aws_cloudfront_origin_access_control" "public" {
   for_each = local.deploy_cloudfront
 
@@ -71,7 +58,7 @@ resource "aws_cloudfront_distribution" "public" {
     origin_id                = local.stack
   }
 
-  aliases         = local.cert_ready ? [local.fqdn] : []
+  aliases         = local.custom_domain ? [local.fqdn] : []
   enabled         = true
   is_ipv6_enabled = true
 
@@ -105,15 +92,15 @@ resource "aws_cloudfront_distribution" "public" {
   }
 
   dynamic "viewer_certificate" {
-    for_each = local.cert_ready ? [1] : []
+    for_each = local.custom_domain ? [1] : []
     content {
-      acm_certificate_arn = aws_acm_certificate.public[each.key].arn
+      acm_certificate_arn = local.acm_cert_arn
       ssl_support_method  = "sni-only"
     }
   }
 
   dynamic "viewer_certificate" {
-    for_each = local.cert_ready ? [] : [1]
+    for_each = local.custom_domain ? [] : [1]
     content {
       cloudfront_default_certificate = true
     }

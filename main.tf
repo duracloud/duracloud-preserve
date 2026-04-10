@@ -54,11 +54,6 @@ locals {
 module "stack" {
   source = "./terraform/modules/stack"
 
-  providers = {
-    aws           = aws
-    aws.us_east_1 = aws.us_east_1
-  }
-
   cloudfront_domain  = var.cloudfront_domain
   cloudfront_enabled = var.cloudfront_enabled
   deploy_functions   = var.deploy
@@ -78,13 +73,8 @@ module "artifacts" {
   org_id = local.org_id
 }
 
-# Outputs for creating DNS records:
-# 1. ACM validation CNAME (`_abc123.dev1.example.org` -> `_def456.acm-validations.aws.`)
-# 2. Alias record (`dev1.example.org` -> `d1234567890abc.cloudfront.net` with zone ID `Z2FDTNDATAQYW2`)
-output "acm_domain_validation_options" {
-  value = module.stack.acm_domain_validation_options
-}
-
+# Outputs for creating the DNS alias record
+# (`dev1.example.org` -> `d1234567890abc.cloudfront.net` with zone ID `Z2FDTNDATAQYW2`)
 output "cloudfront_domain_name" {
   value = module.stack.cloudfront_domain_name
 }

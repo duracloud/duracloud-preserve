@@ -59,9 +59,9 @@ data "aws_iam_policy_document" "artifacts_org_read" {
   }
 
   statement {
-    sid     = "OrgListArtifacts"
-    effect  = "Allow"
-    actions = ["s3:ListBucket"]
+    sid       = "OrgListArtifacts"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
     resources = [aws_s3_bucket.artifacts.arn]
 
     principals {

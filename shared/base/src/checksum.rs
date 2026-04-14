@@ -52,24 +52,6 @@ pub struct VerificationResult {
     pub checksum_replication: String,
 }
 
-/// An object missing from one side of the replication
-#[derive(Debug, Clone)]
-pub struct MissingObject {
-    pub bucket: String,
-    pub key: String,
-    pub version_id: String,
-}
-
-/// A failed checksum task
-#[derive(Debug, Clone)]
-pub struct FailedTask {
-    pub bucket: String,
-    pub key: String,
-    pub version_id: String,
-    pub error_code: String,
-    pub http_status_code: String,
-}
-
 /// Handles csv format checksum report files from S3
 #[derive(Debug)]
 pub struct ChecksumVerifier {
@@ -94,45 +76,40 @@ impl ChecksumVerifier {
 
     /// Find all objects where checksums match
     pub fn find_matches(&self) -> Result<Vec<VerificationResult>, ProcessingError> {
-        let mut stmt = self.conn.prepare(
-            r#"
-            SELECT
-                s.bucket,
-                s.key,
-                s.version_id,
-                s.checksum_algorithm,
-                s.checksum
-            FROM source s
-            JOIN replication r
-                ON s.key = r.key
-                AND s.version_id = r.version_id
-            WHERE s.task_status = 'succeeded'
-                AND r.task_status = 'succeeded'
-                AND s.checksum = r.checksum
-            "#,
-        )?;
-
-        let mut rows = stmt.query([])?;
-        let mut results = Vec::new();
-
-        while let Some(row) = rows.next()? {
-            results.push(VerificationResult {
-                bucket: row.get(0)?,
-                key: row.get(1)?,
-                version_id: row.get(2)?,
-                status: VerificationStatus::Ok,
-                checksum_algorithm: row.get(3)?,
-                checksum_source: row.get(4)?,
-                checksum_replication: String::new(),
-            });
-        }
-
-        Ok(results)
+        self.find_by_checksum("=", VerificationStatus::Ok)
     }
 
     /// Find all objects where checksums do not match
     pub fn find_mismatches(&self) -> Result<Vec<VerificationResult>, ProcessingError> {
-        let mut stmt = self.conn.prepare(
+        self.find_by_checksum("!=", VerificationStatus::Mismatch)
+    }
+
+    /// Find objects that exist in source but not in replication
+    pub fn objects_only_in_source(&self) -> Result<Vec<VerificationResult>, ProcessingError> {
+        self.only_in("source", "replication", VerificationStatus::MissingReplica)
+    }
+
+    /// Find objects that exist in replication but not in source
+    pub fn objects_only_in_replication(&self) -> Result<Vec<VerificationResult>, ProcessingError> {
+        self.only_in("replication", "source", VerificationStatus::MissingSource)
+    }
+
+    /// Find failed tasks in source
+    pub fn failed_in_source(&self) -> Result<Vec<VerificationResult>, ProcessingError> {
+        self.failed_in("source", VerificationStatus::FailedSource)
+    }
+
+    /// Find failed tasks in replication
+    pub fn failed_in_replication(&self) -> Result<Vec<VerificationResult>, ProcessingError> {
+        self.failed_in("replication", VerificationStatus::FailedReplication)
+    }
+
+    fn find_by_checksum(
+        &self,
+        op: &str,
+        status: VerificationStatus,
+    ) -> Result<Vec<VerificationResult>, ProcessingError> {
+        let sql = format!(
             r#"
             SELECT
                 s.bucket,
@@ -147,10 +124,10 @@ impl ChecksumVerifier {
                 AND s.version_id = r.version_id
             WHERE s.task_status = 'succeeded'
                 AND r.task_status = 'succeeded'
-                AND s.checksum != r.checksum
-            "#,
-        )?;
-
+                AND s.checksum {op} r.checksum
+            "#
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
         let mut rows = stmt.query([])?;
         let mut results = Vec::new();
 
@@ -159,7 +136,7 @@ impl ChecksumVerifier {
                 bucket: row.get(0)?,
                 key: row.get(1)?,
                 version_id: row.get(2)?,
-                status: VerificationStatus::Mismatch,
+                status: status.clone(),
                 checksum_algorithm: row.get(3)?,
                 checksum_source: row.get(4)?,
                 checksum_replication: row.get(5)?,
@@ -169,108 +146,59 @@ impl ChecksumVerifier {
         Ok(results)
     }
 
-    /// Find objects that exist in source but not in replication
-    pub fn objects_only_in_source(&self) -> Result<Vec<MissingObject>, ProcessingError> {
-        let mut stmt = self.conn.prepare(
+    fn only_in(
+        &self,
+        present: &str,
+        missing: &str,
+        status: VerificationStatus,
+    ) -> Result<Vec<VerificationResult>, ProcessingError> {
+        let sql = format!(
             r#"
-            SELECT s.bucket, s.key, s.version_id
-            FROM source s
-            LEFT JOIN replication r
-                ON s.key = r.key
-                AND s.version_id = r.version_id
-            WHERE r.key IS NULL
-                AND s.task_status = 'succeeded'
-            "#,
-        )?;
-
-        let mut rows = stmt.query([])?;
-        let mut results = Vec::new();
-
-        while let Some(row) = rows.next()? {
-            results.push(MissingObject {
-                bucket: row.get(0)?,
-                key: row.get(1)?,
-                version_id: row.get(2)?,
-            });
-        }
-
-        Ok(results)
+            SELECT p.bucket, p.key, p.version_id
+            FROM {present} p
+            LEFT JOIN {missing} m
+                ON p.key = m.key
+                AND p.version_id = m.version_id
+            WHERE m.key IS NULL
+                AND p.task_status = 'succeeded'
+            "#
+        );
+        self.collect_simple(&sql, status)
     }
 
-    /// Find objects that exist in replication but not in source
-    pub fn objects_only_in_replication(&self) -> Result<Vec<MissingObject>, ProcessingError> {
-        let mut stmt = self.conn.prepare(
+    fn failed_in(
+        &self,
+        table: &str,
+        status: VerificationStatus,
+    ) -> Result<Vec<VerificationResult>, ProcessingError> {
+        let sql = format!(
             r#"
-            SELECT r.bucket, r.key, r.version_id
-            FROM replication r
-            LEFT JOIN source s
-                ON r.key = s.key
-                AND r.version_id = s.version_id
-            WHERE s.key IS NULL
-                AND r.task_status = 'succeeded'
-            "#,
-        )?;
-
-        let mut rows = stmt.query([])?;
-        let mut results = Vec::new();
-
-        while let Some(row) = rows.next()? {
-            results.push(MissingObject {
-                bucket: row.get(0)?,
-                key: row.get(1)?,
-                version_id: row.get(2)?,
-            });
-        }
-
-        Ok(results)
-    }
-
-    /// Find failed tasks in source
-    pub fn failed_in_source(&self) -> Result<Vec<FailedTask>, ProcessingError> {
-        let mut stmt = self.conn.prepare(
-            r#"
-            SELECT bucket, key, version_id, error_code, http_status_code
-            FROM source
+            SELECT bucket, key, version_id
+            FROM {table}
             WHERE task_status = 'failed'
-            "#,
-        )?;
-
-        let mut rows = stmt.query([])?;
-        let mut results = Vec::new();
-
-        while let Some(row) = rows.next()? {
-            results.push(FailedTask {
-                bucket: row.get(0)?,
-                key: row.get(1)?,
-                version_id: row.get(2)?,
-                error_code: row.get(3)?,
-                http_status_code: row.get(4)?,
-            });
-        }
-
-        Ok(results)
+            "#
+        );
+        self.collect_simple(&sql, status)
     }
 
-    /// Find failed tasks in replication
-    pub fn failed_in_replication(&self) -> Result<Vec<FailedTask>, ProcessingError> {
-        let mut stmt = self.conn.prepare(
-            r#"
-            SELECT bucket, key, version_id, error_code, http_status_code
-            FROM replication
-            WHERE task_status = 'failed'
-            "#,
-        )?;
-
+    fn collect_simple(
+        &self,
+        sql: &str,
+        status: VerificationStatus,
+    ) -> Result<Vec<VerificationResult>, ProcessingError> {
+        let mut stmt = self.conn.prepare(sql)?;
         let mut rows = stmt.query([])?;
         let mut results = Vec::new();
 
         while let Some(row) = rows.next()? {
-            results.push(FailedTask {
+            results.push(VerificationResult {
                 bucket: row.get(0)?,
                 key: row.get(1)?,
                 version_id: row.get(2)?,
-                error_code: row.get(3)?,
-                http_status_code: row.get(4)?,
+                status: status.clone(),
+                checksum_algorithm: String::new(),
+                checksum_source: String::new(),
+                checksum_replication: String::new(),
             });
         }
 
@@ -317,27 +245,36 @@ impl ChecksumVerifier {
             "checksum_replication",
         ])?;
 
-        let mut stats = VerificationStats::default();
-
         let matches = self.find_matches()?;
-        stats.matches = matches.len();
-        stats.total_objects += stats.matches;
-        for result in matches {
-            csv_writer.write_record([
-                &result.bucket,
-                &result.key,
-                &result.version_id,
-                &result.status.to_string(),
-                &result.checksum_algorithm,
-                &result.checksum_source,
-                &result.checksum_replication,
-            ])?;
-        }
-
         let mismatches = self.find_mismatches()?;
-        stats.mismatches = mismatches.len();
-        stats.total_objects += stats.mismatches;
-        for result in mismatches {
+        let only_in_source = self.objects_only_in_source()?;
+        let only_in_replication = self.objects_only_in_replication()?;
+        let failed_source = self.failed_in_source()?;
+        let failed_replication = self.failed_in_replication()?;
+
+        let stats = VerificationStats {
+            matches: matches.len(),
+            mismatches: mismatches.len(),
+            missing_replica: only_in_source.len(),
+            missing_source: only_in_replication.len(),
+            failed_source: failed_source.len(),
+            failed_replication: failed_replication.len(),
+            total_objects: matches.len()
+                + mismatches.len()
+                + only_in_source.len()
+                + only_in_replication.len()
+                + failed_source.len()
+                + failed_replication.len(),
+        };
+
+        for result in matches
+            .into_iter()
+            .chain(mismatches)
+            .chain(only_in_source)
+            .chain(only_in_replication)
+            .chain(failed_source)
+            .chain(failed_replication)
+        {
             csv_writer.write_record([
                 &result.bucket,
                 &result.key,
@@ -346,66 +283,6 @@ impl ChecksumVerifier {
                 &result.checksum_algorithm,
                 &result.checksum_source,
                 &result.checksum_replication,
-            ])?;
-        }
-
-        let only_in_source = self.objects_only_in_source()?;
-        stats.missing_replica = only_in_source.len();
-        stats.total_objects += stats.missing_replica;
-        for obj in only_in_source {
-            csv_writer.write_record([
-                &obj.bucket,
-                &obj.key,
-                &obj.version_id,
-                &VerificationStatus::MissingReplica.to_string(),
-                "",
-                "",
-                "",
-            ])?;
-        }
-
-        let only_in_replication = self.objects_only_in_replication()?;
-        stats.missing_source = only_in_replication.len();
-        stats.total_objects += stats.missing_source;
-        for obj in only_in_replication {
-            csv_writer.write_record([
-                &obj.bucket,
-                &obj.key,
-                &obj.version_id,
-                &VerificationStatus::MissingSource.to_string(),
-                "",
-                "",
-                "",
-            ])?;
-        }
-
-        let failed_source = self.failed_in_source()?;
-        stats.failed_source = failed_source.len();
-        stats.total_objects += stats.failed_source;
-        for task in failed_source {
-            csv_writer.write_record([
-                &task.bucket,
-                &task.key,
-                &task.version_id,
-                &VerificationStatus::FailedSource.to_string(),
-                "",
-                "",
-                "",
-            ])?;
-        }
-
-        let failed_replication = self.failed_in_replication()?;
-        stats.failed_replication = failed_replication.len();
-        stats.total_objects += stats.failed_replication;
-        for task in failed_replication {
-            csv_writer.write_record([
-                &task.bucket,
-                &task.key,
-                &task.version_id,
-                &VerificationStatus::FailedReplication.to_string(),
-                "",
-                "",
-                "",
             ])?;
         }
 
@@ -614,7 +491,6 @@ mod tests {
         let failed = verifier.failed_in_source().unwrap();
         assert_eq!(failed.len(), 1);
         assert_eq!(failed[0].key, "file.pdf");
-        assert_eq!(failed[0].error_code, "InternalError");
     }
 
     #[test]

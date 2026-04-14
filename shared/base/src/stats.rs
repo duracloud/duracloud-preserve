@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use serde::ser::SerializeStruct;
+use serde::{Deserialize, Serialize, Serializer};
 
 /// Per-bucket stats — wraps InventoryStats with a bucket name
 #[derive(Debug, Serialize, Deserialize)]
@@ -26,9 +27,8 @@ pub struct PrefixStats {
 }
 
 /// Checksum verification stats
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct VerificationStats {
-    pub total_objects: usize,
     pub matches: usize,
     pub mismatches: usize,
     pub missing_replica: usize,
@@ -44,6 +44,29 @@ impl VerificationStats {
             && self.missing_source == 0
             && self.failed_source == 0
             && self.failed_replication == 0
+    }
+
+    pub fn total_objects(&self) -> usize {
+        self.matches
+            + self.mismatches
+            + self.missing_replica
+            + self.missing_source
+            + self.failed_source
+            + self.failed_replication
+    }
+}
+
+impl Serialize for VerificationStats {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut s = serializer.serialize_struct("VerificationStats", 7)?;
+        s.serialize_field("total_objects", &self.total_objects())?;
+        s.serialize_field("matches", &self.matches)?;
+        s.serialize_field("mismatches", &self.mismatches)?;
+        s.serialize_field("missing_replica", &self.missing_replica)?;
+        s.serialize_field("missing_source", &self.missing_source)?;
+        s.serialize_field("failed_source", &self.failed_source)?;
+        s.serialize_field("failed_replication", &self.failed_replication)?;
+        s.end()
     }
 }
 
@@ -106,7 +129,6 @@ mod tests {
     #[test]
     fn test_verification_stats_is_not_ok() {
         let base = VerificationStats {
-            total_objects: 100,
             matches: 99,
             mismatches: 0,
             missing_replica: 0,
@@ -142,7 +164,6 @@ mod tests {
     #[test]
     fn test_verification_stats_is_ok() {
         let stats = VerificationStats {
-            total_objects: 100,
             matches: 95,
             mismatches: 0,
             missing_replica: 5,
@@ -152,5 +173,42 @@ mod tests {
         };
         // missing_replica alone should not cause failure
         assert!(stats.is_ok());
+    }
+
+    #[test]
+    fn test_verification_stats_total_objects_sums_fields() {
+        let stats = VerificationStats {
+            matches: 10,
+            mismatches: 2,
+            missing_replica: 3,
+            missing_source: 4,
+            failed_source: 5,
+            failed_replication: 6,
+        };
+        assert_eq!(stats.total_objects(), 30);
+    }
+
+    #[test]
+    fn test_verification_stats_serializes_total_objects() {
+        let stats = VerificationStats {
+            matches: 10,
+            mismatches: 2,
+            missing_replica: 3,
+            missing_source: 4,
+            failed_source: 5,
+            failed_replication: 6,
+        };
+        let json = serde_json::to_string(&stats).unwrap();
+        assert!(json.contains("\"total_objects\":30"));
+        assert!(json.contains("\"matches\":10"));
+        assert!(json.contains("\"failed_replication\":6"));
+    }
+
+    #[test]
+    fn test_verification_stats_deserialize_ignores_total_objects() {
+        // Incoming total_objects is discarded — recomputed from component fields
+        let json = r#"{"total_objects":999,"matches":1,"mismatches":2,"missing_replica":3,"missing_source":4,"failed_source":5,"failed_replication":6}"#;
+        let stats: VerificationStats = serde_json::from_str(json).unwrap();
+        assert_eq!(stats.total_objects(), 21);
     }
 }

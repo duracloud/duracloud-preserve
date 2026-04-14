@@ -259,12 +259,6 @@ impl ChecksumVerifier {
             missing_source: only_in_replication.len(),
             failed_source: failed_source.len(),
             failed_replication: failed_replication.len(),
-            total_objects: matches.len()
-                + mismatches.len()
-                + only_in_source.len()
-                + only_in_replication.len()
-                + failed_source.len()
-                + failed_replication.len(),
         };
 
         for result in matches
@@ -449,7 +443,7 @@ mod tests {
         assert_eq!(stats.missing_source, 0);
         assert_eq!(stats.failed_source, 0);
         assert_eq!(stats.failed_replication, 0);
-        assert_eq!(stats.total_objects, 3);
+        assert_eq!(stats.total_objects(), 3);
     }
 
     #[test]
@@ -457,7 +451,7 @@ mod tests {
         let verifier = create_test_verifier(&[], &[]);
 
         let stats = computed_stats(&verifier);
-        assert_eq!(stats.total_objects, 0);
+        assert_eq!(stats.total_objects(), 0);
         assert_eq!(stats.matches, 0);
     }
 
@@ -637,7 +631,7 @@ mod tests {
         assert_eq!(stats.missing_source, 1);
         assert_eq!(stats.failed_source, 1);
         assert_eq!(stats.failed_replication, 1);
-        assert_eq!(stats.total_objects, 6);
+        assert_eq!(stats.total_objects(), 6);
     }
 
     #[test]
@@ -648,7 +642,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(stats.total_objects, 4);
+        assert_eq!(stats.total_objects(), 4);
         assert_eq!(stats.matches, 4);
         assert_eq!(stats.mismatches, 0);
         assert_eq!(stats.missing_replica, 0);
@@ -674,7 +668,7 @@ mod tests {
 
         let stats = computed_stats(&verifier);
         assert_eq!(stats.matches, 2);
-        assert_eq!(stats.total_objects, 2);
+        assert_eq!(stats.total_objects(), 2);
     }
 
     #[test]

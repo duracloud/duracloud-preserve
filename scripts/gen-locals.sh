@@ -22,13 +22,13 @@ HEADER
 
     # pub const NAME: &str = "value";
     elif [[ $line =~ ^pub\ const\ ([A-Z_]+):\ \&str\ =\ \"([^\"]*)\"\; ]]; then
-      name="${BASH_REMATCH[1],,}"
+      name="$(echo "${BASH_REMATCH[1]}" | tr '[:upper:]' '[:lower:]')"
       value="${BASH_REMATCH[2]}"
       printf '  %-45s = "%s"\n' "$name" "$value"
 
     # pub const NAME: <integer> = <number>;
     elif [[ $line =~ ^pub\ const\ ([A-Z_]+):\ (u8|u16|u32|u64|usize|i8|i16|i32|i64)\ =\ ([0-9]+)\; ]]; then
-      name="${BASH_REMATCH[1],,}"
+      name="$(echo "${BASH_REMATCH[1]}" | tr '[:upper:]' '[:lower:]')"
       value="${BASH_REMATCH[3]}"
       printf '  %-45s = %s\n' "$name" "$value"
     fi

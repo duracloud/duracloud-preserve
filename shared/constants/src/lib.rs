@@ -4,6 +4,7 @@ pub const BATCH_MANIFEST_PREFIX: &str = "batch/manifests";
 pub const BATCH_POLICY_SUFFIX: &str = "-s3-batch-policy";
 pub const BATCH_REPORT_PREFIX: &str = "batch/reports";
 pub const BATCH_ROLE_SUFFIX: &str = "-s3-batch-role";
+pub const BUCKET_REQUEST_PREFIX: &str = "bucket-request";
 pub const FEEDBACK_PREFIX: &str = "feedback";
 pub const LOGGING_PREFIX: &str = "audit";
 pub const MANAGED_SUFFIX: &str = "-managed";
@@ -22,7 +23,6 @@ pub const INVENTORY_ID: &str = "inventory";
 
 // Bucket naming rules
 pub const BUCKET_NAME_MIN_PARTS: usize = 3;
-pub const BUCKET_REQUEST_PREFIX: &str = "bucket-request";
 pub const DISALLOWED_AFFIXES: &[&str] = &[".", "-"];
 pub const STACK_BUCKET_DELIMITER: &str = "-";
 

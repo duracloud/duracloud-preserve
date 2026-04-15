@@ -24,7 +24,7 @@ locals {
             id            = "bucket-request-trigger"
             lambda_arn    = aws_lambda_function.main[k].arn
             events        = ["s3:ObjectCreated:*"]
-            filter_prefix = local.bucket_request_prefix
+            filter_prefix = "${local.bucket_request_prefix}/"
             filter_suffix = ".txt"
           }
         ],

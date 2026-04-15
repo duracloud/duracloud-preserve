@@ -9,6 +9,7 @@ locals {
   batch_policy_suffix       = "-s3-batch-policy"
   batch_report_prefix       = "batch/reports"
   batch_role_suffix         = "-s3-batch-role"
+  bucket_request_prefix     = "bucket-request"
   feedback_prefix           = "feedback"
   logging_prefix            = "audit"
   managed_suffix            = "-managed"
@@ -27,7 +28,6 @@ locals {
 
   # Bucket naming rules
   bucket_name_min_parts  = 3
-  bucket_request_prefix  = "bucket-request"
   stack_bucket_delimiter = "-"
 
   # Bucket request rules

@@ -30,6 +30,8 @@ enum Commands {
     Reset(commands::reset::Args),
     /// Generate storage report
     StorageReport(commands::storage_report::Args),
+    /// Sync IAM users to SFTPGo
+    SyncUsers(commands::sync_users::Args),
     /// Transfer files from source to stack destination bucket
     Transfer(commands::transfer::Args),
 }
@@ -50,6 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::InventoryReport(args) => commands::inventory_report::run(args).await?,
         Commands::Reset(args) => commands::reset::run(args).await?,
         Commands::StorageReport(args) => commands::storage_report::run(args).await?,
+        Commands::SyncUsers(args) => commands::sync_users::run(args).await?,
         Commands::Transfer(args) => commands::transfer::run(args).await?,
     }
 

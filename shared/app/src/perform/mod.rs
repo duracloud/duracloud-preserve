@@ -7,3 +7,4 @@ pub mod compute_checksums;
 #[cfg(feature = "duckdb")]
 pub mod inventory_report;
 pub mod storage_report;
+pub mod sync_users;

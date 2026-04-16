@@ -145,3 +145,21 @@ pub enum StorageReportError {
     #[error("failed to upload file: {0}")]
     UploadError(#[source] RequestError),
 }
+
+#[derive(Debug, Error)]
+pub enum SyncUsersError {
+    #[error("failed to list buckets for stack: {0}")]
+    BucketDiscovery(#[from] RequestError),
+    #[error("failed to retrieve iam data: {0}")]
+    IamError(String),
+    #[error("invalid stack name '{stack}': {reason}")]
+    InvalidStack { stack: String, reason: String },
+    #[error("failed to find eligible users")]
+    UserDiscovery,
+}
+
+impl From<aws_sdk_iam::Error> for SyncUsersError {
+    fn from(value: aws_sdk_iam::Error) -> Self {
+        SyncUsersError::IamError(value.to_string())
+    }
+}

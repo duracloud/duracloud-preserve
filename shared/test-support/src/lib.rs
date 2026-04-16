@@ -1,6 +1,6 @@
 use aws_config::{BehaviorVersion, SdkConfig};
 use aws_sdk_s3::{Client, primitives::SdkBody};
-use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
+use aws_smithy_http_client::test_util::{ReplayEvent, StaticReplayClient};
 use base::Stack;
 use constants::TEXT_XML;
 use http::header::CONTENT_TYPE;

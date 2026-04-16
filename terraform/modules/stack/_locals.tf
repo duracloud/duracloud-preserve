@@ -58,4 +58,7 @@ locals {
   text_html        = "text/html"
   text_plain       = "text/plain"
   text_xml         = "text/xml"
+
+  # Users
+  max_user_concurrency = 5
 }

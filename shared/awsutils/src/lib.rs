@@ -8,3 +8,4 @@ pub mod errors;
 pub mod file;
 #[cfg(feature = "duckdb")]
 pub mod inventory;
+pub mod users;

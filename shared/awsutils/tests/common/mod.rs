@@ -22,12 +22,14 @@ pub async fn integration_test_context() -> IntegrationTestContext {
 
     let sdk_config = config::load_defaults().await;
     let s3 = Client::new(&sdk_config);
+    let sts = aws_sdk_sts::Client::new(&sdk_config);
+    let iam = aws_sdk_iam::Client::new(&sdk_config);
 
-    let account_id = config::get_account_id(&sdk_config)
+    let account_id = config::get_account_id(&sts)
         .await
         .expect("failed to get account id");
 
-    let replication_role_arn = config::get_role_arn(&sdk_config, &stack.replication_role_name())
+    let replication_role_arn = config::get_role_arn(&iam, &stack.replication_role_name())
         .await
         .expect("failed to get replication role arn");
 

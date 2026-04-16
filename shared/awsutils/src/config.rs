@@ -8,10 +8,9 @@ pub async fn load_defaults() -> SdkConfig {
 }
 
 /// Get the AWS account ID via STS.
-pub async fn get_account_id(config: &SdkConfig) -> Result<String, RequestError> {
-    let sts_client = aws_sdk_sts::Client::new(config);
+pub async fn get_account_id(client: &aws_sdk_sts::Client) -> Result<String, RequestError> {
     let identity =
-        sts_client.get_caller_identity().send().await.map_err(|e| {
+        client.get_caller_identity().send().await.map_err(|e| {
             RequestError::ConfigError(format!("failed to get caller identity: {}", e))
         })?;
 
@@ -22,15 +21,10 @@ pub async fn get_account_id(config: &SdkConfig) -> Result<String, RequestError> 
 }
 
 /// Get the AWS account name for the current caller's account.
-pub async fn get_account_name(config: &SdkConfig) -> Result<String, RequestError> {
-    let account_client = aws_sdk_account::Client::new(config);
-    let account = account_client
-        .get_account_information()
-        .send()
-        .await
-        .map_err(|e| {
-            RequestError::ConfigError(format!("failed to get account information: {}", e))
-        })?;
+pub async fn get_account_name(client: &aws_sdk_account::Client) -> Result<String, RequestError> {
+    let account = client.get_account_information().send().await.map_err(|e| {
+        RequestError::ConfigError(format!("failed to get account information: {}", e))
+    })?;
 
     account
         .account_name()
@@ -51,10 +45,11 @@ pub fn get_region(client: &aws_sdk_s3::Client) -> Result<String, RequestError> {
 
 /// Get an IAM role ARN by name.
 /// Returns an error if the role does not exist.
-pub async fn get_role_arn(config: &SdkConfig, role_name: &str) -> Result<String, RequestError> {
-    let iam_client = aws_sdk_iam::Client::new(config);
-
-    let response = iam_client
+pub async fn get_role_arn(
+    client: &aws_sdk_iam::Client,
+    role_name: &str,
+) -> Result<String, RequestError> {
+    let response = client
         .get_role()
         .role_name(role_name)
         .send()
@@ -70,10 +65,11 @@ pub async fn get_role_arn(config: &SdkConfig, role_name: &str) -> Result<String,
 }
 
 /// Get an SSM parameter value.
-pub async fn get_parameter(config: &SdkConfig, param_name: &str) -> Result<String, RequestError> {
-    let ssm_client = aws_sdk_ssm::Client::new(config);
-
-    let response = ssm_client
+pub async fn get_parameter(
+    client: &aws_sdk_ssm::Client,
+    param_name: &str,
+) -> Result<String, RequestError> {
+    let response = client
         .get_parameter()
         .with_decryption(true)
         .name(param_name)
@@ -123,8 +119,9 @@ mod tests {
   </ResponseMetadata>
 </GetCallerIdentityResponse>"#;
         let (sdk_config, _replay) = mock_sdk_config(replay_xml_event(200, body));
+        let client = aws_sdk_sts::Client::new(&sdk_config);
 
-        let account_id = get_account_id(&sdk_config)
+        let account_id = get_account_id(&client)
             .await
             .expect("get_account_id should succeed");
 
@@ -140,8 +137,9 @@ mod tests {
             body,
             Some("application/x-amz-json-1.1"),
         ));
+        let client = aws_sdk_account::Client::new(&sdk_config);
 
-        let account_name = get_account_name(&sdk_config)
+        let account_name = get_account_name(&client)
             .await
             .expect("get_account_name should succeed");
 
@@ -157,8 +155,9 @@ mod tests {
             body,
             Some("application/x-amz-json-1.1"),
         ));
+        let client = aws_sdk_account::Client::new(&sdk_config);
 
-        let err = get_account_name(&sdk_config)
+        let err = get_account_name(&client)
             .await
             .expect_err("account lookup should return an error");
 
@@ -179,8 +178,9 @@ mod tests {
             body,
             Some("application/x-amz-json-1.1"),
         ));
+        let client = aws_sdk_ssm::Client::new(&sdk_config);
 
-        let value = get_parameter(&sdk_config, "test-stack-storage-capacity")
+        let value = get_parameter(&client, "test-stack-storage-capacity")
             .await
             .expect("get_parameter should succeed");
 
@@ -196,8 +196,9 @@ mod tests {
             body,
             Some("application/x-amz-json-1.1"),
         ));
+        let client = aws_sdk_ssm::Client::new(&sdk_config);
 
-        let err = get_parameter(&sdk_config, "missing-param")
+        let err = get_parameter(&client, "missing-param")
             .await
             .expect_err("missing parameter should return an error");
 
@@ -229,8 +230,9 @@ mod tests {
   </ResponseMetadata>
 </GetRoleResponse>"#;
         let (sdk_config, _replay) = mock_sdk_config(replay_xml_event(200, body));
+        let client = aws_sdk_iam::Client::new(&sdk_config);
 
-        let arn = get_role_arn(&sdk_config, "test-role")
+        let arn = get_role_arn(&client, "test-role")
             .await
             .expect("get_role_arn should succeed");
 
@@ -249,8 +251,9 @@ mod tests {
   <RequestId>req-3</RequestId>
 </ErrorResponse>"#;
         let (sdk_config, _replay) = mock_sdk_config(replay_xml_event(404, body));
+        let client = aws_sdk_iam::Client::new(&sdk_config);
 
-        let err = get_role_arn(&sdk_config, "missing-role")
+        let err = get_role_arn(&client, "missing-role")
             .await
             .expect_err("missing role should return an error");
 

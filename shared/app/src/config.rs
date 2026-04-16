@@ -138,23 +138,29 @@ pub async fn load(stack: Stack) -> Result<Config, RequestError> {
     let sdk_config = aws_config_utils::load_defaults().await;
     let managed_bucket = stack.managed_bucket();
 
-    if !bucket::exists(&aws_sdk_s3::Client::new(&sdk_config), &managed_bucket).await {
+    let account = aws_sdk_account::Client::new(&sdk_config);
+    let iam = aws_sdk_iam::Client::new(&sdk_config);
+    let s3 = aws_sdk_s3::Client::new(&sdk_config);
+    let ssm = aws_sdk_ssm::Client::new(&sdk_config);
+    let sts = aws_sdk_sts::Client::new(&sdk_config);
+
+    if !bucket::exists(&s3, &managed_bucket).await {
         return Err(RequestError::ConfigError(format!(
             "failed to find managed bucket for stack (does this stack exist?): {}",
             &managed_bucket
         )));
     }
 
-    let account_id = aws_config_utils::get_account_id(&sdk_config).await?;
+    let account_id = aws_config_utils::get_account_id(&sts).await?;
     let batch_role_name = stack.batch_role_name();
     let storage_capacity_param_name = stack.storage_capacity_param_name();
     let replication_role_name = stack.replication_role_name();
 
     let (batch_role, replication_role, owner, storage_capacity) = tokio::try_join!(
-        aws_config_utils::get_role_arn(&sdk_config, &batch_role_name),
-        aws_config_utils::get_role_arn(&sdk_config, &replication_role_name),
-        aws_config_utils::get_account_name(&sdk_config),
-        aws_config_utils::get_parameter(&sdk_config, &storage_capacity_param_name),
+        aws_config_utils::get_role_arn(&iam, &batch_role_name),
+        aws_config_utils::get_role_arn(&iam, &replication_role_name),
+        aws_config_utils::get_account_name(&account),
+        aws_config_utils::get_parameter(&ssm, &storage_capacity_param_name),
     )?;
 
     let roles = Roles {

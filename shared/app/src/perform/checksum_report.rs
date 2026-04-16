@@ -1,9 +1,8 @@
 use awsutils::{
-    batch::ChecksumJobReceipt,
-    checksum,
+    batch::{ChecksumJobReceipt, download_manifest_files},
     file::{self, File},
 };
-use base::{stack::DateCtx, stats::VerificationStats};
+use base::{checksum, stack::DateCtx, stats::VerificationStats};
 use bytes::Bytes;
 use constants::{APPLICATION_JSON, TEXT_CSV};
 
@@ -40,10 +39,9 @@ pub async fn perform(
 
     let temp_dir = tempfile::tempdir()?;
     let source_paths =
-        checksum::download_manifest_files(config.s3(), ready.source_results, &temp_dir).await?;
+        download_manifest_files(config.s3(), ready.source_results, &temp_dir).await?;
     let repl_paths =
-        checksum::download_manifest_files(config.s3(), ready.replication_results, &temp_dir)
-            .await?;
+        download_manifest_files(config.s3(), ready.replication_results, &temp_dir).await?;
 
     tracing::info!(
         source_files = source_paths.len(),

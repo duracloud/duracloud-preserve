@@ -5,7 +5,6 @@ use lambda_runtime::{Error, LambdaEvent, tracing};
 
 pub(crate) async fn function_handler(
     config: &Config,
-    perform_opts: &inventory_report::PerformOptions,
     event: LambdaEvent<S3Event>,
 ) -> Result<(), Error> {
     let payload = event.payload;
@@ -32,7 +31,8 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    let stats = inventory_report::perform(config, &File::new(bucket, object), perform_opts).await?;
+    let args = inventory_report::PerformArgs::new(File::new(bucket, object));
+    let stats = inventory_report::perform(config, &args).await?;
 
     tracing::info!(
         "Processed {} files, {} bytes total",
@@ -62,8 +62,7 @@ mod tests {
         let event = LambdaEvent::new(s3_event, Context::default());
         let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, true);
-        let opts = inventory_report::PerformOptions::default();
-        function_handler(&config, &opts, event).await.unwrap();
+        function_handler(&config, event).await.unwrap();
     }
 
     #[tokio::test]
@@ -75,7 +74,6 @@ mod tests {
         let event = LambdaEvent::new(s3_event, Context::default());
         let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, true);
-        let opts = inventory_report::PerformOptions::default();
-        function_handler(&config, &opts, event).await.unwrap();
+        function_handler(&config, event).await.unwrap();
     }
 }

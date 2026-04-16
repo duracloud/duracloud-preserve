@@ -7,24 +7,23 @@ use awsutils::{
 use crate::{bucket, config::Config, errors::BucketRequestError, upload};
 
 #[derive(Debug, Clone)]
-pub struct PerformOptions {
+pub struct PerformArgs {
+    pub request_file: File,
     pub standard_storage_tier: TransitionStorageClass,
 }
 
-impl Default for PerformOptions {
-    fn default() -> Self {
+impl PerformArgs {
+    pub fn new(request_file: File) -> Self {
         Self {
+            request_file,
             standard_storage_tier: bucket_creator::STORAGE_CLASS_STANDARD_DEFAULT,
         }
     }
 }
 
 /// Process a bucket creation request file from S3.
-pub async fn perform(
-    config: &Config,
-    file: &File,
-    opts: &PerformOptions,
-) -> Result<(), BucketRequestError> {
+pub async fn perform(config: &Config, args: &PerformArgs) -> Result<(), BucketRequestError> {
+    let file = &args.request_file;
     tracing::info!("Retrieving request file from S3: {}", file.s3_url());
 
     let names = match bucket::read_request_names(config.s3(), file).await {
@@ -51,7 +50,7 @@ pub async fn perform(
     tracing::info!("Buckets to create: {:?}", buckets);
     tracing::info!("Creating buckets");
 
-    let issues = bucket::create_pairs(config, &buckets, opts.standard_storage_tier.clone()).await;
+    let issues = bucket::create_pairs(config, &buckets, args.standard_storage_tier.clone()).await;
     if !issues.is_empty() {
         tracing::error!("{:?}", issues);
         upload::put_feedback(config, file.key(), issues.join("\n")).await;

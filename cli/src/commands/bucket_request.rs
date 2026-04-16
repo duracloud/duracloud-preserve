@@ -55,8 +55,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         file.key()
     );
 
-    let opts = bucket_request::PerformOptions::default();
-    bucket_request::perform(&config, &file, &opts).await?;
+    let args = bucket_request::PerformArgs::new(file);
+    bucket_request::perform(&config, &args).await?;
 
     println!("All buckets created successfully");
     Ok(())

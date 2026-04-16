@@ -13,10 +13,10 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::new(&args.stack)?;
     let config = config::load(stack.clone()).await?;
 
-    let opts = storage_report::PerformOptions {
+    let args = storage_report::PerformArgs {
         storage_capacity_bytes: Some(config.storage_capacity()),
     };
-    let stats = storage_report::perform(&config, &opts).await?;
+    let stats = storage_report::perform(&config, &args).await?;
 
     println!(
         "Usage: {} files, {} bytes total",

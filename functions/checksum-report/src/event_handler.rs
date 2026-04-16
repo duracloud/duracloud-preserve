@@ -9,7 +9,6 @@ use lambda_runtime::{Error, LambdaEvent, tracing};
 
 pub(crate) async fn function_handler(
     config: &Config,
-    perform_opts: &checksum_report::PerformOptions,
     event: LambdaEvent<CloudWatchEvent<S3BatchJobDetail>>,
 ) -> Result<(), Error> {
     let detail = event.payload.detail.ok_or_else(|| {
@@ -51,7 +50,8 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    let stats = checksum_report::perform(config, &receipt_file, perform_opts).await?;
+    let args = checksum_report::PerformArgs::new(receipt_file);
+    let stats = checksum_report::perform(config, &args).await?;
 
     tracing::info!(
         total_objects = stats.total_objects(),
@@ -89,8 +89,7 @@ mod tests {
         let event = LambdaEvent::new(cw_event, Context::default());
         let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, true);
-        let opts = checksum_report::PerformOptions::default();
-        function_handler(&config, &opts, event).await.unwrap();
+        function_handler(&config, event).await.unwrap();
     }
 
     #[tokio::test]
@@ -104,8 +103,7 @@ mod tests {
         let event = LambdaEvent::new(cw_event, Context::default());
         let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, true);
-        let opts = checksum_report::PerformOptions::default();
-        let err = function_handler(&config, &opts, event)
+        let err = function_handler(&config, event)
             .await
             .expect_err("Expected handler to return error for failed status");
         assert!(err.to_string().contains("failed"));

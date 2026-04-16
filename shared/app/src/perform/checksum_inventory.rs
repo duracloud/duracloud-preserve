@@ -10,14 +10,16 @@ use crate::{
 
 const CHECKSUM_TYPE: &str = "crc64nvme";
 
-#[derive(Debug, Clone, Copy)]
-pub struct PerformOptions {
+#[derive(Debug, Clone)]
+pub struct PerformArgs {
+    pub csv_file: File,
     pub date_ctx: DateCtx,
 }
 
-impl Default for PerformOptions {
-    fn default() -> Self {
+impl PerformArgs {
+    pub fn new(csv_file: File) -> Self {
         Self {
+            csv_file,
             date_ctx: DateCtx::Today,
         }
     }
@@ -25,9 +27,9 @@ impl Default for PerformOptions {
 
 pub async fn perform(
     config: &Config,
-    csv_file: &File,
-    opts: &PerformOptions,
+    args: &PerformArgs,
 ) -> Result<String, ChecksumInventoryError> {
+    let csv_file = &args.csv_file;
     let bucket = bucket::name_from_file(csv_file)?;
 
     let bytes = file::download_bytes(config.s3(), csv_file)
@@ -59,7 +61,7 @@ pub async fn perform(
 
     upload::put_versioned_bytes(
         config,
-        opts.date_ctx,
+        args.date_ctx,
         csv_bytes,
         TEXT_CSV,
         |ctx| config.stack().reports_checksums_path(&output_name, ctx),
@@ -94,6 +96,10 @@ mod tests {
             config.stack().managed_bucket(),
             "reports/latest/manifests/test-stack-private.csv",
         )
+    }
+
+    fn csv_args(config: &Config) -> PerformArgs {
+        PerformArgs::new(csv_file(config))
     }
 
     fn inventory_csv(rows: &[(&str, &str, &str)]) -> String {
@@ -146,7 +152,8 @@ mod tests {
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
 
-        let result = perform(&config, &csv_file(&config), &PerformOptions::default()).await;
+        let args = csv_args(&config);
+        let result = perform(&config, &args).await;
         assert!(
             matches!(result, Err(ChecksumInventoryError::Download(_))),
             "should abort on CSV download failure: {result:?}"
@@ -165,7 +172,8 @@ mod tests {
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
 
-        let result = perform(&config, &csv_file(&config), &PerformOptions::default()).await;
+        let args = csv_args(&config);
+        let result = perform(&config, &args).await;
         assert!(
             result.is_ok(),
             "perform should not abort on non-404 HEAD error: {result:?}"
@@ -184,7 +192,8 @@ mod tests {
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
 
-        let result = perform(&config, &csv_file(&config), &PerformOptions::default()).await;
+        let args = csv_args(&config);
+        let result = perform(&config, &args).await;
         assert!(
             result.is_ok(),
             "perform should not abort on missing checksum: {result:?}"
@@ -203,7 +212,8 @@ mod tests {
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
 
-        let result = perform(&config, &csv_file(&config), &PerformOptions::default()).await;
+        let args = csv_args(&config);
+        let result = perform(&config, &args).await;
         assert!(
             result.is_ok(),
             "perform should not abort on 404: {result:?}"
@@ -222,7 +232,8 @@ mod tests {
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
 
-        let result = perform(&config, &csv_file(&config), &PerformOptions::default()).await;
+        let args = csv_args(&config);
+        let result = perform(&config, &args).await;
         assert!(result.is_ok(), "perform should succeed: {result:?}");
     }
 
@@ -244,7 +255,8 @@ mod tests {
             .build_sdk_config_with_replay();
         let config = app_config::Config::for_tests(sdk_config, false);
 
-        perform(&config, &csv_file(&config), &PerformOptions::default())
+        let args = csv_args(&config);
+        perform(&config, &args)
             .await
             .expect("perform should succeed");
 

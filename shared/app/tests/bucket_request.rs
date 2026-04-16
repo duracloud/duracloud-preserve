@@ -39,10 +39,8 @@ async fn test_perform() {
     .await
     .unwrap();
 
-    let opts = bucket_request::PerformOptions::default();
-    bucket_request::perform(&config, &file, &opts)
-        .await
-        .unwrap();
+    let args = bucket_request::PerformArgs::new(file.clone());
+    bucket_request::perform(&config, &args).await.unwrap();
 
     assert!(bucket::exists(config.s3(), &primary).await);
     assert!(bucket::exists(config.s3(), &repl).await);

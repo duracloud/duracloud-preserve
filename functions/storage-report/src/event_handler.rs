@@ -14,11 +14,11 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    let opts = storage_report::PerformOptions {
+    let args = storage_report::PerformArgs {
         storage_capacity_bytes: Some(config.storage_capacity()),
     };
 
-    storage_report::perform(config, &opts).await?;
+    storage_report::perform(config, &args).await?;
 
     Ok(())
 }

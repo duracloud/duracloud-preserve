@@ -1,15 +1,29 @@
 use app::{
     config::Config,
-    perform::bucket_request::{self, PerformOptions},
+    perform::bucket_request::{self, PerformArgs},
 };
 use aws_lambda_events::event::s3::S3Event;
-use awsutils::file::File;
+use aws_sdk_s3::types::TransitionStorageClass;
+use awsutils::{bucket_creator, file::File};
 use constants::BUCKET_REQUEST_PREFIX;
 use lambda_runtime::{Error, LambdaEvent, tracing};
 
+#[derive(Debug, Clone)]
+pub(crate) struct HandlerOptions {
+    pub standard_storage_tier: TransitionStorageClass,
+}
+
+impl Default for HandlerOptions {
+    fn default() -> Self {
+        Self {
+            standard_storage_tier: bucket_creator::STORAGE_CLASS_STANDARD_DEFAULT,
+        }
+    }
+}
+
 pub(crate) async fn function_handler(
     config: &Config,
-    perform_opts: &PerformOptions,
+    handler_opts: &HandlerOptions,
     event: LambdaEvent<S3Event>,
 ) -> Result<(), Error> {
     let payload = event.payload;
@@ -32,7 +46,12 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    bucket_request::perform(config, &File::new(bucket, object), perform_opts)
+    let args = PerformArgs {
+        request_file: File::new(bucket, object),
+        standard_storage_tier: handler_opts.standard_storage_tier.clone(),
+    };
+
+    bucket_request::perform(config, &args)
         .await
         .map_err(|e| Error::from(e.to_string()))?;
 
@@ -58,7 +77,7 @@ mod tests {
         let event = LambdaEvent::new(s3_event, Context::default());
         let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, true);
-        let opts = PerformOptions::default();
+        let opts = HandlerOptions::default();
         function_handler(&config, &opts, event).await.unwrap();
     }
 
@@ -71,7 +90,7 @@ mod tests {
         let event = LambdaEvent::new(s3_event, Context::default());
         let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, true);
-        let opts = PerformOptions::default();
+        let opts = HandlerOptions::default();
         function_handler(&config, &opts, event).await.unwrap();
     }
 }

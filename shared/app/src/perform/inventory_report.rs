@@ -10,14 +10,16 @@ use awsutils::{
 };
 
 use crate::{config::Config, errors::InventoryReportError, upload};
-#[derive(Debug, Clone, Copy)]
-pub struct PerformOptions {
+#[derive(Debug, Clone)]
+pub struct PerformArgs {
+    pub manifest_file: File,
     pub date_ctx: DateCtx,
 }
 
-impl Default for PerformOptions {
-    fn default() -> Self {
+impl PerformArgs {
+    pub fn new(manifest_file: File) -> Self {
         Self {
+            manifest_file,
             date_ctx: DateCtx::Today,
         }
     }
@@ -25,9 +27,9 @@ impl Default for PerformOptions {
 
 pub async fn perform(
     config: &Config,
-    manifest_file: &File,
-    opts: &PerformOptions,
+    args: &PerformArgs,
 ) -> Result<InventoryStats, InventoryReportError> {
+    let manifest_file = &args.manifest_file;
     tracing::info!("Retrieving manifest file: {}", manifest_file.s3_url());
     let manifest = InventoryManifest::fetch(config.s3(), manifest_file).await?;
     let bucket = config.stack().managed_bucket();
@@ -66,7 +68,7 @@ pub async fn perform(
 
     upload::put_versioned_bytes(
         config,
-        opts.date_ctx,
+        args.date_ctx,
         csv_bytes,
         TEXT_CSV,
         |ctx| {
@@ -80,7 +82,7 @@ pub async fn perform(
 
     upload::put_versioned_bytes(
         config,
-        opts.date_ctx,
+        args.date_ctx,
         stats_bytes,
         APPLICATION_JSON,
         |ctx| {
@@ -151,8 +153,8 @@ mod tests {
 
         let config = app_config::Config::for_tests(sdk_config, false);
         let manifest_file = File::new(config.stack().managed_bucket(), manifest_key);
-        let opts = PerformOptions::default();
-        let stats = perform(&config, &manifest_file, &opts)
+        let args = PerformArgs::new(manifest_file);
+        let stats = perform(&config, &args)
             .await
             .expect("perform should succeed");
 
@@ -244,9 +246,9 @@ mod tests {
             .build_sdk_config_with_replay();
         let config = app_config::Config::for_tests(sdk_config, false);
         let manifest_file = File::new(config.stack().managed_bucket(), manifest_key);
-        let opts = PerformOptions::default();
+        let args = PerformArgs::new(manifest_file);
 
-        let err = perform(&config, &manifest_file, &opts)
+        let err = perform(&config, &args)
             .await
             .expect_err("perform should fail for non-parquet format");
         match err {

@@ -8,14 +8,16 @@ use constants::{APPLICATION_JSON, TEXT_CSV};
 
 use crate::{batch, config::Config, errors::ChecksumReportError, upload};
 
-#[derive(Debug, Clone, Copy)]
-pub struct PerformOptions {
+#[derive(Debug, Clone)]
+pub struct PerformArgs {
+    pub job_file: File,
     pub date_ctx: DateCtx,
 }
 
-impl Default for PerformOptions {
-    fn default() -> Self {
+impl PerformArgs {
+    pub fn new(job_file: File) -> Self {
         Self {
+            job_file,
             date_ctx: DateCtx::Today,
         }
     }
@@ -24,9 +26,9 @@ impl Default for PerformOptions {
 /// Generate a consolidated checksum report using batch compute checksum results
 pub async fn perform(
     config: &Config,
-    job_file: &File,
-    opts: &PerformOptions,
+    args: &PerformArgs,
 ) -> Result<VerificationStats, ChecksumReportError> {
+    let job_file = &args.job_file;
     tracing::info!("Retrieving job receipt from S3: {}", job_file.s3_url());
 
     let bytes = file::download_bytes(config.s3(), job_file).await?;
@@ -59,7 +61,7 @@ pub async fn perform(
 
     upload::put_versioned_bytes(
         config,
-        opts.date_ctx,
+        args.date_ctx,
         csv_bytes,
         TEXT_CSV,
         |ctx| config.stack().reports_checksums_path(&source_bucket, ctx),
@@ -69,7 +71,7 @@ pub async fn perform(
 
     upload::put_versioned_bytes(
         config,
-        opts.date_ctx,
+        args.date_ctx,
         stats_bytes,
         APPLICATION_JSON,
         |ctx| {
@@ -97,9 +99,9 @@ mod tests {
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
         let job_file = File::new(config.stack().managed_bucket(), "receipts/missing.json");
-        let opts = PerformOptions::default();
+        let args = PerformArgs::new(job_file);
 
-        let err = perform(&config, &job_file, &opts)
+        let err = perform(&config, &args)
             .await
             .expect_err("perform should fail when receipt download fails");
 
@@ -116,9 +118,9 @@ mod tests {
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
         let job_file = File::new(config.stack().managed_bucket(), "receipts/bad.json");
-        let opts = PerformOptions::default();
+        let args = PerformArgs::new(job_file);
 
-        let err = perform(&config, &job_file, &opts)
+        let err = perform(&config, &args)
             .await
             .expect_err("perform should fail when receipt is invalid json");
 

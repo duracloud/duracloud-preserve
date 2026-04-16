@@ -9,12 +9,13 @@ use constants::REPLICATION_SUFFIX;
 
 use crate::{bucket, config::Config, errors::BucketReconciliationError};
 
-pub struct PerformOptions {
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PerformArgs {
     pub fail_on_drift: bool,
 }
 
 #[derive(Debug)]
-pub struct PerformReport {
+pub struct ReconciliationReport {
     pub bucket_reports: Vec<ReconcileReport>,
     pub processed: usize,
     pub ok: usize,
@@ -22,7 +23,7 @@ pub struct PerformReport {
     pub errors: usize,
 }
 
-impl PerformReport {
+impl ReconciliationReport {
     pub fn has_errors(&self) -> bool {
         self.errors > 0
     }
@@ -36,8 +37,8 @@ impl PerformReport {
 /// For now this is a reporter-only: reads and compares configuration.
 pub async fn perform(
     config: &Config,
-    opts: &PerformOptions,
-) -> Result<PerformReport, BucketReconciliationError> {
+    args: &PerformArgs,
+) -> Result<ReconciliationReport, BucketReconciliationError> {
     let mut buckets = bucket::get_requested(config.s3(), config.stack()).await?;
 
     buckets.sort_by(|a, b| a.name().cmp(b.name()));
@@ -107,7 +108,7 @@ pub async fn perform(
         }
     }
 
-    let perform_report = PerformReport {
+    let report = ReconciliationReport {
         bucket_reports,
         processed,
         ok,
@@ -115,14 +116,14 @@ pub async fn perform(
         errors,
     };
 
-    if opts.fail_on_drift && perform_report.has_drift() {
+    if args.fail_on_drift && report.has_drift() {
         return Err(BucketReconciliationError::DriftDetected(format!(
             "{} bucket(s) have configuration drift",
-            perform_report.drift
+            report.drift
         )));
     }
 
-    Ok(perform_report)
+    Ok(report)
 }
 
 #[cfg(test)]
@@ -340,8 +341,8 @@ mod tests {
             .success(lifecycle_xml_full(class), None)
     }
 
-    fn test_opts() -> PerformOptions {
-        PerformOptions {
+    fn test_args() -> PerformArgs {
+        PerformArgs {
             fail_on_drift: false,
         }
     }
@@ -375,7 +376,7 @@ mod tests {
         let sdk_config = builder.build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
 
-        let report = perform(&config, &test_opts())
+        let report = perform(&config, &test_args())
             .await
             .expect("perform should return report even with drift/error");
 
@@ -410,7 +411,7 @@ mod tests {
         let sdk_config = builder.build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
 
-        let report = perform(&config, &test_opts())
+        let report = perform(&config, &test_args())
             .await
             .expect("missing replication pair should be reported, not crash perform()");
 
@@ -440,7 +441,7 @@ mod tests {
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
 
-        let report = perform(&config, &test_opts())
+        let report = perform(&config, &test_args())
             .await
             .expect("empty stack should not error");
 
@@ -476,11 +477,11 @@ mod tests {
 
         let sdk_config = builder.build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
-        let opts = PerformOptions {
+        let args = PerformArgs {
             fail_on_drift: true,
         };
 
-        let err = perform(&config, &opts)
+        let err = perform(&config, &args)
             .await
             .expect_err("fail_on_drift should return error when drift exists");
 

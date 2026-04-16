@@ -7,13 +7,26 @@ use base::bucket::{BucketPair, Name};
 use constants::REPLICATION_SUFFIX;
 
 /// Trigger S3 batch compute checksum jobs
+#[derive(Debug, Clone, Default)]
+pub struct PerformArgs {
+    pub bucket: Option<Name>,
+}
+
+impl PerformArgs {
+    pub fn for_bucket(bucket: Name) -> Self {
+        Self {
+            bucket: Some(bucket),
+        }
+    }
+}
+
 pub async fn perform(
     config: &Config,
-    bucket: Option<&Name>,
+    args: &PerformArgs,
 ) -> Result<Vec<String>, ComputeChecksumsError> {
     tracing::info!("Retrieving buckets for checksum report");
 
-    let bucket_pairs = match bucket {
+    let bucket_pairs = match args.bucket.as_ref() {
         Some(bucket_name) => {
             let source_name = bucket_name.as_str();
             let replication_name = format!("{source_name}{REPLICATION_SUFFIX}");
@@ -118,8 +131,9 @@ mod tests {
             .success(tagging, None)
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
+        let args = PerformArgs::for_bucket(bucket_name);
 
-        let err = perform(&config, Some(&bucket_name))
+        let err = perform(&config, &args)
             .await
             .expect_err("replication bucket should be invalid");
 
@@ -138,8 +152,9 @@ mod tests {
             .s3_error("NoSuchBucket", "bucket not found")
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
+        let args = PerformArgs::for_bucket(bucket_name);
 
-        let err = perform(&config, Some(&bucket_name))
+        let err = perform(&config, &args)
             .await
             .expect_err("missing bucket should be invalid");
 
@@ -158,8 +173,9 @@ mod tests {
             .success(tags, None)
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
+        let args = PerformArgs::default();
 
-        let err = perform(&config, None)
+        let err = perform(&config, &args)
             .await
             .expect_err("missing replication pair should fail");
 
@@ -178,8 +194,9 @@ mod tests {
             .success(list_buckets_xml(&[]), None)
             .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
+        let args = PerformArgs::default();
 
-        let receipts = perform(&config, None)
+        let receipts = perform(&config, &args)
             .await
             .expect("no source buckets should return empty receipts");
 

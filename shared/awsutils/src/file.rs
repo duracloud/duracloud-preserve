@@ -124,7 +124,7 @@ pub async fn upload(
 }
 
 /// Basic type wrapper for an S3 "file" (bucket + key)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct File {
     bucket: String,
     object: String,

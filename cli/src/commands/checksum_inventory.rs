@@ -25,8 +25,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Err("Inventory report not found".into());
     }
 
-    let opts = checksum_inventory::PerformOptions::default();
-    let inventory = checksum_inventory::perform(&config, &report, &opts).await?;
+    let args = checksum_inventory::PerformArgs::new(report);
+    let inventory = checksum_inventory::perform(&config, &args).await?;
 
     println!("Checksum inventory uploaded to: {inventory}");
 

@@ -14,13 +14,13 @@ use constants::{APPLICATION_JSON, TEXT_HTML};
 use crate::{bucket, config::Config, errors::StorageReportError, upload};
 
 #[derive(Debug, Clone, Copy, Default)]
-pub struct PerformOptions {
+pub struct PerformArgs {
     pub storage_capacity_bytes: Option<u64>,
 }
 
 pub async fn perform(
     config: &Config,
-    opts: &PerformOptions,
+    args: &PerformArgs,
 ) -> Result<StorageReport, StorageReportError> {
     let buckets = bucket::list_for_stack_by_type(
         config.s3(),
@@ -63,7 +63,7 @@ pub async fn perform(
         owner: config.owner().to_string(),
         stack_name: config.stack().as_str().to_string(),
         generated_at: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-        storage_capacity_bytes: opts.storage_capacity_bytes,
+        storage_capacity_bytes: args.storage_capacity_bytes,
     };
     let data = StorageReportData::from_inventory(bucket_stats);
     let storage_report = StorageReport { header, data };

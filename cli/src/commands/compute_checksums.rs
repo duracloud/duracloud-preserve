@@ -16,7 +16,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let config = config::load(stack).await?;
     let bucket_name = bucket::Name::new(&bucket)?;
 
-    let receipts = compute_checksums::perform(&config, Some(&bucket_name)).await?;
+    let args = compute_checksums::PerformArgs::for_bucket(bucket_name);
+    let receipts = compute_checksums::perform(&config, &args).await?;
 
     println!("Compute checksums jobs scheduled:\n");
     for (i, receipt) in receipts.iter().enumerate() {

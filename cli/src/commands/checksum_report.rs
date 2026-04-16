@@ -21,8 +21,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 
     let file = File::from(stack.metadata_checksums_receipts_path(&bucket, DateCtx::Latest));
 
-    let opts = checksum_report::PerformOptions::default();
-    let stats = checksum_report::perform(&config, &file, &opts).await?;
+    let args = checksum_report::PerformArgs::new(file);
+    let stats = checksum_report::perform(&config, &args).await?;
     println!("Checksum report complete:");
     println!("\tTotal objects:      {}", stats.total_objects());
     println!("\tMatches:            {}", stats.matches);

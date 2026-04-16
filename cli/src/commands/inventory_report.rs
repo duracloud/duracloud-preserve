@@ -24,8 +24,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let manifest = inventory::get_manifest(&config, &bucket).await?;
-    let opts = inventory_report::PerformOptions::default();
-    let stats = inventory_report::perform(&config, &manifest, &opts).await?;
+    let args = inventory_report::PerformArgs::new(manifest);
+    let stats = inventory_report::perform(&config, &args).await?;
 
     println!(
         "Processed {} files, {} bytes total",

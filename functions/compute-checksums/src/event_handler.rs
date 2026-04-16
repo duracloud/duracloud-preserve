@@ -14,7 +14,8 @@ pub(crate) async fn function_handler(
         return Ok(());
     }
 
-    compute_checksums::perform(config, None).await?;
+    let args = compute_checksums::PerformArgs::default();
+    compute_checksums::perform(config, &args).await?;
 
     Ok(())
 }

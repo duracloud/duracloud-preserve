@@ -1,6 +1,6 @@
 use app::{
     config,
-    perform::bucket_reconciliation::{self, PerformOptions},
+    perform::bucket_reconciliation::{self, PerformArgs},
 };
 use awsutils::bucket_reconciliator::StepStatus;
 use base::Stack;
@@ -19,11 +19,11 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Evaluating buckets for stack: {}", config.stack().as_str());
 
-    let opts = PerformOptions {
+    let args = PerformArgs {
         fail_on_drift: false,
     };
 
-    let report = bucket_reconciliation::perform(&config, &opts).await?;
+    let report = bucket_reconciliation::perform(&config, &args).await?;
 
     if report.processed == 0 {
         println!("No bucket-request buckets found for reconciliation");

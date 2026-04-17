@@ -154,6 +154,12 @@ pub enum SyncUsersError {
     IamError(String),
     #[error("invalid stack name '{stack}': {reason}")]
     InvalidStack { stack: String, reason: String },
+    #[error("failed to retrieve credentials for user '{user_name}': {source}")]
+    UserCredentials {
+        user_name: String,
+        #[source]
+        source: RequestError,
+    },
     #[error("failed to find eligible users")]
     UserDiscovery,
 }

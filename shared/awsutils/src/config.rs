@@ -86,6 +86,22 @@ pub async fn get_parameter(
         .ok_or_else(|| RequestError::ConfigError("failed to get parameter value".to_string()))
 }
 
+/// Get an IAM user's credentials (access and secret key)
+pub async fn get_user_credentials(
+    ssm: &aws_sdk_ssm::Client,
+    user_name: &str,
+) -> Result<(String, String), RequestError> {
+    // TODO: the format expectation needs to be tied into constants shared with terraform
+    // USER_ACCESS_KEY_NAMESPACE = /iam/access_key -> /iam/access_key/$user_name
+    let access_key_param_name = format!("/iam/{user_name}/access_key");
+    let secret_key_param_name = format!("/iam/{user_name}/secret_key");
+
+    tokio::try_join!(
+        get_parameter(ssm, &access_key_param_name),
+        get_parameter(ssm, &secret_key_param_name),
+    )
+}
+
 /// Parse a TransitionStorageClass from its as_str() representation.
 /// Only known variants are accepted.
 pub fn parse_storage_class(value: &str) -> Option<TransitionStorageClass> {

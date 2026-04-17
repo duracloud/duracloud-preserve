@@ -1,4 +1,4 @@
-use app::perform::sync_users;
+use app::{config::Clients, perform::sync_users};
 use awsutils::config;
 use clap::Args as ClapArgs;
 
@@ -22,7 +22,8 @@ pub struct Args {
 }
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
-    let config = config::load_defaults().await;
+    let sdk_config = config::load_defaults().await;
+    let clients = Clients::new(&sdk_config);
 
     let perform_args = sync_users::PerformArgs {
         username: args.username,
@@ -31,6 +32,6 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         sftpgo_password: args.sftpgo_password,
     };
 
-    sync_users::perform(&config, &perform_args).await?;
+    sync_users::perform(&clients, &perform_args).await?;
     Ok(())
 }

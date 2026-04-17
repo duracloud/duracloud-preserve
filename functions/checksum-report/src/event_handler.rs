@@ -34,7 +34,7 @@ pub(crate) async fn function_handler(
 
     tracing::info!(job_id = %job.job_id, "Batch job was completed successfully");
 
-    if config.debug_handler {
+    if config.debug_handler() {
         tracing::info!("Debug handler mode enabled, skipping perform function.");
         return Ok(());
     }

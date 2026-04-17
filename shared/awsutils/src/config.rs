@@ -1,6 +1,7 @@
 use crate::bucket::RequestError;
 use aws_config::{BehaviorVersion, SdkConfig};
 use aws_sdk_s3::types::TransitionStorageClass;
+use constants::{USER_ACCESS_KEY_NAMESPACE, USER_SECRET_KEY_NAMESPACE};
 
 /// Load default aws sdk config.
 pub async fn load_defaults() -> SdkConfig {
@@ -91,10 +92,8 @@ pub async fn get_user_credentials(
     ssm: &aws_sdk_ssm::Client,
     user_name: &str,
 ) -> Result<(String, String), RequestError> {
-    // TODO: the format expectation needs to be tied into constants shared with terraform
-    // USER_ACCESS_KEY_NAMESPACE = /iam/access_key -> /iam/access_key/$user_name
-    let access_key_param_name = format!("/iam/{user_name}/access_key");
-    let secret_key_param_name = format!("/iam/{user_name}/secret_key");
+    let access_key_param_name = format!("{USER_ACCESS_KEY_NAMESPACE}{user_name}");
+    let secret_key_param_name = format!("{USER_SECRET_KEY_NAMESPACE}{user_name}");
 
     tokio::try_join!(
         get_parameter(ssm, &access_key_param_name),

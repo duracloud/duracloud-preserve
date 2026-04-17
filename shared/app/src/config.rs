@@ -8,15 +8,23 @@ use awsutils::{
 
 /// AWS SDK clients
 pub struct Clients {
+    pub account: aws_sdk_account::Client,
+    pub iam: aws_sdk_iam::Client,
     pub s3: aws_sdk_s3::Client,
     pub s3control: aws_sdk_s3control::Client,
+    pub ssm: aws_sdk_ssm::Client,
+    pub sts: aws_sdk_sts::Client,
 }
 
 impl Clients {
     pub fn new(sdk_config: &SdkConfig) -> Self {
         Self {
+            account: aws_sdk_account::Client::new(sdk_config),
+            iam: aws_sdk_iam::Client::new(sdk_config),
             s3: aws_sdk_s3::Client::new(sdk_config),
             s3control: aws_sdk_s3control::Client::new(sdk_config),
+            ssm: aws_sdk_ssm::Client::new(sdk_config),
+            sts: aws_sdk_sts::Client::new(sdk_config),
         }
     }
 }
@@ -25,10 +33,9 @@ impl Clients {
 pub struct Config {
     account_id: String,
     clients: Clients,
-    pub debug_handler: bool,
+    debug_handler: bool,
     owner: String,
     roles: Roles,
-    sdk_config: SdkConfig,
     stack: Stack,
     storage_capacity: u64,
 }
@@ -46,45 +53,18 @@ impl std::fmt::Debug for Config {
 }
 
 impl Config {
-    pub fn new(
-        sdk_config: SdkConfig,
-        account_id: String,
-        owner: String,
-        roles: Roles,
-        stack: Stack,
-        storage_capacity: u64,
-        debug_handler: bool,
-    ) -> Self {
-        let clients = Clients::new(&sdk_config);
-        Self {
-            account_id,
-            debug_handler,
-            owner,
-            roles,
-            stack,
-            clients,
-            sdk_config,
-            storage_capacity,
-        }
-    }
-
     /// Create a Config for tests from a mocked SDK config.
     pub fn for_tests(sdk_config: SdkConfig, debug_handler: bool) -> Self {
-        let roles = Roles {
-            batch: "arn:aws:iam::123456789:role/test-batch-role".to_string(),
-            replication: "arn:aws:iam::123456789:role/test-replication-role".to_string(),
-        };
-        let stack = Stack::new("test-stack").expect("test stack should be valid");
-        let clients = Clients::new(&sdk_config);
-
         Self {
             account_id: "123456789".to_string(),
+            clients: Clients::new(&sdk_config),
             debug_handler,
             owner: "Test Owner".to_string(),
-            roles,
-            stack,
-            clients,
-            sdk_config,
+            roles: Roles {
+                batch: "arn:aws:iam::123456789:role/test-batch-role".to_string(),
+                replication: "arn:aws:iam::123456789:role/test-replication-role".to_string(),
+            },
+            stack: Stack::new("test-stack").expect("test stack should be valid"),
             storage_capacity: 0,
         }
     }
@@ -95,6 +75,10 @@ impl Config {
 
     pub fn batch_role_arn(&self) -> &str {
         &self.roles.batch
+    }
+
+    pub fn debug_handler(&self) -> bool {
+        self.debug_handler
     }
 
     pub fn owner(&self) -> &str {
@@ -111,10 +95,6 @@ impl Config {
 
     pub fn s3control(&self) -> &aws_sdk_s3control::Client {
         &self.clients.s3control
-    }
-
-    pub fn sdk_config(&self) -> &SdkConfig {
-        &self.sdk_config
     }
 
     pub fn stack(&self) -> &Stack {
@@ -137,30 +117,25 @@ pub struct Roles {
 pub async fn load(stack: Stack) -> Result<Config, RequestError> {
     let sdk_config = aws_config_utils::load_defaults().await;
     let managed_bucket = stack.managed_bucket();
+    let clients = Clients::new(&sdk_config);
 
-    let account = aws_sdk_account::Client::new(&sdk_config);
-    let iam = aws_sdk_iam::Client::new(&sdk_config);
-    let s3 = aws_sdk_s3::Client::new(&sdk_config);
-    let ssm = aws_sdk_ssm::Client::new(&sdk_config);
-    let sts = aws_sdk_sts::Client::new(&sdk_config);
-
-    if !bucket::exists(&s3, &managed_bucket).await {
+    if !bucket::exists(&clients.s3, &managed_bucket).await {
         return Err(RequestError::ConfigError(format!(
             "failed to find managed bucket for stack (does this stack exist?): {}",
             &managed_bucket
         )));
     }
 
-    let account_id = aws_config_utils::get_account_id(&sts).await?;
+    let account_id = aws_config_utils::get_account_id(&clients.sts).await?;
     let batch_role_name = stack.batch_role_name();
     let storage_capacity_param_name = stack.storage_capacity_param_name();
     let replication_role_name = stack.replication_role_name();
 
     let (batch_role, replication_role, owner, storage_capacity) = tokio::try_join!(
-        aws_config_utils::get_role_arn(&iam, &batch_role_name),
-        aws_config_utils::get_role_arn(&iam, &replication_role_name),
-        aws_config_utils::get_account_name(&account),
-        aws_config_utils::get_parameter(&ssm, &storage_capacity_param_name),
+        aws_config_utils::get_role_arn(&clients.iam, &batch_role_name),
+        aws_config_utils::get_role_arn(&clients.iam, &replication_role_name),
+        aws_config_utils::get_account_name(&clients.account),
+        aws_config_utils::get_parameter(&clients.ssm, &storage_capacity_param_name),
     )?;
 
     let roles = Roles {
@@ -172,13 +147,13 @@ pub async fn load(stack: Stack) -> Result<Config, RequestError> {
         RequestError::ValidationError(format!("failed to parse storage capacity: {}", e))
     })?;
 
-    Ok(Config::new(
-        sdk_config,
+    Ok(Config {
         account_id,
+        clients,
+        debug_handler: false,
         owner,
         roles,
         stack,
         storage_capacity,
-        false,
-    ))
+    })
 }

@@ -15,16 +15,30 @@ locals {
         "s3:ListMultipartUploadParts",
         "s3:ListBucketMultipartUploads",
       ]
+      managed_bucket_deny_actions = [
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts",
+        "s3:ListBucketMultipartUploads",
+      ]
+      repl_bucket_deny_actions = [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts",
+        "s3:ListBucketMultipartUploads",
+      ]
     }
     restricted_users = {
       group_name  = "${local.stack}-restricted-users"
       policy_name = "${local.stack}-restricted-users-policy"
       description = "Policy for restricted users"
-      # Can list only, addtl permissions must come from user policy
-      allow_actions = [
-        "s3:ListBucket",
-        "s3:ListBucketVersions",
-      ]
+      # No bucket/object access by default, addtl permissions must come from user policy
+      allow_actions               = []
+      managed_bucket_deny_actions = []
+      repl_bucket_deny_actions    = []
     }
     standard_users = {
       group_name  = "${local.stack}-standard-users"
@@ -33,6 +47,19 @@ locals {
       # Can download and upload to but not delete from user created buckets
       allow_actions = [
         "s3:ListBucket",
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts",
+        "s3:ListBucketMultipartUploads",
+      ]
+      managed_bucket_deny_actions = [
+        "s3:PutObject",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts",
+        "s3:ListBucketMultipartUploads",
+      ]
+      repl_bucket_deny_actions = [
         "s3:GetObject",
         "s3:PutObject",
         "s3:AbortMultipartUpload",
@@ -53,17 +80,10 @@ locals {
     local.managed_bucket_object_arn,
   ]
 
-  # Actions permitted on managed buckets (read-only)
-  managed_bucket_permitted = ["s3:ListBucket", "s3:GetObject"]
-
   repl_bucket_resources = [
     local.repl_bucket_arn_pattern,
     local.repl_object_arn_pattern,
   ]
-
-  # Actions permitted on repl buckets (list-only)
-  # Cannot upload to, delete from or download from repl buckets (listing is ok)
-  repl_bucket_permitted = ["s3:ListBucket"]
 }
 
 data "aws_iam_policy_document" "user_groups" {
@@ -75,22 +95,34 @@ data "aws_iam_policy_document" "user_groups" {
     resources = ["*"]
   }
 
-  statement {
-    effect    = "Allow"
-    actions   = each.value.allow_actions
-    resources = local.stack_bucket_resources
+  dynamic "statement" {
+    for_each = toset(each.value.allow_actions)
+
+    content {
+      effect    = "Allow"
+      actions   = [statement.value]
+      resources = local.stack_bucket_resources
+    }
   }
 
-  statement {
-    effect    = "Deny"
-    actions   = setsubtract(each.value.allow_actions, local.managed_bucket_permitted)
-    resources = local.managed_bucket_resources
+  dynamic "statement" {
+    for_each = toset(each.value.managed_bucket_deny_actions)
+
+    content {
+      effect    = "Deny"
+      actions   = [statement.value]
+      resources = local.managed_bucket_resources
+    }
   }
 
-  statement {
-    effect    = "Deny"
-    actions   = setsubtract(each.value.allow_actions, local.repl_bucket_permitted)
-    resources = local.repl_bucket_resources
+  dynamic "statement" {
+    for_each = toset(each.value.repl_bucket_deny_actions)
+
+    content {
+      effect    = "Deny"
+      actions   = [statement.value]
+      resources = local.repl_bucket_resources
+    }
   }
 }
 

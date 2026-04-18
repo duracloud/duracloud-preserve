@@ -16,6 +16,63 @@ locals {
     for name, u in var.users : name => u.buckets
     if length(u.buckets) > 0
   }
+
+  user_managed_buckets = {
+    for name, buckets in local.user_buckets : name => [
+      for bucket in buckets : bucket
+      if endswith(bucket, local.managed_suffix)
+    ]
+  }
+
+  user_repl_buckets = {
+    for name, buckets in local.user_buckets : name => [
+      for bucket in buckets : bucket
+      if endswith(bucket, local.replication_suffix)
+    ]
+  }
+
+  user_managed_bucket_resources = {
+    for name, buckets in local.user_managed_buckets : name => concat(
+      [for bucket in buckets : "arn:aws:s3:::${bucket}"],
+      [for bucket in buckets : "arn:aws:s3:::${bucket}/*"]
+    )
+  }
+
+  user_repl_bucket_resources = {
+    for name, buckets in local.user_repl_buckets : name => concat(
+      [for bucket in buckets : "arn:aws:s3:::${bucket}"],
+      [for bucket in buckets : "arn:aws:s3:::${bucket}/*"]
+    )
+  }
+
+  user_bucket_allow_actions = [
+    "s3:ListBucket",
+    "s3:ListBucketMultipartUploads",
+  ]
+
+  user_object_allow_actions = [
+    "s3:GetObject",
+    "s3:PutObject",
+    "s3:AbortMultipartUpload",
+    "s3:ListMultipartUploadParts",
+  ]
+
+  managed_bucket_deny_actions = [
+    "s3:PutObject",
+    "s3:DeleteObject",
+    "s3:AbortMultipartUpload",
+    "s3:ListMultipartUploadParts",
+    "s3:ListBucketMultipartUploads",
+  ]
+
+  repl_bucket_deny_actions = [
+    "s3:GetObject",
+    "s3:PutObject",
+    "s3:DeleteObject",
+    "s3:AbortMultipartUpload",
+    "s3:ListMultipartUploadParts",
+    "s3:ListBucketMultipartUploads",
+  ]
 }
 
 data "aws_iam_group" "user" {
@@ -47,26 +104,58 @@ resource "aws_iam_user_group_membership" "user" {
   groups = [data.aws_iam_group.user[each.key].group_name]
 }
 
-// TODO: the /iam/access_key/ path is hardcoded here
-// and needs to be integrated with Rust constants
 resource "aws_ssm_parameter" "access_key" {
   for_each = local.users
 
-  name        = "/iam/access_key/${each.key}"
+  name        = "${local.user_access_key_namespace}${each.key}"
   description = "Access key for IAM user ${each.key}"
   type        = "String"
   value       = aws_iam_access_key.user[each.key].id
 }
 
-// TODO: the /iam/secret_key/ path is hardcoded here
-// and needs to be integrated with Rust constants
 resource "aws_ssm_parameter" "secret_key" {
   for_each = local.users
 
-  name        = "/iam/secret_key/${each.key}"
+  name        = "${local.user_secret_key_namespace}${each.key}"
   description = "Secret key for IAM user ${each.key}"
   type        = "SecureString"
   value       = aws_iam_access_key.user[each.key].secret
+}
+
+data "aws_iam_policy_document" "s3_access" {
+  for_each = local.user_buckets
+
+  statement {
+    effect    = "Allow"
+    actions   = local.user_bucket_allow_actions
+    resources = [for bucket in each.value : "arn:aws:s3:::${bucket}"]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = local.user_object_allow_actions
+    resources = [for bucket in each.value : "arn:aws:s3:::${bucket}/*"]
+  }
+
+  dynamic "statement" {
+    for_each = length(local.user_managed_bucket_resources[each.key]) > 0 ? [local.user_managed_bucket_resources[each.key]] : []
+
+    content {
+      effect    = "Deny"
+      actions   = local.managed_bucket_deny_actions
+      resources = statement.value
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(local.user_repl_bucket_resources[each.key]) > 0 ? [local.user_repl_bucket_resources[each.key]] : []
+
+    content {
+      effect    = "Deny"
+      actions   = local.repl_bucket_deny_actions
+      resources = statement.value
+    }
+  }
 }
 
 resource "aws_iam_user_policy" "s3_access" {
@@ -75,18 +164,5 @@ resource "aws_iam_user_policy" "s3_access" {
   name = "s3-access"
   user = aws_iam_user.user[each.key].name
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "s3:GetObject",
-        "s3:PutObject",
-        "s3:AbortMultipartUpload",
-        "s3:ListMultipartUploadParts",
-        "s3:ListBucketMultipartUploads",
-      ]
-      Resource = [for b in each.value : "arn:aws:s3:::${b}/*"]
-    }]
-  })
+  policy = data.aws_iam_policy_document.s3_access[each.key].json
 }

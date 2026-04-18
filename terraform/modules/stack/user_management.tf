@@ -16,6 +16,16 @@ locals {
         "s3:ListBucketMultipartUploads",
       ]
     }
+    restricted_users = {
+      group_name  = "${local.stack}-restricted-users"
+      policy_name = "${local.stack}-restricted-users-policy"
+      description = "Policy for restricted users"
+      # Can list only, addtl permissions must come from user policy
+      allow_actions = [
+        "s3:ListBucket",
+        "s3:ListBucketVersions",
+      ]
+    }
     standard_users = {
       group_name  = "${local.stack}-standard-users"
       policy_name = "${local.stack}-standard-users-policy"

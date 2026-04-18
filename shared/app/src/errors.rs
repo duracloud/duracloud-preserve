@@ -152,8 +152,6 @@ pub enum SyncUsersError {
     BucketDiscovery(#[from] RequestError),
     #[error("failed to retrieve iam data: {0}")]
     IamError(String),
-    #[error("invalid stack name '{stack}': {reason}")]
-    InvalidStack { stack: String, reason: String },
     #[error("failed to retrieve credentials for user '{user_name}': {source}")]
     UserCredentials {
         user_name: String,

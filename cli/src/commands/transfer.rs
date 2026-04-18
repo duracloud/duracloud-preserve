@@ -19,7 +19,7 @@ pub struct Args {
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let destination = args.destination;
-    let stack = Stack::from_bucket_name(&destination)?;
+    let stack = Stack::from_prefixed_name(&destination)?;
     let config = config::load(stack.clone()).await?;
 
     let stack_buckets = app_bucket::list_for_stack(config.s3(), &stack, None).await?;

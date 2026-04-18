@@ -72,15 +72,16 @@ impl Stack {
         self.0.as_str()
     }
 
-    /// Extract stack name from a bucket name.
-    /// Stack is the first two delimited parts; bucket names must have at least `BUCKET_NAME_MIN_PARTS` parts.
-    pub fn from_bucket_name(bucket: &str) -> Result<Self, &'static str> {
-        let parts: Vec<&str> = bucket
+    /// Extract stack name from any identifier whose first two hyphen-separated parts
+    /// are the stack name (e.g. bucket names, IAM group names).
+    /// The input must have at least `BUCKET_NAME_MIN_PARTS` hyphen-separated parts.
+    pub fn from_prefixed_name(name: &str) -> Result<Self, &'static str> {
+        let parts: Vec<&str> = name
             .splitn(BUCKET_NAME_MIN_PARTS, STACK_BUCKET_DELIMITER)
             .collect();
 
         if parts.len() < BUCKET_NAME_MIN_PARTS {
-            return Err("Bucket name must have at least three parts");
+            return Err("Name must have at least three hyphen-separated parts");
         }
 
         let stack_name = format!("{}{}{}", parts[0], STACK_BUCKET_DELIMITER, parts[1]);
@@ -425,7 +426,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stack_from_bucket_name() {
+    fn test_stack_from_prefixed_name() {
         // Valid bucket names: (input, expected_stack)
         let valid_cases = [
             ("test-stack-managed", "test-stack"),
@@ -438,7 +439,7 @@ mod tests {
 
         for (input, expected) in valid_cases {
             assert_eq!(
-                Stack::from_bucket_name(input).unwrap().as_str(),
+                Stack::from_prefixed_name(input).unwrap().as_str(),
                 expected,
                 "failed for input: {}",
                 input
@@ -450,7 +451,7 @@ mod tests {
 
         for input in invalid_cases {
             assert!(
-                Stack::from_bucket_name(input).is_err(),
+                Stack::from_prefixed_name(input).is_err(),
                 "expected error for input: {}",
                 input
             );

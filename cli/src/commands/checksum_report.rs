@@ -12,7 +12,7 @@ pub struct Args {
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let bucket = args.bucket;
-    let stack = Stack::from_bucket_name(&bucket)?;
+    let stack = Stack::from_prefixed_name(&bucket)?;
     let config = config::load(stack.clone()).await?;
 
     if !bucket::exists(config.s3(), &bucket).await {

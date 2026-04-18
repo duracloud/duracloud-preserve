@@ -42,30 +42,30 @@ pub async fn perform(clients: &Clients, _args: &PerformArgs) -> Result<(), SyncU
 
         tracing::info!("Retrieved access key: {}", access_key);
 
-        // TODO: filter out empty stack name candidates
-        let stacks = user
+        let stacks: Vec<Stack> = user
             .groups
             .iter()
-            .map(|group| group.rsplitn(3, '-').last().unwrap_or("").to_string())
-            .collect::<Vec<String>>();
+            .filter_map(|group| match Stack::from_prefixed_name(group) {
+                Ok(stack) => Some(stack),
+                Err(reason) => {
+                    tracing::debug!("Skipping group '{group}' (not a stack name): {reason}");
+                    None
+                }
+            })
+            .collect();
 
         let mut buckets = Vec::new();
-        for stack_name in &stacks {
-            let stack_buckets = match bucket_cache.get(stack_name) {
+        for stack in &stacks {
+            let stack_buckets = match bucket_cache.get(stack.as_str()) {
                 Some(cached) => cached.clone(),
                 None => {
-                    let stack =
-                        Stack::new(stack_name).map_err(|reason| SyncUsersError::InvalidStack {
-                            stack: stack_name.clone(),
-                            reason: reason.to_string(),
-                        })?;
                     let fetched = bucket::list_for_stack_by_type(
                         &clients.s3,
-                        &stack,
+                        stack,
                         &[Type::Internal, Type::Public, Type::Standard],
                     )
                     .await?;
-                    bucket_cache.insert(stack_name.clone(), fetched.clone());
+                    bucket_cache.insert(stack.as_str().to_string(), fetched.clone());
                     fetched
                 }
             };

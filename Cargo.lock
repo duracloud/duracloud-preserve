@@ -89,7 +89,9 @@ dependencies = [
  "constants",
  "csv",
  "futures",
+ "reqwest",
  "serde_json",
+ "sftpgo",
  "tempfile",
  "test-support",
  "thiserror",
@@ -3521,6 +3523,17 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "sftpgo"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]

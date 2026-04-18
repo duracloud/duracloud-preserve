@@ -11,6 +11,7 @@ members = [
   "shared/base",
   "shared/awsutils",
   "shared/constants",
+  "shared/sftpgo",
   "shared/test-support",
 ]
 
@@ -20,6 +21,7 @@ app = { path = "shared/app" }
 awsutils = { path = "shared/awsutils" }
 base = { path = "shared/base" }
 constants = { path = "shared/constants" }
+sftpgo = { path = "shared/sftpgo" }
 test-support = { path = "shared/test-support" }
 
 # AWS
@@ -47,6 +49,7 @@ tokio = { version = "1.51.1", features = ["macros", "rt-multi-thread"] }
 
 # Web/HTTP
 http = "1.4.0"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 # Templating
 askama = "0.15.6"

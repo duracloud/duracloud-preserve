@@ -17,9 +17,20 @@ use awsutils::{
     bucket_creator::{BucketCreator, BucketCreatorParams},
     errors::S3ResultExt,
     file::{self, File},
+    users::UserInfo,
 };
 
 use crate::{config::Config, errors::FileKeyError};
+
+/// Per-stack bucket list cache for reuse when processing many users.
+#[derive(Default)]
+pub struct BucketCache(HashMap<String, Vec<Bucket>>);
+
+impl BucketCache {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 type TagFilter<'a> = Option<&'a dyn Fn(&[Tag]) -> bool>;
 
@@ -215,6 +226,48 @@ pub async fn list_for_stack_by_type(
         Some(&|tags: &[Tag]| bucket::type_from_tags(tags).is_some_and(|t| types.contains(&t))),
     )
     .await
+}
+
+/// List buckets accessible to a user across every stack named by their IAM groups.
+///
+/// Groups that don't parse as stack names are skipped (logged at debug).
+/// Only `Internal`, `Public`, and `Standard` buckets are returned.
+pub async fn list_for_user_stacks(
+    client: &Client,
+    user: &UserInfo,
+    cache: &mut BucketCache,
+) -> Result<Vec<Bucket>, RequestError> {
+    let stacks: Vec<Stack> = user
+        .groups
+        .iter()
+        .filter_map(|group| match Stack::from_prefixed_name(group) {
+            Ok(stack) => Some(stack),
+            Err(reason) => {
+                tracing::debug!("Skipping group '{group}' (not a stack name): {reason}");
+                None
+            }
+        })
+        .collect();
+
+    let mut buckets = Vec::new();
+    for stack in &stacks {
+        let stack_buckets = match cache.0.get(stack.as_str()) {
+            Some(cached) => cached.clone(),
+            None => {
+                let fetched = list_for_stack_by_type(
+                    client,
+                    stack,
+                    &[Type::Internal, Type::Public, Type::Standard],
+                )
+                .await?;
+                cache.0.insert(stack.as_str().to_string(), fetched.clone());
+                fetched
+            }
+        };
+        buckets.extend(stack_buckets);
+    }
+
+    Ok(buckets)
 }
 
 /// Pair source buckets with their replication buckets.

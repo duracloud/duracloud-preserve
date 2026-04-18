@@ -1,12 +1,11 @@
-use std::collections::HashMap;
+use awsutils::{config::get_user_credentials, users::list_users_with_email_and_groups};
 
-use awsutils::{
-    bucket::Bucket, config::get_user_credentials, users::list_users_with_email_and_groups,
+use crate::{
+    bucket::{self, BucketCache},
+    config::Clients,
+    errors::SyncUsersError,
+    sftpgo,
 };
-use base::{Stack, bucket::Type};
-use sftpgo::{SFTPGoClient, SFTPGoConfig};
-
-use crate::{bucket, config::Clients, errors::SyncUsersError};
 
 #[derive(Debug, Clone)]
 pub struct PerformArgs {
@@ -17,20 +16,14 @@ pub struct PerformArgs {
 }
 
 pub async fn perform(clients: &Clients, args: &PerformArgs) -> Result<(), SyncUsersError> {
-    // Start by connecting to SFTPGo, if this fails we're done
-    let mut client = SFTPGoClient::new(
-        reqwest::Client::new(),
-        SFTPGoConfig {
-            host: args.sftpgo_host.clone(),
-            username: args.sftpgo_username.clone(),
-            password: args.sftpgo_password.clone(),
-        },
-    );
-    client.get_token().await?;
-
+    let client = sftpgo::connect(
+        &args.sftpgo_host,
+        &args.sftpgo_username,
+        &args.sftpgo_password,
+    )
+    .await?;
     let region = awsutils::config::get_region(&clients.s3)?;
-
-    let mut bucket_cache: HashMap<String, Vec<Bucket>> = HashMap::new();
+    let mut bucket_cache = BucketCache::new();
 
     // TODO filter users by username if supplied (becomes list of 1 if found or empty if not)
     let users = list_users_with_email_and_groups(&clients.iam).await?;
@@ -43,47 +36,15 @@ pub async fn perform(clients: &Clients, args: &PerformArgs) -> Result<(), SyncUs
     for user in users {
         tracing::info!("Processing user: {:?}", user.email);
 
-        let stacks: Vec<Stack> = user
-            .groups
-            .iter()
-            .filter_map(|group| match Stack::from_prefixed_name(group) {
-                Ok(stack) => Some(stack),
-                Err(reason) => {
-                    tracing::debug!("Skipping group '{group}' (not a stack name): {reason}");
-                    None
-                }
-            })
-            .collect();
+        let buckets = bucket::list_for_user_stacks(&clients.s3, &user, &mut bucket_cache).await?;
+        let bucket_names: Vec<&str> = buckets.iter().map(|b| b.name()).collect();
 
-        let mut buckets = Vec::new();
-        for stack in &stacks {
-            let stack_buckets = match bucket_cache.get(stack.as_str()) {
-                Some(cached) => cached.clone(),
-                None => {
-                    let fetched = bucket::list_for_stack_by_type(
-                        &clients.s3,
-                        stack,
-                        &[Type::Internal, Type::Public, Type::Standard],
-                    )
-                    .await?;
-                    bucket_cache.insert(stack.as_str().to_string(), fetched.clone());
-                    fetched
-                }
-            };
-            buckets.extend(stack_buckets);
-        }
-
-        let buckets = buckets
-            .iter()
-            .map(|bucket| bucket.name())
-            .collect::<Vec<&str>>();
-
-        if buckets.is_empty() {
+        if bucket_names.is_empty() {
             tracing::warn!("No buckets found for user");
             continue;
         }
 
-        tracing::info!("Identified buckets: {}", buckets.join(","));
+        tracing::info!("Identified buckets: {}", bucket_names.join(","));
 
         let (access_key, secret_key) = get_user_credentials(&clients.ssm, &user.user_name)
             .await
@@ -92,18 +53,15 @@ pub async fn perform(clients: &Clients, args: &PerformArgs) -> Result<(), SyncUs
                 source,
             })?;
 
-        let mut sftpgo_user = client.get_user(&user.email).await?;
-        let user_key = sftpgo_user.key();
-
-        tracing::info!("Found SFTPGo user account: {}", sftpgo_user.username);
-
-        for folder in sftpgo::base_folders(&user_key, &buckets, &region, &access_key, &secret_key) {
-            client.upsert_folder(&folder).await?;
-        }
-
-        sftpgo_user.permissions = sftpgo::permissions(&buckets);
-        sftpgo_user.virtual_folders = sftpgo::virtual_folders(&user_key, &buckets);
-        client.update_user(&sftpgo_user).await?;
+        sftpgo::sync_user_access(
+            &client,
+            &user.email,
+            &bucket_names,
+            &region,
+            &access_key,
+            &secret_key,
+        )
+        .await?;
 
         tracing::info!("User account updated successfully")
     }

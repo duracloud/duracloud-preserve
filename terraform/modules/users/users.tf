@@ -47,6 +47,8 @@ resource "aws_iam_user_group_membership" "user" {
   groups = [data.aws_iam_group.user[each.key].group_name]
 }
 
+// TODO: the /iam/access_key/ path is hardcoded here
+// and needs to be integrated with Rust constants
 resource "aws_ssm_parameter" "access_key" {
   for_each = local.users
 
@@ -56,6 +58,8 @@ resource "aws_ssm_parameter" "access_key" {
   value       = aws_iam_access_key.user[each.key].id
 }
 
+// TODO: the /iam/secret_key/ path is hardcoded here
+// and needs to be integrated with Rust constants
 resource "aws_ssm_parameter" "secret_key" {
   for_each = local.users
 

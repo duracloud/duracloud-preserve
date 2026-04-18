@@ -28,6 +28,8 @@ pub async fn perform(clients: &Clients, args: &PerformArgs) -> Result<(), SyncUs
     );
     client.get_token().await?;
 
+    let region = awsutils::config::get_region(&clients.s3)?;
+
     let mut bucket_cache: HashMap<String, Vec<Bucket>> = HashMap::new();
 
     // TODO filter users by username if supplied (becomes list of 1 if found or empty if not)
@@ -83,32 +85,25 @@ pub async fn perform(clients: &Clients, args: &PerformArgs) -> Result<(), SyncUs
 
         tracing::info!("Identified buckets: {}", buckets.join(","));
 
-        let (access_key, secret_key) =
-            match get_user_credentials(&clients.ssm, &user.user_name).await {
-                Ok(credentials) => credentials,
-                Err(source) => {
-                    return Err(SyncUsersError::UserCredentials {
-                        user_name: user.user_name.clone(),
-                        source,
-                    });
-                }
-            };
+        let (access_key, secret_key) = get_user_credentials(&clients.ssm, &user.user_name)
+            .await
+            .map_err(|source| SyncUsersError::UserCredentials {
+                user_name: user.user_name.clone(),
+                source,
+            })?;
 
-        tracing::info!("Retrieved access key: {}", access_key);
+        let mut sftpgo_user = client.get_user(&user.email).await?;
+        let user_key = sftpgo_user.key();
 
-        let mut user = client.get_user(&user.email).await?;
-        let user_key = user.key();
-        let region = awsutils::config::get_region(&clients.s3)?;
-
-        tracing::info!("Found SFTPGo user account: {}", user.username);
+        tracing::info!("Found SFTPGo user account: {}", sftpgo_user.username);
 
         for folder in sftpgo::base_folders(&user_key, &buckets, &region, &access_key, &secret_key) {
             client.upsert_folder(&folder).await?;
         }
 
-        user.permissions = sftpgo::permissions(&buckets);
-        user.virtual_folders = sftpgo::virtual_folders(&user_key, &buckets);
-        client.update_user(&user).await?;
+        sftpgo_user.permissions = sftpgo::permissions(&buckets);
+        sftpgo_user.virtual_folders = sftpgo::virtual_folders(&user_key, &buckets);
+        client.update_user(&sftpgo_user).await?;
 
         tracing::info!("User account updated successfully")
     }

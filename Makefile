@@ -1,6 +1,8 @@
 .DEFAULT_GOAL := help
 SHELL:=/bin/bash
 
+SFTPGO_ENV := SFTPGO_USERNAME=$${SFTPGO_USERNAME:-placeholder} SFTPGO_PASSWORD=$${SFTPGO_PASSWORD:-placeholder}
+
 .PHONY: bucket
 bucket: ## Perform action on a bucket (make bucket a=action b=bucket p=profile)
 	@AWS_PROFILE=$(p) ./scripts/bucket.sh $(a) $(b)
@@ -33,7 +35,7 @@ ci: test ## Run the ci checks locally
 
 .PHONY: deploy
 deploy: locals build-lambda-release ## Deploy all resources including functions (make deploy s=stack p=profile)
-	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) TF_VAR_deploy=true terraform apply
+	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) TF_VAR_deploy=true $(SFTPGO_ENV) terraform apply
 
 .PHONY: docs
 docs: ## Read the docs
@@ -89,12 +91,12 @@ run-storage-report: ## Run run-storage-report cli (make run-storage-report s=sta
 
 .PHONY: setup
 setup: locals ## Create base infrastructure (make setup s=stack p=profile)
-	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) terraform init -upgrade
-	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) terraform apply
+	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) $(SFTPGO_ENV) terraform init -upgrade
+	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) $(SFTPGO_ENV) terraform apply
 
 .PHONY: teardown
 teardown: reset ## Destroy all infrastructure (make teardown s=stack p=profile)
-	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) TF_VAR_deploy=true terraform destroy
+	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) TF_VAR_deploy=true $(SFTPGO_ENV) terraform destroy
 
 .PHONY: trigger
 trigger: ## Trigger a lambda function remotely (make trigger f=function s=stack p=profile)

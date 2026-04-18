@@ -3,6 +3,7 @@
 !.terraform-version
 /buckets.txt
 terraform.tfstate*
+terraform.tfvars
 *.auto.tfvars
 tmp_*.json
 payloads

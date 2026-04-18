@@ -8,22 +8,33 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
+    sftpgo = {
+      source  = "drakkan/sftpgo"
+      version = "~> 0.0.22"
+    }
   }
 }
 
 provider "aws" {}
+provider "sftpgo" {
+  host = local.sftpgo_host
+}
 
 data "aws_organizations_organization" "current" {}
 
 variable "cloudfront_domain" { default = "" }
 variable "cloudfront_enabled" { default = true }
 variable "deploy" { default = false }
+variable "sftpgo_host" { default = null }
 variable "stack" {}
+variable "users" { default = {} }
 
 locals {
-  deploy = var.deploy
-  org_id = data.aws_organizations_organization.current.id
-  stack  = var.stack
+  deploy      = var.deploy
+  org_id      = data.aws_organizations_organization.current.id
+  sftpgo_host = var.sftpgo_host
+  stack       = var.stack
+  users       = var.users
 
   functions_bucket = "artifacts.${local.stack}"
   functions = {
@@ -63,6 +74,13 @@ module "stack" {
   functions = local.functions
 
   depends_on = [module.artifacts]
+}
+
+module "users" {
+  source = "./terraform/modules/users"
+
+  sftpgo_host = local.sftpgo_host
+  users       = local.users
 }
 
 module "artifacts" {

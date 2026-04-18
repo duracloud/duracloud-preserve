@@ -152,6 +152,8 @@ pub enum SyncUsersError {
     BucketDiscovery(#[from] RequestError),
     #[error("failed to retrieve iam data: {0}")]
     IamError(String),
+    #[error("SFTPGo error: {0}")]
+    SftpGo(#[from] sftpgo::Error),
     #[error("failed to retrieve credentials for user '{user_name}': {source}")]
     UserCredentials {
         user_name: String,

@@ -4,6 +4,7 @@ use awsutils::{
     bucket::Bucket, config::get_user_credentials, users::list_users_with_email_and_groups,
 };
 use base::{Stack, bucket::Type};
+use sftpgo::{SFTPGoClient, SFTPGoConfig};
 
 use crate::{bucket, config::Clients, errors::SyncUsersError};
 
@@ -15,7 +16,18 @@ pub struct PerformArgs {
     pub sftpgo_password: String,
 }
 
-pub async fn perform(clients: &Clients, _args: &PerformArgs) -> Result<(), SyncUsersError> {
+pub async fn perform(clients: &Clients, args: &PerformArgs) -> Result<(), SyncUsersError> {
+    // Start by connecting to SFTPGo, if this fails we're done
+    let mut client = SFTPGoClient::new(
+        reqwest::Client::new(),
+        SFTPGoConfig {
+            host: args.sftpgo_host.clone(),
+            username: args.sftpgo_username.clone(),
+            password: args.sftpgo_password.clone(),
+        },
+    );
+    client.get_token().await?;
+
     let mut bucket_cache: HashMap<String, Vec<Bucket>> = HashMap::new();
 
     // TODO filter users by username if supplied (becomes list of 1 if found or empty if not)
@@ -28,19 +40,6 @@ pub async fn perform(clients: &Clients, _args: &PerformArgs) -> Result<(), SyncU
 
     for user in users {
         tracing::info!("Processing user: {:?}", user.email);
-
-        let (access_key, _secret_key) =
-            match get_user_credentials(&clients.ssm, &user.user_name).await {
-                Ok(credentials) => credentials,
-                Err(source) => {
-                    return Err(SyncUsersError::UserCredentials {
-                        user_name: user.user_name.clone(),
-                        source,
-                    });
-                }
-            };
-
-        tracing::info!("Retrieved access key: {}", access_key);
 
         let stacks: Vec<Stack> = user
             .groups
@@ -77,7 +76,41 @@ pub async fn perform(clients: &Clients, _args: &PerformArgs) -> Result<(), SyncU
             .map(|bucket| bucket.name())
             .collect::<Vec<&str>>();
 
+        if buckets.is_empty() {
+            tracing::warn!("No buckets found for user");
+            continue;
+        }
+
         tracing::info!("Identified buckets: {}", buckets.join(","));
+
+        let (access_key, secret_key) =
+            match get_user_credentials(&clients.ssm, &user.user_name).await {
+                Ok(credentials) => credentials,
+                Err(source) => {
+                    return Err(SyncUsersError::UserCredentials {
+                        user_name: user.user_name.clone(),
+                        source,
+                    });
+                }
+            };
+
+        tracing::info!("Retrieved access key: {}", access_key);
+
+        let mut user = client.get_user(&user.email).await?;
+        let user_key = user.key();
+        let region = awsutils::config::get_region(&clients.s3)?;
+
+        tracing::info!("Found SFTPGo user account: {}", user.username);
+
+        for folder in sftpgo::base_folders(&user_key, &buckets, &region, &access_key, &secret_key) {
+            client.upsert_folder(&folder).await?;
+        }
+
+        user.permissions = sftpgo::permissions(&buckets);
+        user.virtual_folders = sftpgo::virtual_folders(&user_key, &buckets);
+        client.update_user(&user).await?;
+
+        tracing::info!("User account updated successfully")
     }
 
     Ok(())

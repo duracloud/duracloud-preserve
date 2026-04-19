@@ -3,12 +3,7 @@ use base::stack::DateCtx;
 use bytes::Bytes;
 use constants::TEXT_CSV;
 
-use crate::{
-    bucket, checksum, checksum::InventoryRow, config::Config, errors::ChecksumInventoryError,
-    upload,
-};
-
-const CHECKSUM_TYPE: &str = "crc64nvme";
+use crate::{bucket, checksum, config::Config, errors::ChecksumInventoryError, upload};
 
 #[derive(Debug, Clone)]
 pub struct PerformArgs {
@@ -36,18 +31,7 @@ pub async fn perform(
         .await
         .map_err(ChecksumInventoryError::Download)?;
 
-    let mut rdr = csv::ReaderBuilder::new().from_reader(&bytes[..]);
-
-    let rows = rdr
-        .records()
-        .map(|result| -> Result<InventoryRow, ChecksumInventoryError> {
-            let record = result?;
-            Ok(InventoryRow {
-                bucket: record[0].to_string(),
-                key: record[1].to_string(),
-            })
-        });
-
+    let rows = checksum::parse_inventory_rows(&bytes);
     let (csv_bytes, count, skipped) = checksum::generate_inventory(config, rows).await?;
 
     tracing::info!("Processed {count} inventory rows");
@@ -56,7 +40,7 @@ pub async fn perform(
         tracing::warn!("{skipped} of {count} objects had non-ok status");
     }
 
-    let output_name = format!("{bucket}_{CHECKSUM_TYPE}");
+    let output_name = format!("{bucket}_{}", checksum::CHECKSUM_TYPE);
     let csv_bytes = Bytes::from(csv_bytes);
 
     upload::put_versioned_bytes(

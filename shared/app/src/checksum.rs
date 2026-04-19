@@ -3,6 +3,7 @@ use futures::stream::{self, TryStreamExt};
 
 use crate::{config::Config, errors::ChecksumInventoryError};
 
+pub const CHECKSUM_TYPE: &str = "crc64nvme";
 const CONCURRENCY: usize = 64;
 const HEADERS: [&str; 6] = [
     "bucket",
@@ -114,4 +115,20 @@ pub async fn generate_inventory(
         .map_err(|e| csv::Error::from(e.into_error()))?;
 
     Ok((csv_bytes, count, skipped))
+}
+
+/// Parse an S3 inventory CSV, yielding the `bucket` and `key` columns as `InventoryRow`s.
+pub fn parse_inventory_rows(
+    bytes: &[u8],
+) -> impl Iterator<Item = Result<InventoryRow, ChecksumInventoryError>> + '_ {
+    csv::ReaderBuilder::new()
+        .from_reader(bytes)
+        .into_records()
+        .map(|result| {
+            let record = result?;
+            Ok(InventoryRow {
+                bucket: record[0].to_string(),
+                key: record[1].to_string(),
+            })
+        })
 }

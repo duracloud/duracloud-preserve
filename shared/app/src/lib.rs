@@ -5,5 +5,6 @@ pub mod config;
 pub mod errors;
 pub mod inventory;
 pub mod perform;
+pub mod reconcile;
 pub mod sftpgo;
 mod upload;

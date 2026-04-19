@@ -16,6 +16,73 @@ use crate::bucket_creator::{INVENTORY_FORMAT, default_storage_class};
 pub use crate::bucket_creator::BucketCreatorParams;
 use crate::{bucket_policy, config};
 
+/// Report for a single bucket's reconciliation.
+#[derive(Debug)]
+pub struct ReconcileReport {
+    pub bucket_name: String,
+    pub bucket_type: Type,
+    pub steps: Vec<StepResult>,
+}
+
+impl ReconcileReport {
+    pub fn has_errors(&self) -> bool {
+        self.steps
+            .iter()
+            .any(|s| matches!(s.status, StepStatus::Error(_)))
+    }
+
+    pub fn has_drift(&self) -> bool {
+        self.steps
+            .iter()
+            .any(|s| matches!(s.status, StepStatus::Drift))
+    }
+}
+
+/// Aggregated report across many reconciled buckets.
+#[derive(Debug)]
+pub struct ReconciliationReport {
+    pub bucket_reports: Vec<ReconcileReport>,
+    pub processed: usize,
+    pub ok: usize,
+    pub drift: usize,
+    pub errors: usize,
+}
+
+impl ReconciliationReport {
+    pub fn from_reports(reports: Vec<ReconcileReport>) -> Self {
+        let processed = reports.len();
+        let mut ok = 0;
+        let mut drift = 0;
+        let mut errors = 0;
+
+        for report in &reports {
+            if report.has_errors() {
+                errors += 1;
+            } else if report.has_drift() {
+                drift += 1;
+            } else {
+                ok += 1;
+            }
+        }
+
+        Self {
+            bucket_reports: reports,
+            processed,
+            ok,
+            drift,
+            errors,
+        }
+    }
+
+    pub fn has_drift(&self) -> bool {
+        self.drift > 0
+    }
+
+    pub fn has_errors(&self) -> bool {
+        self.errors > 0
+    }
+}
+
 /// Status of a single reconciliation step.
 #[derive(Debug)]
 pub enum StepStatus {
@@ -42,28 +109,6 @@ impl Display for StepStatus {
 pub struct StepResult {
     pub name: &'static str,
     pub status: StepStatus,
-}
-
-/// Report for a single bucket's reconciliation.
-#[derive(Debug)]
-pub struct ReconcileReport {
-    pub bucket_name: String,
-    pub bucket_type: Type,
-    pub steps: Vec<StepResult>,
-}
-
-impl ReconcileReport {
-    pub fn has_errors(&self) -> bool {
-        self.steps
-            .iter()
-            .any(|s| matches!(s.status, StepStatus::Error(_)))
-    }
-
-    pub fn has_drift(&self) -> bool {
-        self.steps
-            .iter()
-            .any(|s| matches!(s.status, StepStatus::Drift))
-    }
 }
 
 /// Reads and compares bucket configuration against expected state.

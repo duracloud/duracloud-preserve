@@ -1,36 +1,10 @@
-use std::collections::HashMap;
+use awsutils::bucket_reconciliator::ReconciliationReport;
 
-use awsutils::{
-    bucket_creator::BucketCreatorParams,
-    bucket_reconciliator::{BucketReconciliator, ReconcileReport},
-};
-use base::bucket::Type;
-use constants::REPLICATION_SUFFIX;
-
-use crate::{bucket, config::Config, errors::BucketReconciliationError};
+use crate::{bucket, config::Config, errors::BucketReconciliationError, reconcile};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PerformArgs {
     pub fail_on_drift: bool,
-}
-
-#[derive(Debug)]
-pub struct ReconciliationReport {
-    pub bucket_reports: Vec<ReconcileReport>,
-    pub processed: usize,
-    pub ok: usize,
-    pub drift: usize,
-    pub errors: usize,
-}
-
-impl ReconciliationReport {
-    pub fn has_errors(&self) -> bool {
-        self.errors > 0
-    }
-
-    pub fn has_drift(&self) -> bool {
-        self.drift > 0
-    }
 }
 
 /// Run bucket reconciliation for all bucket-request buckets in a stack.
@@ -39,82 +13,9 @@ pub async fn perform(
     config: &Config,
     args: &PerformArgs,
 ) -> Result<ReconciliationReport, BucketReconciliationError> {
-    let mut buckets = bucket::get_requested(config.s3(), config.stack()).await?;
-
-    buckets.sort_by(|a, b| a.name().cmp(b.name()));
-
-    // Split into source (Standard/Public) and replication buckets.
-    let mut source_buckets = Vec::new();
-    let mut replication_buckets = Vec::new();
-
-    for bucket in &buckets {
-        match bucket.bucket_type() {
-            Type::Standard | Type::Public => source_buckets.push(bucket),
-            Type::Replication => replication_buckets.push(bucket),
-            _ => source_buckets.push(bucket), // will get an error in reconciliation
-        }
-    }
-
-    // Replication buckets have names like "{source_name}-repl".
-    let repl_map: HashMap<String, &_> = replication_buckets
-        .iter()
-        .filter_map(|b| {
-            b.name()
-                .strip_suffix(REPLICATION_SUFFIX)
-                .map(|base| (base.to_string(), *b))
-        })
-        .collect();
-
-    let params = BucketCreatorParams {
-        account_id: config.account_id(),
-        client: config.s3(),
-        replication_role_arn: config.replication_role_arn(),
-        stack: config.stack(),
-    };
-
-    let mut bucket_reports = Vec::new();
-
-    // Reconcile source buckets (with replication pairing).
-    for bucket in &source_buckets {
-        let repl_bucket = repl_map.get(bucket.name()).copied();
-        let reconciliator = BucketReconciliator::new(&params, bucket, repl_bucket);
-        let report = reconciliator.reconcile().await;
-        bucket_reports.push(report);
-    }
-
-    // Reconcile replication buckets (no replication-config step).
-    for bucket in &replication_buckets {
-        let reconciliator = BucketReconciliator::new(&params, bucket, None);
-        let report = reconciliator.reconcile().await;
-        bucket_reports.push(report);
-    }
-
-    // Sort reports by bucket name for stable output.
-    bucket_reports.sort_by(|a, b| a.bucket_name.cmp(&b.bucket_name));
-
-    // Aggregate counts.
-    let processed = bucket_reports.len();
-    let mut ok = 0;
-    let mut drift = 0;
-    let mut errors = 0;
-
-    for report in &bucket_reports {
-        if report.has_errors() {
-            errors += 1;
-        } else if report.has_drift() {
-            drift += 1;
-        } else {
-            ok += 1;
-        }
-    }
-
-    let report = ReconciliationReport {
-        bucket_reports,
-        processed,
-        ok,
-        drift,
-        errors,
-    };
+    let buckets = bucket::get_requested(config.s3(), config.stack()).await?;
+    let reports = reconcile::reconcile_stack(config, buckets).await;
+    let report = ReconciliationReport::from_reports(reports);
 
     if args.fail_on_drift && report.has_drift() {
         return Err(BucketReconciliationError::DriftDetected(format!(

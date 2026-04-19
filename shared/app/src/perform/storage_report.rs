@@ -1,14 +1,5 @@
-use std::collections::BTreeMap;
-
-use awsutils::file::{self, File};
-use base::{
-    bucket::Type,
-    stack::DateCtx,
-    stats::InventoryStats,
-    storage::{StorageReport, StorageReportData, StorageReportHeader},
-};
+use base::{bucket::Type, stack::DateCtx, storage::StorageReport};
 use bytes::Bytes;
-use chrono::Utc;
 use constants::{APPLICATION_JSON, TEXT_HTML};
 
 use crate::{bucket, config::Config, errors::StorageReportError, upload};
@@ -29,44 +20,15 @@ pub async fn perform(
     )
     .await
     .map_err(StorageReportError::BucketDiscovery)?;
-    let mut bucket_stats = BTreeMap::new();
 
-    for bucket in buckets {
-        let bucket_name = bucket.name().to_string();
-        let bucket_type = bucket.bucket_type();
+    let bucket_stats = bucket::fetch_latest_inventory_stats(config, buckets).await?;
 
-        tracing::info!("Retrieving inventory stats for: {bucket_name} {bucket_type}");
-
-        let stats_file = File::from(
-            config
-                .stack()
-                .metadata_manifests_stats_path(&bucket_name, DateCtx::Latest),
-        );
-
-        let stats = file::download_bytes(config.s3(), &stats_file)
-            .await
-            .map_err(|source| StorageReportError::DownloadStats {
-                bucket: bucket_name.clone(),
-                source,
-            })?;
-
-        let stats: InventoryStats =
-            serde_json::from_slice(&stats).map_err(|source| StorageReportError::ParseStats {
-                bucket: bucket_name.clone(),
-                source,
-            })?;
-
-        bucket_stats.insert(bucket_name, stats);
-    }
-
-    let header = StorageReportHeader {
-        owner: config.owner().to_string(),
-        stack_name: config.stack().as_str().to_string(),
-        generated_at: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-        storage_capacity_bytes: args.storage_capacity_bytes,
-    };
-    let data = StorageReportData::from_inventory(bucket_stats);
-    let storage_report = StorageReport { header, data };
+    let storage_report = StorageReport::assemble(
+        config.owner().to_string(),
+        config.stack().as_str().to_string(),
+        args.storage_capacity_bytes,
+        bucket_stats,
+    );
 
     let stats_bytes = Bytes::from(serde_json::to_vec(&storage_report)?);
     let html_bytes = Bytes::from(storage_report.to_html()?);

@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::PathBuf,
+};
 
 use aws_sdk_s3::{
     Client,
@@ -8,6 +11,8 @@ use base::{
     Stack,
     bucket::{BucketPair, Name},
     errors::BucketValidationError,
+    stack::DateCtx,
+    stats::InventoryStats,
 };
 use constants::*;
 use tokio::{fs, io};
@@ -22,7 +27,7 @@ use awsutils::{
 
 use crate::{
     config::Config,
-    errors::{ComputeChecksumsError, FileKeyError},
+    errors::{ComputeChecksumsError, FileKeyError, StorageReportError},
 };
 
 /// Per-stack bucket list cache for reuse when processing many users.
@@ -140,6 +145,44 @@ pub async fn create_pairs(
     }
 
     issues
+}
+
+/// Fetch the latest inventory-stats JSON for every bucket and decode it.
+pub async fn fetch_latest_inventory_stats(
+    config: &Config,
+    buckets: Vec<Bucket>,
+) -> Result<BTreeMap<String, InventoryStats>, StorageReportError> {
+    let mut bucket_stats = BTreeMap::new();
+
+    for bucket in buckets {
+        let bucket_name = bucket.name().to_string();
+        let bucket_type = bucket.bucket_type();
+
+        tracing::info!("Retrieving inventory stats for: {bucket_name} {bucket_type}");
+
+        let stats_file = File::from(
+            config
+                .stack()
+                .metadata_manifests_stats_path(&bucket_name, DateCtx::Latest),
+        );
+
+        let bytes = file::download_bytes(config.s3(), &stats_file)
+            .await
+            .map_err(|source| StorageReportError::DownloadStats {
+                bucket: bucket_name.clone(),
+                source,
+            })?;
+
+        let stats: InventoryStats =
+            serde_json::from_slice(&bytes).map_err(|source| StorageReportError::ParseStats {
+                bucket: bucket_name.clone(),
+                source,
+            })?;
+
+        bucket_stats.insert(bucket_name, stats);
+    }
+
+    Ok(bucket_stats)
 }
 
 /// Read prospective bucket names limited to the bucket request max

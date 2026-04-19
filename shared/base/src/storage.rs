@@ -70,6 +70,23 @@ struct PrefixView {
 }
 
 impl StorageReport {
+    pub fn assemble(
+        owner: String,
+        stack_name: String,
+        storage_capacity_bytes: Option<u64>,
+        bucket_stats: BTreeMap<String, InventoryStats>,
+    ) -> Self {
+        Self {
+            header: StorageReportHeader {
+                owner,
+                stack_name,
+                generated_at: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                storage_capacity_bytes,
+            },
+            data: StorageReportData::from_inventory(bucket_stats),
+        }
+    }
+
     pub fn to_html(&self) -> Result<String, askama::Error> {
         StorageReportView::from_report(self).render()
     }

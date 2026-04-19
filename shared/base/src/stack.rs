@@ -242,6 +242,14 @@ impl Stack {
     pub fn storage_capacity_param_name(&self) -> String {
         format!("{}{STORAGE_CAPACITY_SUFFIX}", self.as_str())
     }
+
+    /// Sync users file upload path
+    pub fn sync_users_path(&self, file: &str) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{SYNC_USERS_PREFIX}/{file}"),
+        }
+    }
 }
 
 /// A type wrapper to ensure name conforms to minimal expectations.
@@ -316,7 +324,7 @@ mod tests {
     fn test_bucket_request_path() {
         let stack = Stack::new("test-stack").unwrap();
         let mf = stack.bucket_request_path("request.txt");
-        assert_eq!(mf.key(), "bucket-request/request.txt");
+        assert_eq!(mf.key(), "request/bucket-request/request.txt");
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
 

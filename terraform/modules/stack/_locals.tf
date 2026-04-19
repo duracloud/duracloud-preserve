@@ -9,7 +9,7 @@ locals {
   batch_policy_suffix       = "-s3-batch-policy"
   batch_report_prefix       = "batch/reports"
   batch_role_suffix         = "-s3-batch-role"
-  bucket_request_prefix     = "bucket-request"
+  bucket_request_prefix     = "request/bucket-request"
   feedback_prefix           = "feedback"
   logging_prefix            = "audit"
   managed_suffix            = "-managed"
@@ -22,6 +22,7 @@ locals {
   reports_prefix            = "reports"
   request_suffix            = "-request"
   storage_capacity_suffix   = "-storage-capacity"
+  sync_users_prefix         = "request/sync-users"
 
   # Inventory
   inventory_id = "inventory"

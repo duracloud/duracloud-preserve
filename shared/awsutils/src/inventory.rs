@@ -28,6 +28,17 @@ impl InventoryManifest {
         let bytes = file::download_bytes(client, file).await?;
         Ok(serde_json::from_slice(&bytes)?)
     }
+
+    pub fn require_format(&self, expected: &str) -> Result<(), InventoryError> {
+        if self.file_format == expected {
+            Ok(())
+        } else {
+            Err(InventoryError::InvalidFormat {
+                expected: expected.to_string(),
+                actual: self.file_format.clone(),
+            })
+        }
+    }
 }
 
 /// Inventory Manifest File Entry

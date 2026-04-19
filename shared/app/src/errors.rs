@@ -118,7 +118,12 @@ pub enum InventoryReportError {
 #[cfg(feature = "duckdb")]
 impl From<awsutils::errors::InventoryError> for InventoryReportError {
     fn from(value: awsutils::errors::InventoryError) -> Self {
-        InventoryReportError::ManifestFetch(value.to_string())
+        match value {
+            awsutils::errors::InventoryError::InvalidFormat { expected, actual } => {
+                InventoryReportError::InvalidFormat { expected, actual }
+            }
+            other => InventoryReportError::ManifestFetch(other.to_string()),
+        }
     }
 }
 

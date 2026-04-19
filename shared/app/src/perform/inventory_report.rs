@@ -5,11 +5,11 @@ use constants::{APPLICATION_JSON, TEXT_CSV};
 
 use awsutils::{
     bucket_creator::INVENTORY_FORMAT,
-    file::{self, File},
+    file::File,
     inventory::{self, InventoryManifest},
 };
 
-use crate::{config::Config, errors::InventoryReportError, upload};
+use crate::{config::Config, errors::InventoryReportError, inventory as app_inventory, upload};
 #[derive(Debug, Clone)]
 pub struct PerformArgs {
     pub manifest_file: File,
@@ -32,34 +32,13 @@ pub async fn perform(
     let manifest_file = &args.manifest_file;
     tracing::info!("Retrieving manifest file: {}", manifest_file.s3_url());
     let manifest = InventoryManifest::fetch(config.s3(), manifest_file).await?;
-    let bucket = config.stack().managed_bucket();
-
-    if manifest.file_format != INVENTORY_FORMAT.as_str() {
-        return Err(InventoryReportError::InvalidFormat {
-            expected: INVENTORY_FORMAT.to_string(),
-            actual: manifest.file_format.clone(),
-        });
-    }
+    manifest.require_format(INVENTORY_FORMAT.as_str())?;
 
     let temp_dir = tempfile::tempdir()?;
-    let files = manifest
-        .files
-        .iter()
-        .map(|entry| File::new(&bucket, &entry.key))
-        .collect::<Vec<_>>();
+    let paths = app_inventory::download_parquets(config, &manifest, &temp_dir).await?;
 
-    let local_paths =
-        file::download_files_to_temp(config.s3(), &files, &temp_dir, "inventory manifest file")
-            .await
-            .map_err(InventoryReportError::Download)?;
-
-    let path_strs_owned: Vec<String> = local_paths
-        .iter()
-        .map(|p| p.to_string_lossy().into_owned())
-        .collect();
-
-    tracing::info!("Processing parquet files: {:?}", path_strs_owned);
-    let (csv, stats) = tokio::task::spawn_blocking(move || inventory::process(&path_strs_owned))
+    tracing::info!("Processing parquet files: {:?}", paths);
+    let (csv, stats) = tokio::task::spawn_blocking(move || inventory::process(&paths))
         .await
         .expect("spawn_blocking task panicked")?;
 

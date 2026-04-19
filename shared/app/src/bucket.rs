@@ -20,7 +20,10 @@ use awsutils::{
     users::UserInfo,
 };
 
-use crate::{config::Config, errors::FileKeyError};
+use crate::{
+    config::Config,
+    errors::{ComputeChecksumsError, FileKeyError},
+};
 
 /// Per-stack bucket list cache for reuse when processing many users.
 #[derive(Default)]
@@ -352,6 +355,52 @@ pub async fn read_request_names(client: &Client, file: &File) -> Result<Vec<Stri
     let names = parse_request_names(&content);
 
     Ok(names)
+}
+
+/// Resolve all source buckets in a stack into checksum source/replication pairs.
+pub async fn resolve_all_checksum_pairs(
+    client: &Client,
+    stack: &Stack,
+) -> Result<Vec<BucketPair>, ComputeChecksumsError> {
+    let all_buckets = list_for_stack(client, stack, None)
+        .await
+        .map_err(ComputeChecksumsError::BucketDiscovery)?;
+
+    let (mut source_buckets, mut replication_buckets) = (Vec::new(), Vec::new());
+    for bucket in all_buckets {
+        match bucket.bucket_type() {
+            Type::Public | Type::Standard => source_buckets.push(bucket),
+            Type::Replication => replication_buckets.push(bucket),
+            _ => {}
+        }
+    }
+
+    make_pairs(source_buckets, replication_buckets).map_err(ComputeChecksumsError::PairBuckets)
+}
+
+/// Resolve a single source bucket name into a checksum source/replication pair.
+/// Rejects buckets that aren't `Public` or `Standard` type.
+pub async fn resolve_checksum_pair_by_name(
+    client: &Client,
+    name: &Name,
+) -> Result<BucketPair, ComputeChecksumsError> {
+    let source_name = name.as_str();
+    let replication_name = format!("{source_name}{REPLICATION_SUFFIX}");
+
+    let source = bucket::from_name(client, source_name)
+        .await
+        .map_err(ComputeChecksumsError::BucketDiscovery)?
+        .filter(|b| matches!(b.bucket_type(), Type::Public | Type::Standard))
+        .ok_or_else(|| ComputeChecksumsError::InvalidBucket(source_name.to_string()))?;
+
+    let replication = Bucket::new(&replication_name, Type::Replication).map_err(|source| {
+        ComputeChecksumsError::ReplicationBucket {
+            bucket: replication_name.clone(),
+            source,
+        }
+    })?;
+
+    Ok(BucketPair::new(source, replication))
 }
 
 /// Check that user supplied bucket names are valid and convert

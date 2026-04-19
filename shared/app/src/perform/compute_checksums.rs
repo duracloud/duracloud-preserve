@@ -1,10 +1,6 @@
 use crate::{batch, bucket as app_bucket, config::Config, errors::ComputeChecksumsError};
-use awsutils::{
-    batch as aws_batch,
-    bucket::{self, Bucket},
-};
-use base::bucket::{BucketPair, Name};
-use constants::REPLICATION_SUFFIX;
+use awsutils::batch as aws_batch;
+use base::bucket::Name;
 
 /// Trigger S3 batch compute checksum jobs
 #[derive(Debug, Clone, Default)]
@@ -27,48 +23,8 @@ pub async fn perform(
     tracing::info!("Retrieving buckets for checksum report");
 
     let bucket_pairs = match args.bucket.as_ref() {
-        Some(bucket_name) => {
-            let source_name = bucket_name.as_str();
-            let replication_name = format!("{source_name}{REPLICATION_SUFFIX}");
-
-            let source = bucket::from_name(config.s3(), source_name)
-                .await
-                .map_err(ComputeChecksumsError::BucketDiscovery)?
-                .filter(|b| {
-                    matches!(
-                        b.bucket_type(),
-                        bucket::Type::Public | bucket::Type::Standard
-                    )
-                })
-                .ok_or_else(|| ComputeChecksumsError::InvalidBucket(source_name.to_string()))?;
-
-            let replication =
-                Bucket::new(&replication_name, bucket::Type::Replication).map_err(|source| {
-                    ComputeChecksumsError::ReplicationBucket {
-                        bucket: replication_name.clone(),
-                        source,
-                    }
-                })?;
-
-            vec![BucketPair::new(source, replication)]
-        }
-        None => {
-            let all_buckets = app_bucket::list_for_stack(config.s3(), config.stack(), None)
-                .await
-                .map_err(ComputeChecksumsError::BucketDiscovery)?;
-            let (mut source_buckets, mut replication_buckets) = (Vec::new(), Vec::new());
-
-            for bucket in all_buckets {
-                match bucket.bucket_type() {
-                    bucket::Type::Public | bucket::Type::Standard => source_buckets.push(bucket),
-                    bucket::Type::Replication => replication_buckets.push(bucket),
-                    _ => {}
-                }
-            }
-
-            app_bucket::make_pairs(source_buckets, replication_buckets)
-                .map_err(ComputeChecksumsError::PairBuckets)?
-        }
+        Some(name) => vec![app_bucket::resolve_checksum_pair_by_name(config.s3(), name).await?],
+        None => app_bucket::resolve_all_checksum_pairs(config.s3(), config.stack()).await?,
     };
 
     aws_batch::dispatch_bucket_pair_jobs(&bucket_pairs, |source, replication| {

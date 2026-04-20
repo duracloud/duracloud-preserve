@@ -3,6 +3,7 @@ use awsutils::{
     bucket_creator,
     file::{self, File},
 };
+use constants::{SYNC_USERS_FILE, TEXT_PLAIN};
 
 use crate::{bucket, config::Config, errors::BucketRequestError, upload};
 
@@ -10,6 +11,7 @@ use crate::{bucket, config::Config, errors::BucketRequestError, upload};
 pub struct PerformArgs {
     pub request_file: File,
     pub standard_storage_tier: TransitionStorageClass,
+    pub trigger_sync_users: bool,
 }
 
 impl PerformArgs {
@@ -17,6 +19,7 @@ impl PerformArgs {
         Self {
             request_file,
             standard_storage_tier: bucket_creator::STORAGE_CLASS_STANDARD_DEFAULT,
+            trigger_sync_users: false,
         }
     }
 }
@@ -61,5 +64,14 @@ pub async fn perform(config: &Config, args: &PerformArgs) -> Result<(), BucketRe
     file::delete(config.s3(), file)
         .await
         .map_err(BucketRequestError::Cleanup)?;
+
+    if args.trigger_sync_users {
+        let trigger = File::from(config.stack().sync_users_path(SYNC_USERS_FILE));
+        tracing::info!("Uploading sync-users trigger: {}", trigger.s3_url());
+        file::upload(config.s3(), &trigger, Vec::new(), TEXT_PLAIN)
+            .await
+            .map_err(BucketRequestError::TriggerSyncUsers)?;
+    }
+
     Ok(())
 }

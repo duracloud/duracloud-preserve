@@ -55,7 +55,10 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         file.key()
     );
 
-    let args = bucket_request::PerformArgs::new(file);
+    let args = bucket_request::PerformArgs {
+        trigger_sync_users: true,
+        ..bucket_request::PerformArgs::new(file)
+    };
     bucket_request::perform(&config, &args).await?;
 
     println!("All buckets created successfully");

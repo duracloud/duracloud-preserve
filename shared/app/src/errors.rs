@@ -24,6 +24,8 @@ pub enum BucketRequestError {
     CreateBuckets(Vec<String>),
     #[error("failed to read bucket request file: {0}")]
     RequestFile(#[source] RequestError),
+    #[error("failed to upload sync-users trigger: {0}")]
+    TriggerSyncUsers(#[source] RequestError),
     #[error("invalid bucket request: {0}")]
     Validation(#[source] BucketValidationError),
 }

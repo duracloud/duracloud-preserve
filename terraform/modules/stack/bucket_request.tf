@@ -16,9 +16,12 @@ data "aws_iam_policy_document" "bucket_request" {
   }
 
   statement {
-    effect    = "Allow"
-    actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.main["managed"].arn}/${local.feedback_prefix}/*"]
+    effect  = "Allow"
+    actions = ["s3:PutObject"]
+    resources = [
+      "${aws_s3_bucket.main["managed"].arn}/${local.feedback_prefix}/*",
+      "${aws_s3_bucket.main["managed"].arn}/${local.sync_users_prefix}/${local.sync_users_file}",
+    ]
   }
 
   statement {

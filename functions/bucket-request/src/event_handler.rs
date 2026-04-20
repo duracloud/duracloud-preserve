@@ -49,6 +49,7 @@ pub(crate) async fn function_handler(
     let args = PerformArgs {
         request_file: File::new(bucket, object),
         standard_storage_tier: handler_opts.standard_storage_tier.clone(),
+        trigger_sync_users: true,
     };
 
     bucket_request::perform(config, &args)

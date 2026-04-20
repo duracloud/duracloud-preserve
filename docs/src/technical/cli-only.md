@@ -1,4 +1,4 @@
-# CLI-only features
+# CLI-only
 
 Beyond core functionality, the CLI provides features for data validation, maintenance, and bucket management. These commands are only available through the command-line interface:
 

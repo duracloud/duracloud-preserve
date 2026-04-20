@@ -1,36 +1,79 @@
 # storage-report
 
-- Triggered by: scheduled eventbridge event (schedule: weekly)
-- Dependencies: inventory-report
+**Type:** Lambda function  
+**Trigger:** Scheduled EventBridge event (weekly)  
+**Dependencies:** inventory-report
 
 ## Overview
 
-This function generates a consolidated storage report for a stack (all standard and public buckets) output as a single html file that uses [chart.js](#) for visual representation. The main sections are:
+This Lambda function generates a consolidated storage report for a stack, displaying storage usage across all standard and public buckets. The report is output as a single interactive HTML file using [Chart.js](https://www.chartjs.org/) for visualizations.
 
-- Aggregated totals for all buckets
-- Per bucket totals
-- Per bucket / per prefix totals
+### Report sections
 
-Like the inventory report the storage report cannot be created without S3 generated inventory being available and at least one inventory report must have been uploaded.
+- **Aggregated totals** — Storage usage across all buckets in the stack
+- **Per bucket totals** — Storage usage broken down by individual bucket
+- **Per bucket / per prefix totals** — Storage usage by prefix within each bucket
 
-## CLI testing
+### Prerequisites
+
+The storage report requires S3 inventory data to be available. Before running this function:
+1. S3 inventory must be enabled for the buckets
+2. At least one inventory report must have been generated and uploaded
+3. The `inventory-report` function must have completed successfully
+
+## Invocation methods
+
+### CLI testing
+
+Generate a storage report for a specific stack:
 
 ```bash
 make run-storage-report s=digipres-dev1 p=default
 ```
 
-## Remote testing
+**Parameters:**
+- `s=` — Stack name (required)
+- `p=` — AWS profile (required)
+
+### Remote trigger
 
 ```bash
 make trigger f=storage-report s=digipres-dev1 p=default
 ```
 
+**Parameters:**
+- `f=` — Function name (storage-report)
+- `s=` — Stack name (required)
+- `p=` — AWS profile (required)
+
+### Scheduled execution
+
+Automatically triggered weekly by EventBridge.
+
 ## Output
 
-When run successfully there should be four generated files:
+When successful, four files are generated:
 
-- `metadata/latest/storage/stats/$stack.json`
-- `metadata/YYYY-MM-DD/storage/stats/$stack.json`
-- `reports/latest/storage/$stack.html`
-- `reports/YYYY-MM-DD/storage/$stack.html`
+### Statistics (JSON format)
+
+- `metadata/latest/storage/stats/{stack}.json` — Latest version
+- `metadata/YYYY-MM-DD/storage/stats/{stack}.json` — Date-stamped archive
+
+Contains raw storage metrics for programmatic access.
+
+### Report (HTML format)
+
+- `reports/latest/storage/{stack}.html` — Latest version
+- `reports/YYYY-MM-DD/storage/{stack}.html` — Date-stamped archive
+
+Interactive HTML report with Chart.js visualizations for viewing in a browser.
+
+## QA testing checklist
+
+- Function completes without errors
+- Four output files are generated at expected paths
+- JSON statistics contain valid storage metrics
+- HTML report renders correctly in browser
+- Charts display data for all buckets
+- Per-prefix totals are accurate for sampled buckets
 

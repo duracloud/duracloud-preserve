@@ -8,3 +8,4 @@ terraform.tfvars
 tmp_*.json
 payloads
 target
+TRIGGER

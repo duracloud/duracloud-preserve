@@ -1,0 +1,19 @@
+[package]
+name = "sync-users"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+app.workspace = true
+aws_lambda_events = { workspace = true, features = ["s3"] }
+aws-sdk-s3.workspace = true
+awsutils.workspace = true
+base.workspace = true
+constants.workspace = true
+lambda_runtime.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+aws-config.workspace = true
+test-support.workspace = true

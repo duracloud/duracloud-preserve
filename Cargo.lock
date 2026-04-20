@@ -3728,6 +3728,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "sync-users"
+version = "0.1.0"
+dependencies = [
+ "app",
+ "aws-config",
+ "aws-sdk-s3",
+ "aws_lambda_events",
+ "awsutils",
+ "base",
+ "constants",
+ "lambda_runtime",
+ "serde_json",
+ "test-support",
+ "tokio",
+]
+
+[[package]]
 name = "sync_wrapper"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

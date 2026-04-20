@@ -58,5 +58,6 @@ pub const TEXT_XML: &str = "text/xml";
 
 // Users
 pub const MAX_USER_CONCURRENCY: usize = 5;
+pub const SYNC_USERS_FILE: &str = "TRIGGER";
 pub const USER_ACCESS_KEY_NAMESPACE: &str = "/iam/access_key/";
 pub const USER_SECRET_KEY_NAMESPACE: &str = "/iam/secret_key/";

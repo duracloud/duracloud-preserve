@@ -77,6 +77,10 @@ impl Config {
         &self.roles.batch
     }
 
+    pub fn clients(&self) -> &Clients {
+        &self.clients
+    }
+
     pub fn debug_handler(&self) -> bool {
         self.debug_handler
     }

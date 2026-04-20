@@ -70,10 +70,8 @@ For each bucket pair processed, a job receipt is uploaded to:
 - Job IDs — used by the Lambda checksum report process for internal tracking
 - Bucket names — used by the CLI checksum report and for easier manual access
 
-## QA testing checklist
-
+## QA testing
+Confirm:
 - Jobs are created without errors
-- Jobs complete successfully
-- Receipt files are generated at all expected paths
-- Receipt content is valid JSON with expected job metadata
-- Both source and replication bucket receipts are present for each pair
+- Jobs are completed successfully
+- All receipt files are generated and avaiable at the expected paths

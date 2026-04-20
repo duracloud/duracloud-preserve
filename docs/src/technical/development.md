@@ -142,6 +142,7 @@ make deploy s=<stack> p=<profile>
 ## Testing the new function
 
 - **CLI (local, against real AWS):** `cargo run -p dcp -- <subcommand> [args]`
+- **Lambda (local watch + invoke):** `cargo lambda watch -p <feature>` in one shell, then `cargo lambda invoke -p <feature> --data-file functions/<feature>/events/sample.json` (or `--data-example s3-event` for a built-in fixture).
 - **Lambda (invoked remotely with sample payload):** `make trigger f=<feature> s=<stack> p=<profile>`
 - **Unit tests:** `cargo test -p <crate>`
 - **Integration tests:** `make test-integration s=<stack> p=<profile>`

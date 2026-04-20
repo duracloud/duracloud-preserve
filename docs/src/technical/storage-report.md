@@ -21,9 +21,7 @@ The storage report requires S3 inventory data to be available. Before running th
 2. At least one inventory report must have been generated and uploaded
 3. The `inventory-report` function must have completed successfully
 
-## Invocation methods
-
-### CLI testing
+## CLI testing
 
 Generate a storage report for a specific stack:
 
@@ -35,7 +33,7 @@ make run-storage-report s=digipres-dev1 p=default
 - `s=` — Stack name (required)
 - `p=` — AWS profile (required)
 
-### Remote trigger
+## Remote trigger
 
 ```bash
 make trigger f=storage-report s=digipres-dev1 p=default
@@ -67,13 +65,3 @@ Contains raw storage metrics for programmatic access.
 - `reports/YYYY-MM-DD/storage/{stack}.html` — Date-stamped archive
 
 Interactive HTML report with Chart.js visualizations for viewing in a browser.
-
-## QA testing checklist
-
-- Function completes without errors
-- Four output files are generated at expected paths
-- JSON statistics contain valid storage metrics
-- HTML report renders correctly in browser
-- Charts display data for all buckets
-- Per-prefix totals are accurate for sampled buckets
-

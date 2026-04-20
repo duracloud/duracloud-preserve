@@ -27,7 +27,7 @@
           "arn": "arn:aws:s3:::test-stack-request"
         },
         "object": {
-          "key": "request/bucket-request/buckets.txt",
+          "key": "buckets/buckets.txt",
           "size": 1024,
           "versionId": "version",
           "eTag": "d41d8cd98f00b204e9800998ecf8427e",

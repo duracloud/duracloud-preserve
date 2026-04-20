@@ -324,7 +324,7 @@ mod tests {
     fn test_bucket_request_path() {
         let stack = Stack::new("test-stack").unwrap();
         let mf = stack.bucket_request_path("request.txt");
-        assert_eq!(mf.key(), "request/bucket-request/request.txt");
+        assert_eq!(mf.key(), "buckets/request.txt");
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
 

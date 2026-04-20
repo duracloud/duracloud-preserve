@@ -4,7 +4,7 @@ pub const BATCH_MANIFEST_PREFIX: &str = "batch/manifests";
 pub const BATCH_POLICY_SUFFIX: &str = "-s3-batch-policy";
 pub const BATCH_REPORT_PREFIX: &str = "batch/reports";
 pub const BATCH_ROLE_SUFFIX: &str = "-s3-batch-role";
-pub const BUCKET_REQUEST_PREFIX: &str = "request/bucket-request";
+pub const BUCKET_REQUEST_PREFIX: &str = "buckets";
 pub const FEEDBACK_PREFIX: &str = "feedback";
 pub const LOGGING_PREFIX: &str = "audit";
 pub const MANAGED_SUFFIX: &str = "-managed";
@@ -17,7 +17,7 @@ pub const REPLICATION_SUFFIX: &str = "-repl";
 pub const REPORTS_PREFIX: &str = "reports";
 pub const REQUEST_SUFFIX: &str = "-request";
 pub const STORAGE_CAPACITY_SUFFIX: &str = "-storage-capacity";
-pub const SYNC_USERS_PREFIX: &str = "request/sync-users";
+pub const SYNC_USERS_PREFIX: &str = "sync-users";
 
 // Inventory
 pub const INVENTORY_ID: &str = "inventory";

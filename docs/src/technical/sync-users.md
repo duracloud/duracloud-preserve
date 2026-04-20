@@ -1,6 +1,6 @@
 # sync-users
 
-- **Lambda trigger:** S3 event (fires when a `TRIGGER` file is uploaded to the managed bucket under `request/sync-users/`)
+- **Lambda trigger:** S3 event (fires when a `TRIGGER` file is uploaded to the managed bucket under `sync-users/`)
 - **Dependencies:** None
 
 ## Overview
@@ -14,7 +14,7 @@ Unlike the other functions, `sync-users` operates across stacks. A user can belo
 
 The workflow is:
 
-1. An empty `TRIGGER` file is uploaded to `s3://${stack}-managed/request/sync-users/TRIGGER`
+1. An empty `TRIGGER` file is uploaded to `s3://${stack}-managed/sync-users/TRIGGER`
 2. The Lambda function is triggered by the upload event
 3. Eligible IAM users are discovered (those with an `Email` tag and one or more stack group memberships)
 4. For each user, their access/secret keys are retrieved from SSM and the matching SFTPGo account is updated with access to the buckets for each stack they belong to
@@ -47,11 +47,11 @@ Unlike other CLI commands, `sync-users` does not take a stack argument — it wo
 Upload the `TRIGGER` file to the managed bucket to invoke the Lambda:
 
 ```bash
-make upload b=digipres-dev1-managed d=request/sync-users f=TRIGGER p=default
+make upload b=digipres-dev1-managed d=sync-users f=TRIGGER p=default
 ```
 
 - `b=` — the managed bucket name (`${stack}-managed`)
-- `d=` — the S3 directory (must be `request/sync-users`)
+- `d=` — the S3 directory (must be `sync-users`)
 - `f=` — path to an empty local file named `TRIGGER`
 - `p=` — the AWS profile to use
 
@@ -65,7 +65,7 @@ touch TRIGGER
 
 `sync-users` does not produce files in S3. Successful execution can be verified in the following ways:
 
-- The `TRIGGER` file is removed from `s3://${stack}-managed/request/sync-users/` after a successful run
+- The `TRIGGER` file is removed from `s3://${stack}-managed/sync-users/` after a successful run
 - CloudWatch logs show per-user processing output (email, identified buckets)
 - The SFTPGo admin UI shows the expected users with the expected bucket virtual folders configured
 

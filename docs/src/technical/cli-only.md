@@ -1,8 +1,6 @@
 # CLI-only features
 
-Beyond core functionality, the CLI provides several advanced features for data validation, maintenance, and bucket management. These commands are only available through the command-line interface.
-
-## Overview
+Beyond core functionality, the CLI provides features for data validation, maintenance, and bucket management. These commands are only available through the command-line interface:
 
 - **Computing a checksum** — Trigger S3 batch checksum jobs to verify data integrity
 - **Resetting buckets** — Clear all content from buckets (destructive operation)
@@ -42,8 +40,8 @@ The receipt contains job metadata and is available for discovery by job ID (used
 
 ## Resetting all content
 
-> [!CAUTION]
-> These operations are destructive and cannot be undone.
+> [!IMPORTANT]
+> This is destructive and should be done very carefully.
 
 ### CLI commands
 

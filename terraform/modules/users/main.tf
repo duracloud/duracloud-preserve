@@ -13,6 +13,6 @@ terraform {
 }
 
 locals {
-  sftpgo_host = var.sftpgo_host
-  users       = var.users
+  sftpgo_enabled = var.sftpgo_enabled
+  users          = var.users
 }

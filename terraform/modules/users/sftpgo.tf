@@ -1,5 +1,5 @@
 resource "sftpgo_user" "user" {
-  for_each = local.sftpgo_host != null ? local.users : {}
+  for_each = local.sftpgo_enabled ? local.users : {}
 
   username = each.value.email
   password = each.key

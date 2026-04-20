@@ -1,6 +1,7 @@
-variable "sftpgo_host" {
-  description = "Url for SFTPGo. Leave unset to disable SFTPGo integration"
-  default     = null
+variable "sftpgo_enabled" {
+  description = "Enable SFTPGo integration (creates users in SFTPGo)"
+  default     = false
+  type        = bool
 }
 variable "users" {
   description = "Create users for stack"

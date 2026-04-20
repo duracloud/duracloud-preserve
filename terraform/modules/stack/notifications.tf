@@ -13,6 +13,16 @@ locals {
             filter_suffix = "manifest.json"
           }
         ],
+        # Sync users: fires on the TRIGGER file written to the sync-users request prefix
+        [
+          for k, _ in local.deploy_sync_users : {
+            id            = "sync-users-trigger"
+            lambda_arn    = aws_lambda_function.main[k].arn
+            events        = ["s3:ObjectCreated:*"]
+            filter_prefix = "${local.sync_users_prefix}/"
+            filter_suffix = local.sync_users_file
+          }
+        ],
       )
     }
     request = {
@@ -53,5 +63,6 @@ resource "aws_s3_bucket_notification" "main" {
   depends_on = [
     aws_lambda_permission.bucket_request,
     aws_lambda_permission.inventory_report,
+    aws_lambda_permission.sync_users,
   ]
 }

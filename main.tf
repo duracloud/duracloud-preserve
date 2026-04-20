@@ -16,11 +16,20 @@ terraform {
 }
 
 provider "aws" {}
+
 provider "sftpgo" {
-  host = local.sftpgo_host
+  host     = local.sftpgo_host
+  username = local.sftpgo_username
+  password = local.sftpgo_password
 }
 
 data "aws_organizations_organization" "current" {}
+
+// If not using SFTPGo then create the param with placeholder value
+data "aws_ssm_parameter" "sftpgo_password" {
+  name            = "/sftpgo/password"
+  with_decryption = true
+}
 
 variable "cloudfront_domain" { default = "" }
 variable "cloudfront_enabled" { default = true }
@@ -30,11 +39,13 @@ variable "stack" {}
 variable "users" { default = {} }
 
 locals {
-  deploy      = var.deploy
-  org_id      = data.aws_organizations_organization.current.id
-  sftpgo_host = var.sftpgo_host
-  stack       = var.stack
-  users       = var.users
+  deploy          = var.deploy
+  org_id          = data.aws_organizations_organization.current.id
+  sftpgo_host     = var.sftpgo_host
+  sftpgo_password = data.aws_ssm_parameter.sftpgo_password.value
+  sftpgo_username = "admin"
+  stack           = var.stack
+  users           = var.users
 
   functions_bucket = "artifacts.${local.stack}"
   functions = {
@@ -59,6 +70,15 @@ locals {
       bucket = local.functions_bucket
       file   = "target/lambda/storage-report/bootstrap.zip"
     }
+    sync-users = {
+      bucket = local.functions_bucket
+      file   = "target/lambda/sync-users/bootstrap.zip"
+      env = {
+        SFTPGO_HOST     = local.sftpgo_host
+        SFTPGO_USERNAME = local.sftpgo_username
+        SFTPGO_PASSWORD = local.sftpgo_password
+      }
+    }
   }
 }
 
@@ -79,8 +99,8 @@ module "stack" {
 module "users" {
   source = "./terraform/modules/users"
 
-  sftpgo_host = local.sftpgo_host
-  users       = local.users
+  sftpgo_enabled = local.sftpgo_host != null
+  users          = local.users
 }
 
 module "artifacts" {

@@ -1,3 +1,4 @@
+use awsutils::config::get_sftpgo_parameter;
 use lambda_runtime::{Error, tracing};
 
 mod event_handler;
@@ -12,11 +13,15 @@ async fn main() -> Result<(), Error> {
 
     let stack = env::var("STACK").expect("stack is required");
     let stack = Stack::new(&stack).expect("invalid stack name");
-    let sftpgo_host = env::var("SFTPGO_HOST").expect("sftpgo host is required");
-    let sftpgo_username = env::var("SFTPGO_USERNAME").expect("sftpgo username is required");
-    let sftpgo_password = env::var("SFTPGO_PASSWORD").expect("sftpgo password is required");
 
     let config = app_config::load(stack).await?;
+    let ssm_client = &config.clients().ssm;
+
+    let (sftpgo_host, sftpgo_username, sftpgo_password) = tokio::try_join!(
+        get_sftpgo_parameter(ssm_client, "host"),
+        get_sftpgo_parameter(ssm_client, "username"),
+        get_sftpgo_parameter(ssm_client, "password"),
+    )?;
 
     let handler_opts = event_handler::HandlerOptions {
         sftpgo_host,

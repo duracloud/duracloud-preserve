@@ -62,6 +62,7 @@ locals {
 
   # Users
   max_user_concurrency      = 5
+  sftpgo_namespace          = "/sftpgo/"
   sync_users_file           = "TRIGGER"
   user_access_key_namespace = "/iam/access_key/"
   user_secret_key_namespace = "/iam/secret_key/"

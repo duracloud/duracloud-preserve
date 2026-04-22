@@ -25,7 +25,15 @@ provider "sftpgo" {
 
 data "aws_organizations_organization" "current" {}
 
-// If not using SFTPGo then create the param with placeholder value
+// If not using SFTPGo then create the params with placeholder values
+data "aws_ssm_parameter" "sftpgo_host" {
+  name = "/sftpgo/host"
+}
+
+data "aws_ssm_parameter" "sftpgo_username" {
+  name = "/sftpgo/username"
+}
+
 data "aws_ssm_parameter" "sftpgo_password" {
   name            = "/sftpgo/password"
   with_decryption = true
@@ -34,18 +42,20 @@ data "aws_ssm_parameter" "sftpgo_password" {
 variable "cloudfront_domain" { default = "" }
 variable "cloudfront_enabled" { default = true }
 variable "deploy" { default = false }
-variable "sftpgo_host" { default = null }
+variable "sftpgo_enabled" { default = true }
 variable "stack" {}
 variable "users" { default = {} }
 
 locals {
-  deploy          = var.deploy
-  org_id          = data.aws_organizations_organization.current.id
-  sftpgo_host     = var.sftpgo_host
+  deploy = var.deploy
+  org_id = data.aws_organizations_organization.current.id
+  stack  = var.stack
+  users  = var.users
+
+  sftpgo_enabled  = var.sftpgo_enabled
+  sftpgo_host     = data.aws_ssm_parameter.sftpgo_host.value
+  sftpgo_username = data.aws_ssm_parameter.sftpgo_username.value
   sftpgo_password = data.aws_ssm_parameter.sftpgo_password.value
-  sftpgo_username = "admin"
-  stack           = var.stack
-  users           = var.users
 
   functions_bucket = "artifacts.${local.stack}"
   functions = {
@@ -73,11 +83,6 @@ locals {
     sync-users = {
       bucket = local.functions_bucket
       file   = "target/lambda/sync-users/bootstrap.zip"
-      env = {
-        SFTPGO_HOST     = local.sftpgo_host
-        SFTPGO_USERNAME = local.sftpgo_username
-        SFTPGO_PASSWORD = local.sftpgo_password
-      }
     }
   }
 }
@@ -99,7 +104,7 @@ module "stack" {
 module "users" {
   source = "./terraform/modules/users"
 
-  sftpgo_enabled = local.sftpgo_host != null
+  sftpgo_enabled = local.sftpgo_enabled
   users          = local.users
 }
 

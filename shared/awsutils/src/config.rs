@@ -1,7 +1,7 @@
 use crate::bucket::RequestError;
 use aws_config::{BehaviorVersion, SdkConfig};
 use aws_sdk_s3::types::TransitionStorageClass;
-use constants::{USER_ACCESS_KEY_NAMESPACE, USER_SECRET_KEY_NAMESPACE};
+use constants::{SFTPGO_NAMESPACE, USER_ACCESS_KEY_NAMESPACE, USER_SECRET_KEY_NAMESPACE};
 
 /// Load default aws sdk config.
 pub async fn load_defaults() -> SdkConfig {
@@ -87,7 +87,17 @@ pub async fn get_parameter(
         .ok_or_else(|| RequestError::ConfigError("failed to get parameter value".to_string()))
 }
 
-/// Get an IAM user's credentials (access and secret key)
+/// Get an SFTPGo parameter.
+pub async fn get_sftpgo_parameter(
+    ssm: &aws_sdk_ssm::Client,
+    property: &str,
+) -> Result<String, RequestError> {
+    let param_name = format!("{SFTPGO_NAMESPACE}{property}");
+
+    get_parameter(ssm, param_name.as_str()).await
+}
+
+/// Get an IAM user's credentials (access and secret key).
 pub async fn get_user_credentials(
     ssm: &aws_sdk_ssm::Client,
     user_name: &str,

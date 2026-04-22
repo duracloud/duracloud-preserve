@@ -31,6 +31,7 @@ data "aws_iam_policy_document" "sync_users" {
     resources = [
       "arn:aws:ssm:*:*:parameter${local.user_access_key_namespace}*",
       "arn:aws:ssm:*:*:parameter${local.user_secret_key_namespace}*",
+      "arn:aws:ssm:*:*:parameter${local.sftpgo_namespace}*",
     ]
   }
 

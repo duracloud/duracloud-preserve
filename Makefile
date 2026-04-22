@@ -1,8 +1,6 @@
 .DEFAULT_GOAL := help
 SHELL:=/bin/bash
 
-SFTPGO_ENV := SFTPGO_USERNAME=$${SFTPGO_USERNAME:-placeholder} SFTPGO_PASSWORD=$${SFTPGO_PASSWORD:-placeholder}
-
 .PHONY: bucket
 bucket: ## Perform action on a bucket (make bucket a=action b=bucket p=profile)
 	@AWS_PROFILE=$(p) ./scripts/bucket.sh $(a) $(b)
@@ -35,7 +33,7 @@ ci: test ## Run the ci checks locally
 
 .PHONY: deploy
 deploy: locals build-lambda-release ## Deploy all resources including functions (make deploy s=stack p=profile)
-	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) TF_VAR_deploy=true $(SFTPGO_ENV) terraform apply
+	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) TF_VAR_deploy=true terraform apply
 
 .PHONY: docs
 docs: ## Read the docs
@@ -91,16 +89,12 @@ run-storage-report: ## Run run-storage-report cli (make run-storage-report s=sta
 
 .PHONY: setup
 setup: locals ## Create base infrastructure (make setup s=stack p=profile)
-	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) $(SFTPGO_ENV) terraform init -upgrade
-	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) $(SFTPGO_ENV) terraform apply
+	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) terraform init -upgrade
+	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) terraform apply
 
 .PHONY: teardown
 teardown: reset ## Destroy all infrastructure (make teardown s=stack p=profile)
-	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) TF_VAR_deploy=true $(SFTPGO_ENV) terraform destroy
-
-.PHONY: trigger
-trigger: ## Trigger a lambda function remotely (make trigger f=function s=stack p=profile)
-	@./scripts/trigger-function.sh $(f) $(s) $(p)
+	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) TF_VAR_deploy=true terraform destroy
 
 .PHONY: test
 test: ## Run local tests with no AWS calls (make test)
@@ -109,6 +103,10 @@ test: ## Run local tests with no AWS calls (make test)
 .PHONY: test-integration
 test-integration: ## Run integration tests, makes AWS calls (make test-integration s=stack p=profile)
 	@AWS_PROFILE=$(p) TEST_STACK=$(s) cargo test --test "*" -- --ignored --test-threads=1
+
+.PHONY: trigger
+trigger: ## Trigger a lambda function remotely (make trigger f=function s=stack p=profile)
+	@./scripts/trigger-function.sh $(f) $(s) $(p)
 
 .PHONY: upload
 upload: ## Upload a file to a bucket (make upload b=bucket [d=dir] f=file p=profile)

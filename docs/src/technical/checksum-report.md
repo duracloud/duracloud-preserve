@@ -12,8 +12,10 @@ In production, this function is triggered asynchronously by EventBridge on batch
 ## Usage
 
 ### CLI (local testing)
-> [!IMPORTANT] 
+>
+> [!IMPORTANT]
 > A `compute-checksums` job must already have run and completed for the target bucket pair (source + replication) before using this command.
+
 ```bash
 make run-checksum-report b=digipres-dev1-private p=default
 ```
@@ -26,6 +28,7 @@ make run-checksum-report b=digipres-dev1-private p=default
 ### Remote testing
 
 Remote testing starts the same way as [`compute-checksums`](#):
+
 ```bash
 make trigger f=compute-checksums s=digipres-dev1 p=default
 ```
@@ -36,8 +39,9 @@ When a compute checksum job completes, it automatically triggers checksum report
 > Replication buckets with objects in an archival storage tier can take days to complete. For testing, use buckets that contain only recently created objects that haven't yet transitioned to archival storage.
 
 #### Tracking job status
+
 ```bash
-make job-by-checksum-receipt b=digipres-dev1-private p=default
+make job-status-by-receipt b=digipres-dev1-private p=default
 ```
 
 A status of `"Active"` means the job is still running.

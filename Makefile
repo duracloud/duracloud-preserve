@@ -54,14 +54,14 @@ locals: ## Generate _locals.tf from Rust constants (make locals)
 invoke: ## Invoke lambda function (make invoke f=function e=event)
 	@cargo lambda invoke --remote -p $(f) --data-file $(e)
 
-.PHONY: job
-job: ## Lookup job by id (make job i=id p=profile)
+.PHONY: job-status
+job-status: ## Lookup job status by id (make job-status i=id p=profile)
 	@AWS_PROFILE=$(p) aws s3control describe-job \
 	    --account-id $$(AWS_PROFILE=$(p) aws sts get-caller-identity --query 'Account' --output text) \
 	    --job-id $(i)
 
-.PHONY: job-by-checksum-receipt
-job-by-checksum-receipt: ## Lookup job by checksum receipt (make job-by-checksum-receipt b=bucket p=profile)
+.PHONY: job-status-by-receipt
+job-status-by-receipt: ## Lookup job status by checksum receipt (make job-status-by-receipt b=bucket p=profile)
 	@stack="$(b)"; stack="$${stack%-*}"; \
 	    $(MAKE) job i=$$(AWS_PROFILE=$(p) aws s3 cp s3://$${stack}-managed/metadata/latest/checksums/receipts/$(b).json - | jq -r .repl_job_id) p=$(p)
 

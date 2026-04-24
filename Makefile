@@ -1,6 +1,8 @@
 .DEFAULT_GOAL := help
 SHELL:=/bin/bash
 
+ARTIFACT_REGIONS := us-east-1 us-east-2 us-west-2
+
 .PHONY: bucket
 bucket: ## Perform action on a bucket (make bucket a=action b=bucket p=profile)
 	@AWS_PROFILE=$(p) ./scripts/bucket.sh $(a) $(b)
@@ -62,6 +64,14 @@ job: ## Lookup job by id (make job i=id p=profile)
 job-by-checksum-receipt: ## Lookup job by checksum receipt (make job-by-checksum-receipt b=bucket p=profile)
 	@stack="$(b)"; stack="$${stack%-*}"; \
 	    $(MAKE) job i=$$(AWS_PROFILE=$(p) aws s3 cp s3://$${stack}-managed/metadata/latest/checksums/receipts/$(b).json - | jq -r .repl_job_id) p=$(p)
+
+.PHONY: publish-lambda-release
+publish-lambda-release: build-lambda-release ## Publish lambda release artifacts to dcp-artifacts buckets (make publish-lambda-release p=profile)
+	@for region in $(ARTIFACT_REGIONS); do \
+		echo "Publishing to dcp-artifacts-$$region..."; \
+		AWS_PROFILE=$(p) aws s3 sync target/lambda/ s3://dcp-artifacts-$$region/ \
+			--region $$region --exclude "*" --include "*.zip"; \
+	done
 
 .PHONY: reset
 reset: ## Reset (empty) stack buckets (make reset s=stack p=profile)

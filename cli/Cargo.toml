@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [[bin]]
-name = "duracloud"
+name = "dcp"
 path = "src/main.rs"
 
 [dependencies]
@@ -15,7 +15,15 @@ aws-config = { workspace = true, features = ["behavior-version-latest"] }
 aws-sdk-iam.workspace = true
 aws-sdk-s3.workspace = true
 aws-sdk-sts.workspace = true
-clap = { version = "4", default-features = false, features = ["derive", "env", "error-context", "help", "std", "suggestions", "usage"] }
+clap = { version = "4", default-features = false, features = [
+  "derive",
+  "env",
+  "error-context",
+  "help",
+  "std",
+  "suggestions",
+  "usage",
+] }
 chrono.workspace = true
 constants.workspace = true
 crc-fast = "1"

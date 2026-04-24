@@ -3,8 +3,8 @@ mod commands;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "dcp")]
-#[command(about = "CLI for duracloud preserve operations", long_about = None)]
+#[command(name = "dcp", version)]
+#[command(about = "DuraCloud Preserve CLI", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

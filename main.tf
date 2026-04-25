@@ -1,4 +1,4 @@
-# Development main.tf (this is for dev/test only)
+# Development main.tf (this is for internal dev/test only)
 # See the documentation for production deployment instructions
 terraform {
   backend "local" {}
@@ -24,8 +24,9 @@ provider "sftpgo" {
 }
 
 data "aws_organizations_organization" "current" {}
+data "aws_region" "current" {}
 
-// If not using SFTPGo then create the params with placeholder values
+// SFTPGo required params
 data "aws_ssm_parameter" "sftpgo_host" {
   name = "/sftpgo/host"
 }
@@ -49,6 +50,7 @@ variable "users" { default = {} }
 locals {
   deploy = var.deploy
   org_id = data.aws_organizations_organization.current.id
+  region = data.aws_region.current.region
   stack  = var.stack
   users  = var.users
 
@@ -57,32 +59,32 @@ locals {
   sftpgo_username = data.aws_ssm_parameter.sftpgo_username.value
   sftpgo_password = data.aws_ssm_parameter.sftpgo_password.value
 
-  functions_bucket = "artifacts.${local.stack}"
+  functions_bucket = "dcp-artifacts-${local.region}"
   functions = {
     bucket-request = {
       bucket = local.functions_bucket
-      file   = "target/lambda/bucket-request/bootstrap.zip"
+      file   = "bucket-request/bootstrap.zip"
       env    = { STORAGE_TIER = "GLACIER_IR" }
     }
     compute-checksums = {
       bucket = local.functions_bucket
-      file   = "target/lambda/compute-checksums/bootstrap.zip"
+      file   = "compute-checksums/bootstrap.zip"
     }
     checksum-report = {
       bucket = local.functions_bucket
-      file   = "target/lambda/checksum-report/bootstrap.zip"
+      file   = "checksum-report/bootstrap.zip"
     }
     inventory-report = {
       bucket = local.functions_bucket
-      file   = "target/lambda/inventory-report/bootstrap.zip"
+      file   = "inventory-report/bootstrap.zip"
     }
     storage-report = {
       bucket = local.functions_bucket
-      file   = "target/lambda/storage-report/bootstrap.zip"
+      file   = "storage-report/bootstrap.zip"
     }
     sync-users = {
       bucket = local.functions_bucket
-      file   = "target/lambda/sync-users/bootstrap.zip"
+      file   = "sync-users/bootstrap.zip"
     }
   }
 }
@@ -97,8 +99,6 @@ module "stack" {
   storage_capacity   = pow(10, 12) # 1TB
 
   functions = local.functions
-
-  depends_on = [module.artifacts]
 }
 
 module "users" {
@@ -106,14 +106,6 @@ module "users" {
 
   sftpgo_enabled = local.sftpgo_enabled
   users          = local.users
-}
-
-module "artifacts" {
-  source = "./terraform/modules/artifacts"
-
-  bucket = local.functions_bucket
-  files  = { for k, v in local.functions : k => v.file }
-  org_id = local.org_id
 }
 
 # Outputs for creating the DNS alias record

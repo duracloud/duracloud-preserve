@@ -7,19 +7,9 @@ ARTIFACT_REGIONS := us-east-1 us-east-2 us-west-2
 bucket: ## Perform action on a bucket (make bucket a=action b=bucket p=profile)
 	@AWS_PROFILE=$(p) ./scripts/bucket.sh $(a) $(b)
 
-build-cli: ## Build cli with debug profile (make build-cli)
-	@cargo build -p duracloud
-
-build-cli-release: ## Build cli with release profile (make build-cli-release)
-	@cargo build -p duracloud --release
-
-build-lambda: ## Build lambda functions with debug profile (make build-lambda)
-	@cargo lambda build --workspace --exclude duracloud
-	@rm -rf target/lambda/duracloud
-
-build-lambda-release: ## Build lambda functions with release profile (make build-lambda-release)
-	@cargo lambda build --workspace --exclude duracloud --release --arm64 --output-format zip
-	@rm -rf target/lambda/duracloud
+build: ## Build lambda functions with release profile (make build)
+	@cargo lambda build --workspace --exclude dcp --release --arm64 --output-format zip
+	@rm -rf target/lambda/dcp
 	@version=$$(cargo metadata --no-deps --format-version=1 | jq -r '.packages[0].version'); \
 	for f in functions/*/Cargo.toml; do \
 		name=$$(basename $$(dirname $$f)); \
@@ -34,7 +24,7 @@ ci: test ## Run the ci checks locally
 	@terraform fmt .
 
 .PHONY: deploy
-deploy: locals build-lambda-release ## Deploy all resources including functions (make deploy s=stack p=profile)
+deploy: locals build ## Deploy all resources including functions (make deploy s=stack p=profile)
 	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) TF_VAR_deploy=true terraform apply
 
 .PHONY: docs
@@ -65,8 +55,8 @@ job-status-by-receipt: ## Lookup job status by checksum receipt (make job-status
 	@stack="$(b)"; stack="$${stack%-*}"; \
 	    $(MAKE) job i=$$(AWS_PROFILE=$(p) aws s3 cp s3://$${stack}-managed/metadata/latest/checksums/receipts/$(b).json - | jq -r .repl_job_id) p=$(p)
 
-.PHONY: publish-lambda-release
-publish-lambda-release: build-lambda-release ## Publish lambda release artifacts to dcp-artifacts buckets (make publish-lambda-release p=profile)
+.PHONY: publish
+publish: build ## Publish lambda release artifacts to dcp-artifacts buckets (make publish p=profile)
 	@for region in $(ARTIFACT_REGIONS); do \
 		echo "Publishing to dcp-artifacts-$$region..."; \
 		AWS_PROFILE=$(p) aws s3 sync target/lambda/ s3://dcp-artifacts-$$region/ \
@@ -75,27 +65,27 @@ publish-lambda-release: build-lambda-release ## Publish lambda release artifacts
 
 .PHONY: reset
 reset: ## Reset (empty) stack buckets (make reset s=stack p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- reset --stack=$(s)
+	@AWS_PROFILE=$(p) cargo run -p dcp -- reset --stack=$(s)
 
 .PHONY: run-bucket-request
 run-bucket-request: ## Run run-bucket-request cli (make run-bucket-request f=file s=stack p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- bucket-request --stack=$(s) --file=$(f)
+	@AWS_PROFILE=$(p) cargo run -p dcp -- bucket-request --stack=$(s) --file=$(f)
 
 .PHONY: run-checksum-report
 run-checksum-report: ## Run run-checksum-report cli (make run-checksum-report b=bucket p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- checksum-report --bucket=$(b)
+	@AWS_PROFILE=$(p) cargo run -p dcp -- checksum-report --bucket=$(b)
 
 .PHONY: run-compute-checksums
 run-compute-checksums: ## Run run-compute-checksums cli (make run-compute-checksums b=bucket p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- compute-checksums --bucket=$(b)
+	@AWS_PROFILE=$(p) cargo run -p dcp -- compute-checksums --bucket=$(b)
 
 .PHONY: run-inventory-report
 run-inventory-report: ## Run run-inventory-report cli (make run-inventory-report b=bucket p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- inventory-report --bucket=$(b)
+	@AWS_PROFILE=$(p) cargo run -p dcp -- inventory-report --bucket=$(b)
 
 .PHONY: run-storage-report
 run-storage-report: ## Run run-storage-report cli (make run-storage-report s=stack p=profile)
-	@AWS_PROFILE=$(p) cargo run -p duracloud -- storage-report --stack=$(s)
+	@AWS_PROFILE=$(p) cargo run -p dcp -- storage-report --stack=$(s)
 
 .PHONY: setup
 setup: locals ## Create base infrastructure (make setup s=stack p=profile)

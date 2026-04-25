@@ -141,7 +141,7 @@ make deploy s=<stack> p=<profile>
 
 ## Testing the new function
 
-- **CLI (local, against real AWS):** `cargo run -p duracloud -- <subcommand> [args]`
+- **CLI (local, against real AWS):** `cargo run -p dcp -- <subcommand> [args]`
 - **Lambda (invoked remotely with sample payload):** `make trigger f=<feature> s=<stack> p=<profile>`
 - **Unit tests:** `cargo test -p <crate>`
 - **Integration tests:** `make test-integration s=<stack> p=<profile>`

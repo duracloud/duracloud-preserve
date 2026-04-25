@@ -30,14 +30,14 @@ The CLI can sync a single user or all users. SFTPGo credentials are read from th
 SFTPGO_HOST=https://sftpgo.example.org \
 SFTPGO_USERNAME=admin \
 SFTPGO_PASSWORD=secret \
-cargo run -p duracloud -- sync-users
+cargo run -p dcp -- sync-users
 ```
 
 To sync a specific user only:
 
 ```bash
 SFTPGO_HOST=... SFTPGO_USERNAME=... SFTPGO_PASSWORD=... \
-cargo run -p duracloud -- sync-users --username=alice
+cargo run -p dcp -- sync-users --username=alice
 ```
 
 Unlike other CLI commands, `sync-users` does not take a stack argument — it works across all eligible users in the account.

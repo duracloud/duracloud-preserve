@@ -1543,6 +1543,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7a1e2f27636f116493b8b860f5546edb47c8d8f8ea73e1d2a20be88e28d1fea"
 
 [[package]]
+name = "dcp"
+version = "0.1.0"
+dependencies = [
+ "app",
+ "aws-config",
+ "aws-sdk-iam",
+ "aws-sdk-s3",
+ "aws-sdk-sts",
+ "awsutils",
+ "base",
+ "chrono",
+ "clap",
+ "constants",
+ "crc-fast",
+ "serde_json",
+ "shellexpand",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "der"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1644,28 +1666,6 @@ name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
-
-[[package]]
-name = "duracloud"
-version = "0.1.0"
-dependencies = [
- "app",
- "aws-config",
- "aws-sdk-iam",
- "aws-sdk-s3",
- "aws-sdk-sts",
- "awsutils",
- "base",
- "chrono",
- "clap",
- "constants",
- "crc-fast",
- "serde_json",
- "shellexpand",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "ecdsa"

@@ -37,7 +37,7 @@ make run-bucket-request f=files/buckets.txt s=digipres-dev1 p=default
 You can also create a single bucket by name without a file, using the `cargo` CLI directly:
 
 ```bash
-cargo run -p duracloud -- bucket-request --stack=digipres-dev1 --name=rare-books
+cargo run -p dcp -- bucket-request --stack=digipres-dev1 --name=rare-books
 ```
 
 This is useful for one-off bucket creation or quick iteration without maintaining a file.

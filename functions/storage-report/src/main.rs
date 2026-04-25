@@ -1,4 +1,4 @@
-use lambda_runtime::{tracing, Error};
+use lambda_runtime::{Error, tracing};
 
 mod event_handler;
 

@@ -1,6 +1,6 @@
 use app::{config::Config, perform::storage_report};
 use aws_lambda_events::event::cloudwatch_events::CloudWatchEvent;
-use lambda_runtime::{tracing, Error, LambdaEvent};
+use lambda_runtime::{Error, LambdaEvent, tracing};
 
 pub(crate) async fn function_handler(
     config: &Config,

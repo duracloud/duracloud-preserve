@@ -1,52 +1,42 @@
 # inventory-report
 
-- Lambda triggered by: s3 event (`manifest.json` is created)
-- Dependencies: None
+**Type:** Lambda function  
+**Trigger:** S3 event (`manifest.json` is created)  
+**Dependencies:** None
 
 ## Overview
 
-This function processes parquet formatted inventory into a single human
-readable csv and it generates storage usage stats that are used by the
-storage report:
+This function processes Parquet-formatted S3 inventory data into a single human-readable CSV manifest per bucket. It also generates storage usage statistics used by the storage report:
 
 - Total number of files and total storage used
-- The same, but grouped by top level prefix (folder)
+- The same, broken down by top-level prefix (folder)
 
-For the cli or remote testing to work then at least one bucket must have
-been created with some files uploaded into it. Inventory report generation
-cannot do work without an S3 generated inventory to process.
+> [!NOTE]
+> At least one bucket must exist with files uploaded before this function can run. It has no inventory to process otherwise.
 
 ## CLI testing
 
-Locally the cli will attempt to use the most recently available inventory:
+Run locally against the most recently available S3 inventory for a bucket:
 
 ```bash
-make run-inventory-report b=digipress-dev1-private p=default
+make run-inventory-report b=digipres-dev1-private p=default
 ```
 
-- `b=` bucket name to process the inventory report for.
+- `b=` — Bucket name to process the inventory report for (required)
+- `p=` — AWS profile to use (required)
 
 ## Remote testing
 
-Because of the opinionated structure required to stage things for remote
-testing, it is simpler to allow the infrastructure to do its work and use
-the logs to identify any issues that haven't been surfaced by the cli.
+Staging a remote test requires crafting a specific event payload and uploading matching Parquet files, which adds significant overhead. In practice it is simpler to let the infrastructure run on its normal daily schedule and inspect the logs if the report does not appear.
 
-Because inventory reports are generated daily you can just wait for
-the next one to appear, and troubleshoot if it does not.
+If the CLI works but the Lambda does not, the most likely cause is an IAM permissions issue.
 
-Generally speaking if the cli works and the Lambda does not then the usual
-culprit will be permissions.
+To stage a full remote test:
 
-If you want to go the extra mile to stage things here are the steps:
-
-- craft an event payload that refers to a `manifest.json`
-- upload parquet files to the inventory location/s pointed to in the `manifest.json`
-- upload the `manifest.json` to the location pointed to in the payload
-  - this location should be within the event notification path (`/manifests`)
-
-For this to be realistic you'll also need to ensure that the appropriate
-stack name appears for bucket name in the inventory parquet files.
+1. Craft an event payload that references a `manifest.json`.
+2. Upload Parquet inventory files to the location referenced in the `manifest.json`.
+3. Upload the `manifest.json` to the path specified in the event payload — this must be within the event notification path (`/manifests`).
+4. Ensure the Parquet files contain the correct stack-prefixed bucket name.
 
 ## Output
 

@@ -104,7 +104,7 @@ aws s3api head-object --bucket ${bucket} --key ${key} --checksum-mode ENABLED
 # Download the file
 aws s3 cp s3://${bucket}/${key} .
 
-# Compute the checksum locally using the DuraCloud CLI
+# Compute the checksum locally using the DuraCloud Preserve CLI
 duracloud checksum --file ${key}
 ```
 

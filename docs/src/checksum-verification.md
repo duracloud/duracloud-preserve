@@ -105,7 +105,7 @@ aws s3api head-object --bucket ${bucket} --key ${key} --checksum-mode ENABLED
 aws s3 cp s3://${bucket}/${key} .
 
 # Compute the checksum locally using the DuraCloud Preserve CLI
-duracloud checksum --file ${key}
+dcp checksum --file ${key}
 ```
 
 **Step 4 — Restore.** Once the valid copy is confirmed, re-upload it to the source bucket to repair the corrupted object.

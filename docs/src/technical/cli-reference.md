@@ -1,11 +1,11 @@
 # CLI Reference
 
-The `duracloud` command-line tool provides access to core operations for managing buckets, generating reports, and maintaining data integrity. This reference documents all available commands and their usage.
+The `dcp` command-line tool provides access to core operations for managing buckets, generating reports, and maintaining data integrity. This reference documents all available commands and their usage.
 
 ## Usage
 
 ```bash
-duracloud <COMMAND> [OPTIONS]
+dcp <COMMAND> [OPTIONS]
 ```
 
 ### Global options
@@ -21,7 +21,7 @@ duracloud <COMMAND> [OPTIONS]
 Check bucket configuration and report drift.
 
 ```bash
-duracloud bucket-reconciliation [OPTIONS]
+dcp bucket-reconciliation [OPTIONS]
 ```
 
 Detects inconsistencies between local bucket configuration and remote state, useful for identifying configuration drift or missing objects.
@@ -33,7 +33,7 @@ Detects inconsistencies between local bucket configuration and remote state, use
 Process bucket creation requests.
 
 ```bash
-duracloud bucket-request [OPTIONS]
+dcp bucket-request [OPTIONS]
 ```
 
 Handle requests to create new buckets within the stack infrastructure.
@@ -45,7 +45,7 @@ Handle requests to create new buckets within the stack infrastructure.
 Reset stack (empty buckets, requires confirmation).
 
 ```bash
-duracloud reset [OPTIONS]
+dcp reset [OPTIONS]
 ```
 
 > [!CAUTION]
@@ -58,7 +58,7 @@ duracloud reset [OPTIONS]
 Transfer files from source to stack destination bucket.
 
 ```bash
-duracloud transfer [OPTIONS]
+dcp transfer [OPTIONS]
 ```
 
 Copy data from a source bucket to a destination bucket within the stack. Useful for migrations and data reorganization.
@@ -72,7 +72,7 @@ Copy data from a source bucket to a destination bucket within the stack. Useful 
 Checksum a file.
 
 ```bash
-duracloud checksum [OPTIONS] <FILE>
+dcp checksum [OPTIONS] <FILE>
 ```
 
 Compute checksum for a local file to verify data integrity.
@@ -84,7 +84,7 @@ Compute checksum for a local file to verify data integrity.
 Run S3 batch operations compute checksums.
 
 ```bash
-duracloud compute-checksums [OPTIONS]
+dcp compute-checksums [OPTIONS]
 ```
 
 Trigger S3 batch checksum jobs for buckets. For detailed usage, see [compute-checksums documentation](compute-checksums.md).
@@ -96,7 +96,7 @@ Trigger S3 batch checksum jobs for buckets. For detailed usage, see [compute-che
 Build checksum inventory from S3 inventory data.
 
 ```bash
-duracloud checksum-inventory [OPTIONS]
+dcp checksum-inventory [OPTIONS]
 ```
 
 Process S3 inventory data to create a checksum inventory for analysis and verification.
@@ -108,7 +108,7 @@ Process S3 inventory data to create a checksum inventory for analysis and verifi
 Generate checksum report and statistics.
 
 ```bash
-duracloud checksum-report [OPTIONS]
+dcp checksum-report [OPTIONS]
 ```
 
 Create a report of checksum results and statistics across buckets. For detailed usage, see [checksum-report documentation](checksum-report.md).
@@ -122,7 +122,7 @@ Create a report of checksum results and statistics across buckets. For detailed 
 Generate inventory report and statistics.
 
 ```bash
-duracloud inventory-report [OPTIONS]
+dcp inventory-report [OPTIONS]
 ```
 
 Create an inventory report from S3 inventory data showing bucket contents and statistics. For detailed usage, see [inventory-report documentation](inventory-report.md).
@@ -134,7 +134,7 @@ Create an inventory report from S3 inventory data showing bucket contents and st
 Generate storage report.
 
 ```bash
-duracloud storage-report [OPTIONS]
+dcp storage-report [OPTIONS]
 ```
 
 Generate a comprehensive storage report with visualizations showing storage usage across all buckets in the stack. For detailed usage, see [storage-report documentation](storage-report.md).
@@ -148,7 +148,7 @@ Generate a comprehensive storage report with visualizations showing storage usag
 Sync IAM users to SFTPGo.
 
 ```bash
-duracloud sync-users [OPTIONS]
+dcp sync-users [OPTIONS]
 ```
 
 Synchronize IAM users with SFTPGo for SFTP access management. For detailed usage, see [sync-users documentation](sync-users.md).
@@ -162,7 +162,7 @@ Synchronize IAM users with SFTPGo for SFTP access management. For detailed usage
 Print help message or help for a specific subcommand.
 
 ```bash
-duracloud help [COMMAND]
+dcp help [COMMAND]
 ```
 
 Display general help or help for a specific command.
@@ -192,7 +192,7 @@ make run-compute-checksums b=digipres-dev1-private p=default
 make trigger f=storage-report s=digipres-dev1 p=default
 
 # Example: Run CLI command directly
-duracloud compute-checksums --bucket digipres-dev1-private
+dcp compute-checksums --bucket digipres-dev1-private
 ```
 
 For all available Makefile tasks, run `make help`.

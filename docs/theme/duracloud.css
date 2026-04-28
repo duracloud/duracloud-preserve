@@ -1,0 +1,65 @@
+/* Light mode */
+.light {
+  --bg: #ffffff;
+  --fg: #1f2937;
+
+  --sidebar-bg: #f8fafc;
+  --sidebar-fg: #334155;
+  --sidebar-active: #2563eb;
+  --sidebar-spacer: #e2e8f0;
+
+  --links: #2563eb;
+  --icons: #475569;
+  --icons-hover: #111827;
+
+  --inline-code-color: #1d4ed8;
+  --quote-bg: #f1f5f9;
+  --quote-border: #2563eb;
+
+  --table-border-color: #cbd5e1;
+  --table-header-bg: #f1f5f9;
+  --table-alternate-bg: #f8fafc;
+}
+
+/* Dark mode */
+.navy {
+  --bg: #111827;
+  --fg: #e5e7eb;
+
+  --sidebar-bg: #0f172a;
+  --sidebar-fg: #cbd5e1;
+  --sidebar-active: #60a5fa;
+  --sidebar-spacer: #1e293b;
+
+  --links: #60a5fa;
+  --icons: #cbd5e1;
+  --icons-hover: #ffffff;
+
+  --inline-code-color: #93c5fd;
+  --quote-bg: #1e293b;
+  --quote-border: #60a5fa;
+
+  --table-border-color: #334155;
+  --table-header-bg: #1e293b;
+  --table-alternate-bg: #172033;
+}
+
+.content main {
+  max-width: 900px;
+}
+
+.chapter li.chapter-item a.active {
+  font-weight: 600;
+}
+
+pre {
+  border: 1px solid var(--table-border-color);
+  border-radius: 6px;
+}
+
+/* Hide unused theme options */
+li:has(> #mdbook-theme-rust),
+li:has(> #mdbook-theme-coal),
+li:has(> #mdbook-theme-ayu) {
+  display: none;
+}

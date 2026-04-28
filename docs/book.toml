@@ -2,3 +2,8 @@
 title = "DuraCloud Preserve"
 authors = ["Mark Cooper", "Jen Cwiok"]
 language = "en"
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "navy"
+additional-css = ["theme/duracloud.css"]

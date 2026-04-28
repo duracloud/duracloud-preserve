@@ -1,5 +1,5 @@
 # Creating Buckets
->
+
 > [!IMPORTANT]
 > **Note:** These instructions apply if you are directly creating buckets (for example, via the command line or Cyberduck). If you are using SFTPGo, you are **not** creating buckets directly. Instead, you are creating folder structures within the `-private` and `-public` buckets that have already been created for you.
 

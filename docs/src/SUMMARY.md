@@ -33,7 +33,7 @@
   - [checksum-report](technical/checksum-report.md)
   - [storage-report](technical/storage-report.md)
   - [sync-users](technical/sync-users.md)
-  - [CLI only](technical/cli-only.md)
+- [CLI reference](technical/cli-reference.md)
 - [Cleanup](technical/cleanup.md)
 - [Development](technical/development.md)
 - [Roadmap](technical/roadmap.md)

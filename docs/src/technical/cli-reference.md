@@ -2,6 +2,22 @@
 
 The `dcp` command-line tool provides access to core operations for managing buckets, generating reports, and maintaining data integrity. This reference documents all available commands and their usage.
 
+## Commands
+
+| Command | Description |
+|---|---|
+| `bucket-reconciliation` | Check bucket configuration and report drift |
+| `bucket-request` | Process bucket creation requests |
+| `checksum` | Compute a checksum for a local file |
+| `checksum-inventory` | Build checksum inventory from S3 inventory data |
+| `checksum-report` | Generate checksum report and statistics |
+| `compute-checksums` | Run S3 batch operations compute checksums |
+| `inventory-report` | Generate inventory report and statistics |
+| `reset` | Reset stack (empty buckets, requires confirmation) |
+| `storage-report` | Generate storage report |
+| `sync-users` | Sync IAM users to SFTPGo |
+| `transfer` | Transfer files from source to stack destination bucket |
+
 ## Usage
 
 ```bash
@@ -176,6 +192,7 @@ Most development and testing uses the CLI. See [development documentation](devel
 ### Testing with deployed Lambda
 
 For testing with deployed Lambda functions, see the documentation for specific operations:
+
 - [Compute checksums](compute-checksums.md)
 - [Storage reports](storage-report.md)
 - [Inventory reports](inventory-report.md)

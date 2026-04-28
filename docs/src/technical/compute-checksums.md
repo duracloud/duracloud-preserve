@@ -1,31 +1,54 @@
 # compute-checksums
 
-- Lambda triggered by: scheduled eventbridge event
-- Dependencies: None
+**Type:** Lambda function  
+**Trigger:** Scheduled EventBridge event  
+**Dependencies:** None
 
 ## Overview
 
-This function triggers S3 batch [compute checksum](#) jobs. It will do this in standard/public + replication bucket pairs.
+This Lambda function triggers S3 batch checksum jobs to verify data integrity across your buckets. It processes standard/public + replication bucket pairs together, ensuring both the source and replicated data are checksummed.
 
-## CLI testing
+## Invocation methods
+
+### Scheduled execution (production)
+
+The Lambda is automatically triggered by a scheduled EventBridge event at regular intervals.
+
+### CLI testing
+
+Compute checksums for a single bucket and its replication pair:
 
 ```bash
 make run-compute-checksums b=digipres-dev1-private p=default
 ```
 
-- `b=` a (standard or public) stack bucket to generate checksums for
+**Parameters:**
+- `b=` — Standard or public stack bucket to checksum (required)
+- `p=` — AWS profile (required)
 
-The CLI only supports targeting a single bucket at a time. The bucket will be matched with its replication bucket. You cannot specify a replication bucket directly.
+**Constraints:**
+- Only supports single bucket at a time
+- Automatically paired with replication bucket
+- Cannot directly specify a replication bucket
 
-## Remote testing
+### Remote trigger
+
+Compute checksums for all stack buckets in a given stack:
 
 ```bash
 make trigger f=compute-checksums s=digipres-dev1 p=default
 ```
 
-This will trigger jobs for `ALL` stack buckets.
+**Parameters:**
+- `f=` — Function name (compute-checksums)
+- `s=` — Stack name (required)
+- `p=` — AWS profile (required)
+
+**Behavior:** Triggers jobs for ALL stack buckets in the specified stack.
 
 ## Output
+
+### Function response
 
 ```json
 {
@@ -34,19 +57,21 @@ This will trigger jobs for `ALL` stack buckets.
 }
 ```
 
-For each bucket pair processed a single job "receipt" is uploaded to these locations:
+### Receipt files
+
+For each bucket pair processed, a job receipt is uploaded to:
 
 - `metadata/latest/checksums/receipts/{source_job_id}.json`
 - `metadata/latest/checksums/receipts/{repl_job_id}.json`
 - `metadata/latest/checksums/receipts/{source_bucket_name}.json`
 - `metadata/{date}/checksums/receipts/{source_bucket_name}.json`
 
-The receipt is the same content uploaded multiple times for discovery (job ids are used by the Lambda checksum report process, bucket names for the CLI checksum report and for easier access in general).
+**Purpose:** The receipt is uploaded multiple times for different discovery paths:
+- Job IDs — used by the Lambda checksum report process for internal tracking
+- Bucket names — used by the CLI checksum report and for easier manual access
 
 ## QA testing
-
 Confirm:
-
 - Jobs are created without errors
 - Jobs are completed successfully
 - All receipt files are generated and avaiable at the expected paths

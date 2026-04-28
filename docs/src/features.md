@@ -6,7 +6,7 @@ This project is built on Amazon S3, a robust and distributed file storage servic
 * Preconfiguring [CloudFront](#) access for making files publicly available.
 * Providing additional value-added features via a set of scheduled tasks.
 
-This is a brief overview of the functionality that is explained more thoroughly in the [user guide](user/index.html) and [technical documentation](technical/index.html):
+This is a brief overview of the functionality that is explained more thoroughly in the [user guide](user/README.md) and [technical documentation](technical/README.md):
 
 ## Access controls
 
@@ -19,11 +19,11 @@ Only AWS account administrators can access replicated buckets and objects.
 
 ## Audit trail
 
-Request logs are generated for each user-created bucket. This is raw AWS provided data that can be processed using tools like [DuckDB](#).
+Request logs are generated for each user-created bucket. This is raw AWS provided data that can be processed using tools like [DuckDB](https://duckdb.org/).
 
 ## Checksum reports
 
-Checksum reports are generated on a configurable schedule. This involves determining whether any files need to be replaced.
+Checksum reports are generated on a configurable schedule, comparing checksums across source and replica buckets to detect corruption. Files found to be corrupt can be restored from the replicated copy.
 
 ## Choice of region
 
@@ -31,11 +31,11 @@ Files can be stored in any AWS region supported by the infrastructure.
 
 ## CLI available
 
-For advanced users a command line interface is available for interacting with the AWS environment and performing tasks.
+A command-line interface (`dcp`) is available for advanced users. It provides access to all core functions and additional maintenance commands for tasks such as checksumming local files, reconciling bucket configuration, and transferring data between buckets.
 
 ## Hosting and support
 
-If creating an AWS account and deploying resources to it is not possible then Lyrasis provides a [hosting and technical support](./lyrasis.md) option to handle the infrastructure you.
+If creating an AWS account and deploying resources to it is not possible then Lyrasis provides a [hosting and technical support](./lyrasis.md) option to handle the infrastructure for you.
 
 ## Inventory
 
@@ -47,11 +47,11 @@ Files are uploaded to the standard storage tier and transition to the Glacier De
 
 ## Manifest reports
 
-A standard, easy to access conslidated csv file is generated per bucket.
+A consolidated, human-readable CSV file is generated per bucket, listing all files with metadata including S3 URL, size, storage class, and last modified date.
 
 ## Public access
 
-A [CloudFront](#) distribution and bucket is created that can be used to make files publicly available. Simply upload files to it and share the public url using a specified domain.
+A [CloudFront](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Introduction.html) distribution and bucket is created that can be used to make files publicly available. Simply upload files to it and share the public url using a specified domain.
 
 Other buckets can be created as publicly accessible by naming them with a `-public` suffix. Files uploaded to such buckets will be available using a standard, unauthenticated S3 URL.
 
@@ -63,11 +63,11 @@ The reconciliation report is used to detect drift in bucket configuration, provi
 
 ## Replication
 
-Files for all buckets are replicated to Glacier Deep Archive. These files are included in the checksum verification process to determine file integrity. We have [dedicated documentation](#) for how this works.
+Files for all buckets are replicated to Glacier Deep Archive. These files are included in the checksum verification process to determine file integrity. We have [dedicated documentation](./checksum-verification.md) for how this works.
 
 ## Storage reports
 
-A storage report document is generated to show usage stats.
+An HTML storage report is generated showing usage statistics across all buckets in the stack, including total file counts and storage consumed by bucket and top-level prefix.
 
 ## Versioning
 

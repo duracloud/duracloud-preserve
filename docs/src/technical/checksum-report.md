@@ -12,7 +12,7 @@ In production, this function is triggered asynchronously by EventBridge on batch
 ## Usage
 
 ### CLI (local testing)
->
+
 > [!IMPORTANT]
 > A `compute-checksums` job must already have run and completed for the target bucket pair (source + replication) before using this command.
 

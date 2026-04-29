@@ -27,7 +27,7 @@ The workflow is:
 Use `make run-bucket-request` to process a file locally without uploading to S3:
 
 ```bash
-make run-bucket-request f=files/buckets.txt s=digipres-dev1 p=default
+make run-bucket-request f=files/buckets-list.txt s=digipres-dev1 p=default
 ```
 
 - `f=` — path to a local file containing [bucket names](#)
@@ -47,7 +47,7 @@ This is useful for one-off bucket creation or quick iteration without maintainin
 Use `make upload` to upload a file to S3 and trigger the Lambda function as it would run in production:
 
 ```bash
-make upload b=digipress-dev1-request d=buckets f=files/buckets.txt p=default
+make upload b=digipres-dev1-request d=buckets f=files/buckets.txt p=default
 ```
 
 - `b=` — the name of the S3 request bucket (typically `${stack}-request`)

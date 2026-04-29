@@ -94,7 +94,7 @@ make upload b=digipres-dev1-public d=example f=files/buckets.txt p=default
 
 Then access the file in the browser, it should work:
 
-- <https://d2vy8bpfecxis5.cloudfront.net/example/buckets.txt>
+- <https://d2vy8bpfecxis5.cloudfront.net/example/files/buckets.txt>
 
 For production the other Terraform outputs can be used for setting up
 a custom domain using [ACM](#), see the [deployment documentation](#) for

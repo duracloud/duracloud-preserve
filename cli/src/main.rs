@@ -12,6 +12,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Show CloudWatch storage metrics for a bucket
+    BucketMetrics(commands::bucket_metrics::Args),
     /// Check bucket configuration and report drift
     BucketReconciliation(commands::bucket_reconciliation::Args),
     /// Process bucket creation requests
@@ -43,6 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::BucketMetrics(args) => commands::bucket_metrics::run(args).await?,
         Commands::BucketReconciliation(args) => commands::bucket_reconciliation::run(args).await?,
         Commands::BucketRequest(args) => commands::bucket_request::run(args).await?,
         Commands::Checksum(args) => commands::checksum::run(args).await?,

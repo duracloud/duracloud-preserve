@@ -8,6 +8,7 @@ pub mod stack;
 pub mod stats;
 use base64::{Engine, engine::general_purpose};
 use crc_fast::{CrcAlgorithm, Digest};
+use humansize::DECIMAL;
 use rand::RngExt;
 pub use stack::{ManagedFile, Stack};
 pub mod storage;
@@ -41,6 +42,11 @@ pub fn confirm_action() -> io::Result<bool> {
 
 pub fn current_timestamp() -> Result<u64, SystemTimeError> {
     Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())
+}
+
+/// Format a byte count as a human-readable SI string (e.g. "1.5 GB").
+pub fn format_bytes(value: u64) -> String {
+    humansize::format_size(value, DECIMAL)
 }
 
 pub fn generate_checksum(mut reader: impl BufRead, algorithm: CrcAlgorithm) -> io::Result<String> {

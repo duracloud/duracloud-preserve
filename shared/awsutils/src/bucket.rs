@@ -104,6 +104,26 @@ pub fn from_tags(
     }
 }
 
+/// Look up the AWS region a bucket lives in.
+/// Works regardless of the client's configured region.
+pub async fn region(client: &Client, bucket: &str) -> Result<String, RequestError> {
+    let response = client
+        .get_bucket_location()
+        .bucket(bucket)
+        .send()
+        .await
+        .s3_err(format!("failed to get location for {bucket}"))?;
+
+    // us-east-1 returns an empty constraint; legacy "EU" represents eu-west-1.
+    let region = match response.location_constraint().map(|c| c.as_str()) {
+        Some("") | None => "us-east-1",
+        Some("EU") => "eu-west-1",
+        Some(other) => other,
+    };
+
+    Ok(region.to_string())
+}
+
 /// Extract the bucket type from an S3 tag set.
 pub fn type_from_tags(tags: &[aws_sdk_s3::types::Tag]) -> Option<Type> {
     tags.iter()

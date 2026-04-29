@@ -2,10 +2,10 @@ use std::collections::BTreeMap;
 
 use askama::Template;
 use chrono::DateTime;
-use humansize::DECIMAL;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::format_bytes;
 use crate::stats::{BucketStats, InventoryStats};
 
 /// Consolidated storage report across all buckets
@@ -128,7 +128,7 @@ impl StorageReportView {
                 format!(
                     "{} (of {})",
                     format_percent(percent(data.total_size, capacity)),
-                    format_decimal_bytes(capacity)
+                    format_bytes(capacity)
                 ),
             ),
             _ => (false, String::new()),
@@ -146,7 +146,7 @@ impl StorageReportView {
                     .map(|(prefix_name, prefix_stats)| PrefixView {
                         name: prefix_name.clone(),
                         total_files: prefix_stats.total_files,
-                        total_size_formatted: format_decimal_bytes(prefix_stats.total_size),
+                        total_size_formatted: format_bytes(prefix_stats.total_size),
                         pct_bucket_size: format_percent(percent(
                             prefix_stats.total_size,
                             bucket.stats.total_size,
@@ -157,7 +157,7 @@ impl StorageReportView {
                 BucketView {
                     name: bucket.bucket.clone(),
                     total_files: bucket.stats.total_files,
-                    total_size_formatted: format_decimal_bytes(bucket.stats.total_size),
+                    total_size_formatted: format_bytes(bucket.stats.total_size),
                     pct_total_size: format_percent(percent(
                         bucket.stats.total_size,
                         data.total_size,
@@ -215,7 +215,7 @@ impl StorageReportView {
                 .map(|dt| dt.format("%m/%d/%Y %H:%M:%S UTC").to_string())
                 .unwrap_or_else(|_| header.generated_at.clone()),
             total_files: data.total_files,
-            total_size_formatted: format_decimal_bytes(data.total_size),
+            total_size_formatted: format_bytes(data.total_size),
             bucket_count,
             prefix_count,
             has_capacity,
@@ -229,10 +229,6 @@ impl StorageReportView {
 
 fn format_percent(value: f64) -> String {
     format!("{value:.1}%")
-}
-
-fn format_decimal_bytes(value: u64) -> String {
-    humansize::format_size(value, DECIMAL)
 }
 
 fn percent(numerator: u64, denominator: u64) -> f64 {

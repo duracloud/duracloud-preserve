@@ -1,3 +1,4 @@
+pub mod bucket_metrics;
 pub mod bucket_reconciliation;
 pub mod bucket_request;
 pub mod checksum;

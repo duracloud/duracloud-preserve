@@ -3,6 +3,7 @@ pub mod bucket;
 pub mod bucket_creator;
 pub mod bucket_policy;
 pub mod bucket_reconciliator;
+pub mod cloudwatch;
 pub mod config;
 pub mod errors;
 pub mod file;

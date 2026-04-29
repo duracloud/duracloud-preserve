@@ -12,6 +12,7 @@ app = { workspace = true, features = ["duckdb"] }
 base = { workspace = true, features = ["duckdb"] }
 awsutils = { workspace = true, features = ["duckdb"] }
 aws-config = { workspace = true, features = ["behavior-version-latest"] }
+aws-sdk-cloudwatch.workspace = true
 aws-sdk-iam.workspace = true
 aws-sdk-s3.workspace = true
 aws-sdk-sts.workspace = true

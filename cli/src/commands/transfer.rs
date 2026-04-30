@@ -12,6 +12,10 @@ pub struct Args {
     #[arg(short, long)]
     destination: String,
 
+    /// Optional key prefix at the destination (e.g., put_data_in_here)
+    #[arg(short, long)]
+    prefix: Option<String>,
+
     /// Source bucket that files are transferred from (e.g., source-bucket)
     #[arg(short, long)]
     source: String,
@@ -32,9 +36,17 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Err("Source bucket not found".into());
     }
 
+    let target_prefix = args.prefix.and_then(|p| {
+        let trimmed = p.trim_matches('/').to_string();
+        (!trimmed.is_empty()).then_some(trimmed)
+    });
+
     println!("Found buckets:");
     println!("\tSource bucket: {source}");
     println!("\tDestination bucket: {destination}");
+    if let Some(prefix) = &target_prefix {
+        println!("\tDestination prefix: {prefix}");
+    }
 
     if !base::confirm_action()? {
         println!("Code does not match. Aborting.");
@@ -48,7 +60,13 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         stack: &stack,
     };
 
-    let job_id = batch::create_copy_job(&batch_config, &source, &destination).await?;
+    let job_id = batch::create_copy_job(
+        &batch_config,
+        &source,
+        &destination,
+        target_prefix.as_deref(),
+    )
+    .await?;
 
     println!("\nSuccessfully created transfer job: {job_id}");
     Ok(())

@@ -155,6 +155,7 @@ pub async fn create_copy_job(
     config: &BatchConfig<'_>,
     source_bucket: &str,
     dest_bucket: &str,
+    target_prefix: Option<&str>,
 ) -> Result<String, BatchError> {
     if source_bucket == dest_bucket {
         return Err(RequestError::ValidationError(
@@ -163,12 +164,13 @@ pub async fn create_copy_job(
         .into());
     }
 
+    let mut copy =
+        S3CopyObjectOperation::builder().target_resource(format!("arn:aws:s3:::{}", dest_bucket));
+    if let Some(prefix) = target_prefix {
+        copy = copy.target_key_prefix(prefix);
+    }
     let operation = JobOperation::builder()
-        .s3_put_object_copy(
-            S3CopyObjectOperation::builder()
-                .target_resource(format!("arn:aws:s3:::{}", dest_bucket))
-                .build(),
-        )
+        .s3_put_object_copy(copy.build())
         .build();
 
     let job_type = "copy";
@@ -396,7 +398,7 @@ mod tests {
         let client = s3control::Client::new(&sdk_config);
         let config = test_config(&client);
 
-        let err = create_copy_job(&config, "source-bucket", "dest-bucket")
+        let err = create_copy_job(&config, "source-bucket", "dest-bucket", None)
             .await
             .expect_err("create_copy_job should fail");
 
@@ -420,7 +422,7 @@ mod tests {
         let client = s3control::Client::new(&sdk_config);
         let config = test_config(&client);
 
-        let job_id = create_copy_job(&config, "source-bucket", "dest-bucket")
+        let job_id = create_copy_job(&config, "source-bucket", "dest-bucket", None)
             .await
             .expect("create_copy_job should succeed");
 
@@ -435,7 +437,36 @@ mod tests {
         assert!(body.contains("<TargetResource>arn:aws:s3:::dest-bucket</TargetResource>"));
         assert!(body.contains("<ManifestPrefix>batch/manifests/copy</ManifestPrefix>"));
         assert!(body.contains("<Prefix>batch/reports/copy/source-bucket</Prefix>"));
+        assert!(!body.contains("<TargetKeyPrefix>"));
         assert!(!body.contains("<S3ComputeObjectChecksum>"));
+    }
+
+    #[tokio::test]
+    async fn test_create_copy_job_includes_target_prefix_when_provided() {
+        let (sdk_config, replay) = mock_sdk_config(replay_xml_event(
+            200,
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<CreateJobResult xmlns="http://awss3control.amazonaws.com/doc/2018-08-20/">
+  <JobId>copy-job-2</JobId>
+</CreateJobResult>"#,
+        ));
+        let client = s3control::Client::new(&sdk_config);
+        let config = test_config(&client);
+
+        create_copy_job(
+            &config,
+            "source-bucket",
+            "dest-bucket",
+            Some("dest-prefix/"),
+        )
+        .await
+        .expect("create_copy_job should succeed");
+
+        let requests = recorded_requests(&replay);
+        let body = String::from_utf8(requests[0].body.clone())
+            .expect("request body should be valid utf-8");
+
+        assert!(body.contains("<TargetKeyPrefix>dest-prefix/</TargetKeyPrefix>"));
     }
 
     fn bucket_pair(name: &str, bucket_type: bucket::Type) -> BucketPair {

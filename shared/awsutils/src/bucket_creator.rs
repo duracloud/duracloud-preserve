@@ -22,7 +22,7 @@ use crate::{bucket_policy, config};
 pub const INVENTORY_FORMAT: InventoryFormat = InventoryFormat::Parquet;
 
 pub const STORAGE_CLASS_STANDARD_DEFAULT: TransitionStorageClass =
-    TransitionStorageClass::GlacierIr;
+    TransitionStorageClass::IntelligentTiering;
 pub(crate) const STORAGE_CLASS_PUBLIC_DEFAULT: TransitionStorageClass =
     TransitionStorageClass::IntelligentTiering;
 pub(crate) const STORAGE_CLASS_REPLICATION_DEFAULT: TransitionStorageClass =

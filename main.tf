@@ -64,7 +64,6 @@ locals {
     bucket-request = {
       bucket = local.functions_bucket
       file   = "bucket-request/bootstrap.zip"
-      env    = { STORAGE_TIER = "GLACIER_IR" }
     }
     compute-checksums = {
       bucket = local.functions_bucket

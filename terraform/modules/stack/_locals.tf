@@ -44,9 +44,12 @@ locals {
   bucket_tag_type_key                     = "BucketType"
 
   # Bucket lifecycle
-  expire_aborted_multipart_days  = 3
-  expire_noncurrent_version_days = 14
-  storage_transition_days        = 7
+  expire_aborted_multipart_days           = 3
+  expire_legacy_duracloud_file_days       = 3
+  expire_noncurrent_version_days          = 14
+  lifecycle_legacy_duracloud_file_tag_key = "LegacyDuraCloudFile"
+  lifecycle_legacy_duracloud_file_tag_val = "true"
+  storage_transition_days                 = 7
 
   # Bucket replication
   replication_rule_id       = "ReplicateAll"

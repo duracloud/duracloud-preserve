@@ -235,7 +235,29 @@ impl<'a> BucketCreator<'a> {
             .build()
             .s3_err("failed to build transition rule")?;
 
-        let rules = vec![expiration, transition];
+        let legacy_duracloud = LifecycleRule::builder()
+            .id("ExpireLegacyDuraCloudFiles")
+            .status(ExpirationStatus::Enabled)
+            .filter(
+                LifecycleRuleFilter::builder()
+                    .tag(
+                        Tag::builder()
+                            .key(LIFECYCLE_LEGACY_DURACLOUD_FILE_TAG_KEY)
+                            .value(LIFECYCLE_LEGACY_DURACLOUD_FILE_TAG_VAL)
+                            .build()
+                            .s3_err("failed to build legacy duracloud tag")?,
+                    )
+                    .build(),
+            )
+            .expiration(
+                LifecycleExpiration::builder()
+                    .days(EXPIRE_LEGACY_DURACLOUD_FILE_DAYS as i32)
+                    .build(),
+            )
+            .build()
+            .s3_err("failed to build legacy duracloud expiration rule")?;
+
+        let rules = vec![expiration, transition, legacy_duracloud];
 
         self.client
             .put_bucket_lifecycle_configuration()

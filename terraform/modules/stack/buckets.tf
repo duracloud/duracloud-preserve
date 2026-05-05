@@ -4,15 +4,19 @@ locals {
 
   # c.f. stack.rs
   buckets = {
-    managed = {}
-    request = {}
+    managed = {
+      suffix = local.managed_suffix
+    }
+    request = {
+      suffix = local.request_suffix
+    }
   }
 }
 
 resource "aws_s3_bucket" "main" {
   for_each = local.buckets
 
-  bucket        = "${local.stack}-${each.key}"
+  bucket        = "${local.stack}${each.value.suffix}"
   force_destroy = true
 
   # c.f. bucket_creator.rs

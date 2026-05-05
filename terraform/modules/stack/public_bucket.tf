@@ -11,7 +11,7 @@ locals {
 
 # Public bucket pair
 resource "aws_s3_bucket" "public" {
-  bucket        = "${local.stack}-public"
+  bucket        = "${local.stack}${local.public_suffix}"
   force_destroy = true
 
   tags = {
@@ -22,7 +22,7 @@ resource "aws_s3_bucket" "public" {
 }
 
 resource "aws_s3_bucket" "public_repl" {
-  bucket        = "${local.stack}-public-repl"
+  bucket        = "${local.stack}${local.public_suffix}${local.replication_suffix}"
   force_destroy = true
 
   tags = {

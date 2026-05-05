@@ -1,8 +1,10 @@
 # Batch Operations Role - used for S3 Batch Operations jobs
 locals {
   # names derived from generated constants (_locals.tf)
-  batch_role_name       = "${local.stack}${local.batch_role_suffix}"
-  replication_role_name = "${local.stack}${local.replication_role_suffix}"
+  batch_role_name         = "${local.stack}${local.batch_role_suffix}"
+  batch_policy_name       = "${local.stack}${local.batch_policy_suffix}"
+  replication_role_name   = "${local.stack}${local.replication_role_suffix}"
+  replication_policy_name = "${local.stack}${local.replication_policy_suffix}"
 }
 
 data "aws_iam_policy_document" "batch_assume_role" {
@@ -64,7 +66,7 @@ data "aws_iam_policy_document" "batch" {
 }
 
 resource "aws_iam_role_policy" "batch" {
-  name   = "${local.batch_role_name}-policy"
+  name   = local.batch_policy_name
   role   = aws_iam_role.batch.id
   policy = data.aws_iam_policy_document.batch.json
 }
@@ -122,7 +124,7 @@ data "aws_iam_policy_document" "replication" {
 }
 
 resource "aws_iam_role_policy" "replication" {
-  name   = "${local.replication_role_name}-policy"
+  name   = local.replication_policy_name
   role   = aws_iam_role.replication.id
   policy = data.aws_iam_policy_document.replication.json
 }

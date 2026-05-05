@@ -173,18 +173,18 @@ impl Stack {
     }
 
     /// Checksum verification stats destination
-    pub fn metadata_checksums_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> ManagedFile {
+    pub fn metadata_checksums_stats_path(&self, name: &str, date_ctx: DateCtx) -> ManagedFile {
         ManagedFile {
             bucket: self.managed_bucket(),
-            key: format!("{METADATA_PREFIX}/{date_ctx}/checksums/stats/{bucket}.json"),
+            key: format!("{METADATA_PREFIX}/{date_ctx}/checksums/stats/{name}.json"),
         }
     }
 
     /// Inventory (per bucket) usage stats destination
-    pub fn metadata_manifests_stats_path(&self, bucket: &str, date_ctx: DateCtx) -> ManagedFile {
+    pub fn metadata_manifests_stats_path(&self, name: &str, date_ctx: DateCtx) -> ManagedFile {
         ManagedFile {
             bucket: self.managed_bucket(),
-            key: format!("{METADATA_PREFIX}/{date_ctx}/manifests/stats/{bucket}.json"),
+            key: format!("{METADATA_PREFIX}/{date_ctx}/manifests/stats/{name}.json"),
         }
     }
 
@@ -210,18 +210,18 @@ impl Stack {
     }
 
     /// Checksum verification report (csv) upload destination provided for user access
-    pub fn reports_checksums_path(&self, bucket: &str, date_ctx: DateCtx) -> ManagedFile {
+    pub fn reports_checksums_path(&self, name: &str, date_ctx: DateCtx) -> ManagedFile {
         ManagedFile {
             bucket: self.managed_bucket(),
-            key: format!("{REPORTS_PREFIX}/{date_ctx}/checksums/{bucket}.csv"),
+            key: format!("{REPORTS_PREFIX}/{date_ctx}/checksums/{name}.csv"),
         }
     }
 
     /// File manifest (csv) upload destination provided for user access
-    pub fn reports_manifests_path(&self, bucket: &str, date_ctx: DateCtx) -> ManagedFile {
+    pub fn reports_manifests_path(&self, name: &str, date_ctx: DateCtx) -> ManagedFile {
         ManagedFile {
             bucket: self.managed_bucket(),
-            key: format!("{REPORTS_PREFIX}/{date_ctx}/manifests/{bucket}.csv"),
+            key: format!("{REPORTS_PREFIX}/{date_ctx}/manifests/{name}.csv"),
         }
     }
 

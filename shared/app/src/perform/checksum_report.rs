@@ -57,6 +57,7 @@ pub async fn perform(
             .expect("spawn_blocking task panicked")?;
 
     let csv_bytes = Bytes::from(csv);
+    let output_name = format!("{}_{}", source_bucket, "checksum-report");
     let stats_bytes = Bytes::from(serde_json::to_vec(&stats)?);
 
     upload::put_versioned_bytes(
@@ -64,7 +65,7 @@ pub async fn perform(
         args.date_ctx,
         csv_bytes,
         TEXT_CSV,
-        |ctx| config.stack().reports_checksums_path(&source_bucket, ctx),
+        |ctx| config.stack().reports_checksums_path(&output_name, ctx),
         ChecksumReportError::Upload,
     )
     .await?;
@@ -77,7 +78,7 @@ pub async fn perform(
         |ctx| {
             config
                 .stack()
-                .metadata_checksums_stats_path(&source_bucket, ctx)
+                .metadata_checksums_stats_path(&output_name, ctx)
         },
         ChecksumReportError::Upload,
     )

@@ -40,8 +40,8 @@ pub async fn perform(
         tracing::warn!("{skipped} of {count} objects had non-ok status");
     }
 
-    let output_name = format!("{bucket}_{}", checksum::CHECKSUM_TYPE);
     let csv_bytes = Bytes::from(csv_bytes);
+    let output_name = format!("{bucket}_{}", "checksum-inventory");
 
     upload::put_versioned_bytes(
         config,

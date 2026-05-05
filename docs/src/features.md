@@ -43,7 +43,7 @@ A file manifest is generated for each user-created bucket. The raw AWS inventory
 
 ## Lifecycle transitions
 
-Files are uploaded to the standard storage tier and transition to the Glacier Deep Archive tier after a configurable number of days which can be specified for each stack deployment.
+Files are uploaded to the standard storage tier and transition to a configurable storage class after one week, which can be specified for each stack deployment. Old versions of files are automatically deleted after two weeks. Aborted multipart uploads are deleted after three days.
 
 ## Manifest reports
 
@@ -72,3 +72,38 @@ An HTML storage report is generated showing usage statistics across all buckets 
 ## Versioning
 
 Bucket versioning is enabled. This supports file restore for up to a configurable number of days post update which can be specified for each stack deployment.
+
+---
+
+## General integrations
+
+### Web applications that support use of Amazon S3 for storage
+
+Any application or framework that can be configured to use Amazon S3 for storage can work with DuraCloud Preserve. By simply using a bucket created as part of a DuraCloud Preserve stack files will be stored with the additional benefits outlined in this documentation, including versioning, replication and checksum verification.
+
+Some specific examples:
+
+* Any [Rails](https://rubyonrails.org/) web applications using [ActiveStorage](https://guides.rubyonrails.org/active_storage_overview.html#s3-service-amazon-s3-and-s3-compatible-apis).
+* [Archivematica Storage Service](https://www.archivematica.org/en/docs/storage-service-0.24/administrators/#s3-amazon)
+* [CollectionSpace file storage](https://collectionspace.atlassian.net/wiki/spaces/cstd/pages/3576725711/Configuring+Amazon+S3+plugin).
+* [DSpace Storage Layer](https://wiki.lyrasis.org/display/DSDOC9x/Storage+Layer#StorageLayer-ConfiguringAmazonS3Storage).
+
+## Lyrasis service integrations
+
+### ArchivesSpace
+
+ArchivesSpace itself does not manage digital content and provides no way to upload files. The public urls provided by the Duracloud Preserve CloudFront enabled bucket can be used to host files that are referenced in Digital Objects using the File URI field to make them openly accessible on the internet.
+
+### CollectionSpace
+
+Refer to the [roadmap](#) for any upcoming work.
+
+### DSpace
+
+The [Replication Task Suite](https://wiki.lyrasis.org/display/DSPACE/ReplicationTaskSuite) is a plugin for DSpace that adds preservation capabilities that can be accessed using the DSpace user interface. It creates archival information packages used to backup DSpace items in a self contained way that are periodically transferred to external storage, including Amazon S3. Doing the latter with a DuraCloud Preserve created bucket works equivalently to using S3 for the DSpace Storage Layer (assetstore), and if both are configured this way it enables a dual layer of protection for files (as both the assetstore and archival packages would benefit from versioning, replication and checksum verification etc.).
+
+## Other integrations
+
+### Archive-It
+
+Create an inventory and a backup of [WARC](https://en.wikipedia.org/wiki/WARC_(file_format)) files retrieved from the [Internet Archive](https://archive.org/) - [Archive-It](https://archive-it.org/) service.

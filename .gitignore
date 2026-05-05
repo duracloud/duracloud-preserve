@@ -5,6 +5,7 @@
 terraform.tfstate*
 terraform.tfvars
 *.auto.tfvars
+*.pdf
 tmp_*.json
 payloads
 target

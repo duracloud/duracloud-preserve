@@ -57,6 +57,46 @@ pre {
   border-radius: 6px;
 }
 
+@media print {
+  @page {
+    size: Letter;
+    margin: 0.65in;
+  }
+
+  body {
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  pre,
+  blockquote,
+  table,
+  figure,
+  img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  pre code {
+    white-space: inherit;
+  }
+}
+
 /* Hide unused theme options */
 li:has(> #mdbook-theme-rust),
 li:has(> #mdbook-theme-coal),

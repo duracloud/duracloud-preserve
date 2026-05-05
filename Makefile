@@ -31,6 +31,12 @@ deploy: locals build ## Deploy all resources including functions (make deploy s=
 docs: ## Read the docs
 	@cd docs && mdbook serve --open
 
+.PHONY: docs-pdf
+docs-pdf: ## Build docs PDF with WeasyPrint (make docs-pdf [o=duracloud-preserve.pdf])
+	@command -v weasyprint >/dev/null || { echo "WeasyPrint is required: https://weasyprint.org/"; exit 1; }
+	@cd docs && mdbook build
+	@weasyprint docs/book/print.html $(or $(o),duracloud-preserve.pdf)
+
 .PHONY: event
 event: ## Generate event file from sample (make event f=function s=stack)
 	@mkdir -p payloads

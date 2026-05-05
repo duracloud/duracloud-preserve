@@ -1,7 +1,8 @@
 use aws_sdk_iam::Client;
 use aws_sdk_iam::types::{Tag, User};
-use constants::MAX_USER_CONCURRENCY;
 use futures::{StreamExt, TryStreamExt, stream};
+
+const MAX_USER_CONCURRENCY: usize = 5;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserInfo {

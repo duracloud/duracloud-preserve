@@ -33,6 +33,10 @@ data "aws_iam_policy_document" "public_bucket" {
   }
 }
 
+data "aws_cloudfront_cache_policy" "caching_optimized" {
+  name = "Managed-CachingOptimized"
+}
+
 resource "aws_s3_bucket_policy" "public" {
   for_each = local.deploy_cloudfront
 
@@ -67,17 +71,7 @@ resource "aws_cloudfront_distribution" "public" {
     cached_methods   = ["GET", "HEAD", "OPTIONS"]
     target_origin_id = local.stack
 
-    forwarded_values {
-      query_string = false
-
-      cookies {
-        forward = "none"
-      }
-    }
-
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
     compress               = true
     viewer_protocol_policy = "redirect-to-https"
   }

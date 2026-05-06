@@ -42,6 +42,9 @@ cargo run -p dcp -- bucket-request --stack=digipres-dev1 --name=rare-books
 
 This is useful for one-off bucket creation or quick iteration without maintaining a file.
 
+> [!IMPORTANT]
+> Export your aws profile prior to using the `cargo` CLI.
+
 ## Remote Testing
 
 Use `make upload` to upload a file to S3 and trigger the Lambda function as it would run in production:

@@ -43,7 +43,7 @@ pub const BUCKET_TAG_TYPE_KEY: &str = "BucketType";
 pub const EXPIRE_ABORTED_MULTIPART_DAYS: u8 = 3;
 pub const EXPIRE_LEGACY_DURACLOUD_FILE_DAYS: u8 = 3;
 pub const EXPIRE_NONCURRENT_VERSION_DAYS: u8 = 14;
-pub const LIFECYCLE_LEGACY_DURACLOUD_FILE_TAG_KEY: &str = "LegacyDuraCloudFile";
+pub const LIFECYCLE_LEGACY_DURACLOUD_FILE_TAG_KEY: &str = "ExpireDuraCloudFile";
 pub const LIFECYCLE_LEGACY_DURACLOUD_FILE_TAG_VAL: &str = "true";
 pub const STORAGE_TRANSITION_DAYS: u8 = 3;
 

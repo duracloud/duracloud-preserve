@@ -47,7 +47,7 @@ locals {
   expire_aborted_multipart_days           = 3
   expire_legacy_duracloud_file_days       = 3
   expire_noncurrent_version_days          = 14
-  lifecycle_legacy_duracloud_file_tag_key = "LegacyDuraCloudFile"
+  lifecycle_legacy_duracloud_file_tag_key = "ExpireDuraCloudFile"
   lifecycle_legacy_duracloud_file_tag_val = "true"
   storage_transition_days                 = 3
 

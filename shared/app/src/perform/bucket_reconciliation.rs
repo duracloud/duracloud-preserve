@@ -32,6 +32,9 @@ mod tests {
     use super::*;
 
     use crate::config as app_config;
+    use constants::{
+        EXPIRE_ABORTED_MULTIPART_DAYS, EXPIRE_NONCURRENT_VERSION_DAYS, STORAGE_TRANSITION_DAYS,
+    };
     use test_support::TestClientBuilder;
 
     const TEST_STACK: &str = "test-stack";
@@ -102,8 +105,8 @@ mod tests {
     <ID>ExpireOldVersions</ID>
     <Status>Enabled</Status>
     <Filter><Prefix></Prefix></Filter>
-    <AbortIncompleteMultipartUpload><DaysAfterInitiation>3</DaysAfterInitiation></AbortIncompleteMultipartUpload>
-    <NoncurrentVersionExpiration><NoncurrentDays>14</NoncurrentDays></NoncurrentVersionExpiration>
+    <AbortIncompleteMultipartUpload><DaysAfterInitiation>{abort_days}</DaysAfterInitiation></AbortIncompleteMultipartUpload>
+    <NoncurrentVersionExpiration><NoncurrentDays>{noncurrent_days}</NoncurrentDays></NoncurrentVersionExpiration>
     <Expiration><ExpiredObjectDeleteMarker>true</ExpiredObjectDeleteMarker></Expiration>
   </Rule>
   <Rule>
@@ -111,11 +114,14 @@ mod tests {
     <Status>Enabled</Status>
     <Filter><Prefix></Prefix></Filter>
     <Transition>
-      <Days>7</Days>
+      <Days>{transition_days}</Days>
       <StorageClass>{transition_class}</StorageClass>
     </Transition>
   </Rule>
-</LifecycleConfiguration>"#
+</LifecycleConfiguration>"#,
+            abort_days = EXPIRE_ABORTED_MULTIPART_DAYS,
+            noncurrent_days = EXPIRE_NONCURRENT_VERSION_DAYS,
+            transition_days = STORAGE_TRANSITION_DAYS,
         )
     }
 

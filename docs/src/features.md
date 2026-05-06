@@ -43,7 +43,7 @@ A file manifest is generated for each user-created bucket. The raw AWS inventory
 
 ## Lifecycle transitions
 
-Files are uploaded to the standard storage tier and transition to a configurable storage class after one week, which can be specified for each stack deployment. Old versions of files are automatically deleted after two weeks. Aborted multipart uploads are deleted after three days.
+Files are uploaded to the standard storage tier and transition to a selected storage class after a configurable interval, which can be specified for each stack deployment. Old versions of files and aborted multipart uploads are automatically deleted after a configurable period.
 
 ## Manifest reports
 

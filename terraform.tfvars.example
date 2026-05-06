@@ -1,0 +1,33 @@
+// Usage: cp terraform.tfvars.example terraform.tfvars
+sftpgo_enabled = true
+
+users = {
+  user1 = {
+    email   = "user1@example.org",
+    buckets = ["digipres-dev1-private", "digipres-dev1-public", "digipres-dev1-managed"]
+    memberships = [
+      {
+        stack = "digipres-dev1",
+        group = "restricted-users"
+      }
+    ]
+  },
+  user2 = {
+    email   = "user2@example.org",
+    memberships = [
+      {
+        stack = "digipres-dev1",
+        group = "power-users"
+      }
+    ]
+  },
+  user3 = {
+    email   = "user3@example.org",
+    memberships = [
+      {
+        stack = "digipres-dev1",
+        group = "standard-users"
+      }
+    ]
+  }
+}

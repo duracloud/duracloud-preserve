@@ -3,6 +3,10 @@ SHELL:=/bin/bash
 
 ARTIFACT_REGIONS := us-east-1 us-east-2 us-west-2
 
+export SFTPGO_HOST ?= http://localhost:8080
+export SFTPGO_USERNAME ?= admin
+export SFTPGO_PASSWORD ?= admin
+
 .PHONY: bucket
 bucket: ## Perform action on a bucket (make bucket a=action b=bucket p=profile)
 	@AWS_PROFILE=$(p) ./scripts/bucket.sh $(a) $(b)

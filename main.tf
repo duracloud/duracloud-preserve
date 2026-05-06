@@ -16,48 +16,25 @@ terraform {
 }
 
 provider "aws" {}
-
-provider "sftpgo" {
-  host     = local.sftpgo_host
-  username = local.sftpgo_username
-  password = local.sftpgo_password
-}
+provider "sftpgo" {}
 
 data "aws_organizations_organization" "current" {}
 data "aws_region" "current" {}
 
-// SFTPGo required params
-data "aws_ssm_parameter" "sftpgo_host" {
-  name = "/sftpgo/host"
-}
-
-data "aws_ssm_parameter" "sftpgo_username" {
-  name = "/sftpgo/username"
-}
-
-data "aws_ssm_parameter" "sftpgo_password" {
-  name            = "/sftpgo/password"
-  with_decryption = true
-}
-
 variable "cloudfront_domain" { default = "" }
 variable "cloudfront_enabled" { default = true }
 variable "deploy" { default = false }
-variable "sftpgo_enabled" { default = true }
+variable "sftpgo_enabled" { default = false }
 variable "stack" {}
 variable "users" { default = {} }
 
 locals {
-  deploy = var.deploy
-  org_id = data.aws_organizations_organization.current.id
-  region = data.aws_region.current.region
-  stack  = var.stack
-  users  = var.users
-
-  sftpgo_enabled  = var.sftpgo_enabled
-  sftpgo_host     = data.aws_ssm_parameter.sftpgo_host.value
-  sftpgo_username = data.aws_ssm_parameter.sftpgo_username.value
-  sftpgo_password = data.aws_ssm_parameter.sftpgo_password.value
+  deploy         = var.deploy
+  org_id         = data.aws_organizations_organization.current.id
+  region         = data.aws_region.current.region
+  sftpgo_enabled = var.sftpgo_enabled
+  stack          = var.stack
+  users          = var.users
 
   functions_bucket = "dcp-artifacts-${local.region}"
   functions = {

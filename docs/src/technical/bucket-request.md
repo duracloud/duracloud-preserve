@@ -54,7 +54,7 @@ make upload b=digipres-dev1-request d=buckets f=files/buckets.txt p=default
 ```
 
 - `b=` — the name of the S3 request bucket (typically `${stack}-request`)
-- `d=` — the S3 directory (path) to upload into (must be `bucket-request`)
+- `d=` — the S3 directory (path) to upload into (must be `buckets`)
 - `f=` — path to the local file containing [bucket names](#)
 - `p=` — the AWS profile to use
 

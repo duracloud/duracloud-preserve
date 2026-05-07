@@ -23,7 +23,7 @@ Request logs are generated for each user-created bucket. This is raw AWS provide
 
 ## Checksum reports
 
-Checksum reports are generated on a configurable schedule, comparing checksums across source and replica buckets to detect corruption. Files found to be corrupt can be restored from the replicated copy.
+Checksum reports are generated on a configurable schedule, comparing checksums across source and replica buckets to detect corruption. Files found to be corrupt can be restored from the verified copy. See the [checksum verification](./checksum-verification.md) documentation for more details.
 
 ## Choice of region
 
@@ -49,7 +49,7 @@ Files are uploaded to the standard storage tier and transition to a selected sto
 
 A consolidated, human-readable CSV file is generated per bucket, listing all files with metadata including S3 URL, size, storage class, and last modified date.
 
-## Public access
+## Public access via CDN (Content Delivery Network)
 
 A [CloudFront](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Introduction.html) distribution and bucket is created that can be used to make files publicly available. Simply upload files to it and share the public url using a specified domain.
 
@@ -67,11 +67,15 @@ Files for all buckets are replicated to Glacier Deep Archive. These files are in
 
 ## Storage reports
 
-An HTML storage report is generated showing usage statistics across all buckets in the stack, including total file counts and storage consumed by bucket and top-level prefix.
+An HTML storage report is generated showing usage statistics across all buckets in the stack, including total file counts and storage consumed by bucket and top-level prefix. It also includes the year-to-date total of data transfer out from S3 to the internet (requires Cost Explorer to be enabled in AWS, and an active `Stack` cost allocation tag).
 
 ## Versioning
 
 Bucket versioning is enabled. This supports file restore for up to a configurable number of days post update which can be specified for each stack deployment.
+
+## Web UI integration with SFTPGo
+
+There is support within the application and deployment tooling for SFTPGo integration, which provides a web based interface for S3. Users can be created that are pre-configured with appropriate access (per the access controls that have been assigned to them) and the SFTPGo user account is kept in sync as buckets are created, or via the `dcp` cli.
 
 ---
 

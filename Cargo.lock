@@ -1305,6 +1305,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "checksum-inventory"
+version = "0.1.0"
+dependencies = [
+ "app",
+ "aws-config",
+ "aws_lambda_events",
+ "awsutils",
+ "base",
+ "constants",
+ "lambda_runtime",
+ "serde_json",
+ "test-support",
+ "tokio",
+]
+
+[[package]]
 name = "checksum-report"
 version = "0.1.0"
 dependencies = [

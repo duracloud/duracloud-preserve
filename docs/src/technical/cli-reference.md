@@ -9,7 +9,7 @@ The `dcp` command-line tool provides access to core operations for managing buck
 | `bucket-reconciliation` | Check bucket configuration and report drift |
 | `bucket-request` | Process bucket creation requests |
 | `checksum` | Compute a checksum for a local file |
-| `checksum-inventory` | Build checksum inventory from S3 inventory data |
+| `checksum-request` | Build checksum inventory from S3 inventory data |
 | `checksum-report` | Generate checksum report and statistics |
 | `compute-checksums` | Run S3 batch operations compute checksums |
 | `inventory-report` | Generate inventory report and statistics |
@@ -107,12 +107,12 @@ Trigger S3 batch checksum jobs for buckets. For detailed usage, see [compute-che
 
 ---
 
-#### checksum-inventory
+#### checksum-request
 
 Build checksum inventory from S3 inventory data.
 
 ```bash
-dcp checksum-inventory [OPTIONS]
+dcp checksum-request [OPTIONS]
 ```
 
 Process S3 inventory data to create a checksum inventory for analysis and verification.

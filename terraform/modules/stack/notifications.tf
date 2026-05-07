@@ -38,13 +38,13 @@ locals {
             filter_suffix = ".txt"
           }
         ],
-        # Checksum inventory: fires on .txt written to the checksums request prefix
+        # Checksum request: fires on .txt written to the checksum request prefix
         [
-          for k, _ in local.deploy_checksum_inventory : {
-            id            = "checksum-inventory-trigger"
+          for k, _ in local.deploy_checksum_request : {
+            id            = "checksum-request-trigger"
             lambda_arn    = aws_lambda_function.main[k].arn
             events        = ["s3:ObjectCreated:*"]
-            filter_prefix = "${local.checksums_request_prefix}/"
+            filter_prefix = "${local.checksum_request_prefix}/"
             filter_suffix = ".txt"
           }
         ],
@@ -72,7 +72,7 @@ resource "aws_s3_bucket_notification" "main" {
 
   depends_on = [
     aws_lambda_permission.bucket_request,
-    aws_lambda_permission.checksum_inventory,
+    aws_lambda_permission.checksum_request,
     aws_lambda_permission.inventory_report,
     aws_lambda_permission.sync_users,
   ]

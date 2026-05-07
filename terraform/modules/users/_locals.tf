@@ -10,7 +10,7 @@ locals {
   batch_report_prefix       = "batch/reports"
   batch_role_suffix         = "-s3-batch-role"
   bucket_request_prefix     = "buckets"
-  checksums_request_prefix  = "checksums"
+  checksum_request_prefix   = "checksums"
   feedback_prefix           = "feedback"
   logging_prefix            = "audit"
   managed_suffix            = "-managed"

@@ -30,6 +30,7 @@
   - [bucket-request](technical/bucket-request.md)
   - [inventory-report](technical/inventory-report.md)
   - [compute-checksums](technical/compute-checksums.md)
+  - [checksum-request](technical/checksum-request.md)
   - [checksum-report](technical/checksum-report.md)
   - [storage-report](technical/storage-report.md)
   - [sync-users](technical/sync-users.md)

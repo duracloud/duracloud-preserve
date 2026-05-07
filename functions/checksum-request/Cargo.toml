@@ -1,5 +1,5 @@
 [package]
-name = "checksum-inventory"
+name = "checksum-request"
 version.workspace = true
 edition.workspace = true
 

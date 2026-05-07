@@ -3,7 +3,7 @@ resolver = "3"
 members = [
   "cli",
   "functions/bucket-request",
-  "functions/checksum-inventory",
+  "functions/checksum-request",
   "functions/checksum-report",
   "functions/compute-checksums",
   "functions/inventory-report",

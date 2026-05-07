@@ -1,7 +1,7 @@
 use awsutils::file::{self, File};
 use futures::stream::{self, TryStreamExt};
 
-use crate::{config::Config, errors::ChecksumInventoryError};
+use crate::{config::Config, errors::ChecksumRequestError};
 
 pub const CHECKSUM_TYPE: &str = "crc64nvme";
 const CONCURRENCY: usize = 64;
@@ -36,8 +36,8 @@ pub struct InventoryRow {
 
 pub async fn generate_inventory(
     config: &Config,
-    rows: impl Iterator<Item = Result<InventoryRow, ChecksumInventoryError>>,
-) -> Result<(Vec<u8>, usize, usize), ChecksumInventoryError> {
+    rows: impl Iterator<Item = Result<InventoryRow, ChecksumRequestError>>,
+) -> Result<(Vec<u8>, usize, usize), ChecksumRequestError> {
     let mut wtr = csv::Writer::from_writer(Vec::new());
     wtr.write_record(HEADERS)?;
 
@@ -62,7 +62,7 @@ pub async fn generate_inventory(
                         STATUS_ERROR
                     };
 
-                    return Ok::<_, ChecksumInventoryError>(ChecksumResult {
+                    return Ok::<_, ChecksumRequestError>(ChecksumResult {
                         bucket: row.bucket,
                         key: row.key,
                         status,
@@ -120,7 +120,7 @@ pub async fn generate_inventory(
 /// Parse an S3 inventory CSV, yielding the `bucket` and `key` columns as `InventoryRow`s.
 pub fn parse_inventory_rows(
     bytes: &[u8],
-) -> impl Iterator<Item = Result<InventoryRow, ChecksumInventoryError>> + '_ {
+) -> impl Iterator<Item = Result<InventoryRow, ChecksumRequestError>> + '_ {
     csv::ReaderBuilder::new()
         .from_reader(bytes)
         .into_records()

@@ -1,12 +1,12 @@
 use app::{
     bucket,
     config::Config,
-    perform::checksum_inventory::{self, PerformArgs},
+    perform::checksum_request::{self, PerformArgs},
 };
 use aws_lambda_events::event::s3::S3Event;
 use awsutils::file::{self, File};
 use base::stack::DateCtx;
-use constants::CHECKSUMS_REQUEST_PREFIX;
+use constants::CHECKSUM_REQUEST_PREFIX;
 use lambda_runtime::{Error, LambdaEvent, tracing};
 
 pub(crate) async fn function_handler(
@@ -22,7 +22,7 @@ pub(crate) async fn function_handler(
     tracing::info!("Bucket: {:?}, Object: {:?}", event_bucket, object);
 
     if event_bucket != &config.stack().request_bucket()
-        || !object.starts_with(&format!("{CHECKSUMS_REQUEST_PREFIX}/"))
+        || !object.starts_with(&format!("{CHECKSUM_REQUEST_PREFIX}/"))
     {
         panic!(
             "Not the request bucket or path for this stack: {:?}",
@@ -51,7 +51,7 @@ pub(crate) async fn function_handler(
     }
 
     let args = PerformArgs::new(report);
-    let inventory = checksum_inventory::perform(config, &args)
+    let inventory = checksum_request::perform(config, &args)
         .await
         .map_err(|e| Error::from(e.to_string()))?;
 

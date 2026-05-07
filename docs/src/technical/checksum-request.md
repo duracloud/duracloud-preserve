@@ -1,4 +1,4 @@
-# checksum-inventory
+# checksum-request
 
 **Type:** Lambda function  
 **Trigger:** S3 event (`.txt` file uploaded under the request bucket's `checksums/` prefix)  
@@ -24,7 +24,7 @@ The workflow is:
 Run locally against an existing manifest for a bucket:
 
 ```bash
-cargo run -p dcp -- checksum-inventory --bucket digipres-dev1-private
+cargo run -p dcp -- checksum-request --bucket digipres-dev1-private
 ```
 
 - `--bucket` — Bucket name to process the checksum inventory for (required)

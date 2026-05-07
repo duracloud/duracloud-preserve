@@ -1,15 +1,15 @@
-# Checksum inventory policy and permissions
+# Checksum request policy and permissions
 locals {
-  deploy_checksum_inventory = contains(keys(local.functions), "checksum-inventory") ? { "checksum-inventory" = {} } : {}
+  deploy_checksum_request = contains(keys(local.functions), "checksum-request") ? { "checksum-request" = {} } : {}
 }
 
-data "aws_iam_policy_document" "checksum_inventory" {
-  for_each = local.deploy_checksum_inventory
+data "aws_iam_policy_document" "checksum_request" {
+  for_each = local.deploy_checksum_request
 
   statement {
     effect    = "Allow"
     actions   = ["s3:DeleteObject"]
-    resources = ["${aws_s3_bucket.main["request"].arn}/${local.checksums_request_prefix}/*"]
+    resources = ["${aws_s3_bucket.main["request"].arn}/${local.checksum_request_prefix}/*"]
   }
 
   statement {
@@ -31,15 +31,15 @@ data "aws_iam_policy_document" "checksum_inventory" {
   }
 }
 
-resource "aws_iam_role_policy" "checksum_inventory" {
-  for_each = local.deploy_checksum_inventory
+resource "aws_iam_role_policy" "checksum_request" {
+  for_each = local.deploy_checksum_request
 
   role   = aws_iam_role.lambda[each.key].name
-  policy = data.aws_iam_policy_document.checksum_inventory[each.key].json
+  policy = data.aws_iam_policy_document.checksum_request[each.key].json
 }
 
-resource "aws_lambda_permission" "checksum_inventory" {
-  for_each = local.deploy_checksum_inventory
+resource "aws_lambda_permission" "checksum_request" {
+  for_each = local.deploy_checksum_request
 
   statement_id  = "AllowExecutionFromS3"
   action        = "lambda:InvokeFunction"

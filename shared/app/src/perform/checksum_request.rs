@@ -3,7 +3,7 @@ use base::stack::DateCtx;
 use bytes::Bytes;
 use constants::TEXT_CSV;
 
-use crate::{bucket, checksum, config::Config, errors::ChecksumInventoryError, upload};
+use crate::{bucket, checksum, config::Config, errors::ChecksumRequestError, upload};
 
 #[derive(Debug, Clone)]
 pub struct PerformArgs {
@@ -20,16 +20,13 @@ impl PerformArgs {
     }
 }
 
-pub async fn perform(
-    config: &Config,
-    args: &PerformArgs,
-) -> Result<String, ChecksumInventoryError> {
+pub async fn perform(config: &Config, args: &PerformArgs) -> Result<String, ChecksumRequestError> {
     let csv_file = &args.csv_file;
     let bucket = bucket::name_from_file(csv_file)?;
 
     let bytes = file::download_bytes(config.s3(), csv_file)
         .await
-        .map_err(ChecksumInventoryError::Download)?;
+        .map_err(ChecksumRequestError::Download)?;
 
     let rows = checksum::parse_inventory_rows(&bytes);
     let (csv_bytes, count, skipped) = checksum::generate_inventory(config, rows).await?;
@@ -49,7 +46,7 @@ pub async fn perform(
         csv_bytes,
         TEXT_CSV,
         |ctx| config.stack().reports_checksums_path(&output_name, ctx),
-        ChecksumInventoryError::Upload,
+        ChecksumRequestError::Upload,
     )
     .await?;
 
@@ -139,7 +136,7 @@ mod tests {
         let args = csv_args(&config);
         let result = perform(&config, &args).await;
         assert!(
-            matches!(result, Err(ChecksumInventoryError::Download(_))),
+            matches!(result, Err(ChecksumRequestError::Download(_))),
             "should abort on CSV download failure: {result:?}"
         );
     }

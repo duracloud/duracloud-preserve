@@ -1,4 +1,4 @@
-use app::{config, perform::checksum_inventory};
+use app::{config, perform::checksum_request};
 use awsutils::file::{self, File};
 use base::{Stack, stack::DateCtx};
 use clap::Args as ClapArgs;
@@ -25,8 +25,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Err("Inventory report not found".into());
     }
 
-    let args = checksum_inventory::PerformArgs::new(report);
-    let inventory = checksum_inventory::perform(&config, &args).await?;
+    let args = checksum_request::PerformArgs::new(report);
+    let inventory = checksum_request::perform(&config, &args).await?;
 
     println!("Checksum inventory uploaded to: {inventory}");
 

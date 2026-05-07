@@ -39,7 +39,7 @@ pub enum BucketReconciliationError {
 }
 
 #[derive(Debug, Error)]
-pub enum ChecksumInventoryError {
+pub enum ChecksumRequestError {
     #[error("failed to parse inventory CSV: {0}")]
     CsvParse(#[from] csv::Error),
     #[error("failed to download inventory CSV: {0}")]

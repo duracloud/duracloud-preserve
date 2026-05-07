@@ -42,9 +42,9 @@ locals {
       bucket = local.functions_bucket
       file   = "bucket-request/bootstrap.zip"
     }
-    checksum-inventory = {
+    checksum-request = {
       bucket = local.functions_bucket
-      file   = "checksum-inventory/bootstrap.zip"
+      file   = "checksum-request/bootstrap.zip"
     }
     checksum-report = {
       bucket = local.functions_bucket

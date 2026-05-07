@@ -5,6 +5,7 @@ pub mod bucket_policy;
 pub mod bucket_reconciliator;
 pub mod cloudwatch;
 pub mod config;
+pub mod cost_explorer;
 pub mod errors;
 pub mod file;
 #[cfg(feature = "duckdb")]

@@ -10,6 +10,7 @@ duckdb = ["base/duckdb"]
 aws-config.workspace = true
 aws-sdk-account.workspace = true
 aws-sdk-cloudwatch.workspace = true
+aws-sdk-costexplorer.workspace = true
 aws-sdk-iam.workspace = true
 aws-sdk-s3.workspace = true
 aws-sdk-s3control.workspace = true

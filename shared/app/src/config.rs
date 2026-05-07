@@ -1,4 +1,4 @@
-use aws_config::SdkConfig;
+use aws_config::{Region, SdkConfig};
 use base::Stack;
 
 use awsutils::{
@@ -6,9 +6,13 @@ use awsutils::{
     config as aws_config_utils,
 };
 
+/// Cost Explorer is a global service with a single endpoint in us-east-1.
+const COST_EXPLORER_REGION: &str = "us-east-1";
+
 /// AWS SDK clients
 pub struct Clients {
     pub account: aws_sdk_account::Client,
+    pub cost_explorer: aws_sdk_costexplorer::Client,
     pub iam: aws_sdk_iam::Client,
     pub s3: aws_sdk_s3::Client,
     pub s3control: aws_sdk_s3control::Client,
@@ -18,8 +22,14 @@ pub struct Clients {
 
 impl Clients {
     pub fn new(sdk_config: &SdkConfig) -> Self {
+        let cost_explorer_config = sdk_config
+            .to_builder()
+            .region(Region::new(COST_EXPLORER_REGION))
+            .build();
+
         Self {
             account: aws_sdk_account::Client::new(sdk_config),
+            cost_explorer: aws_sdk_costexplorer::Client::new(&cost_explorer_config),
             iam: aws_sdk_iam::Client::new(sdk_config),
             s3: aws_sdk_s3::Client::new(sdk_config),
             s3control: aws_sdk_s3control::Client::new(sdk_config),

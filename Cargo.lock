@@ -76,6 +76,7 @@ dependencies = [
  "askama",
  "aws-config",
  "aws-sdk-account",
+ "aws-sdk-costexplorer",
  "aws-sdk-iam",
  "aws-sdk-s3",
  "aws-sdk-s3control",
@@ -523,6 +524,30 @@ dependencies = [
  "http 1.4.0",
  "http-body 1.0.1",
  "http-body-util",
+ "regex-lite",
+ "tracing",
+]
+
+[[package]]
+name = "aws-sdk-costexplorer"
+version = "1.114.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59f4ed9a7431b33e5d65a3027c9e2aafbfd06506b565d5b4725972517bbbcf83"
+dependencies = [
+ "aws-credential-types",
+ "aws-runtime",
+ "aws-smithy-async",
+ "aws-smithy-http",
+ "aws-smithy-json",
+ "aws-smithy-observability",
+ "aws-smithy-runtime",
+ "aws-smithy-runtime-api",
+ "aws-smithy-types",
+ "aws-types",
+ "bytes",
+ "fastrand",
+ "http 0.2.12",
+ "http 1.4.0",
  "regex-lite",
  "tracing",
 ]
@@ -1034,6 +1059,7 @@ dependencies = [
  "aws-config",
  "aws-sdk-account",
  "aws-sdk-cloudwatch",
+ "aws-sdk-costexplorer",
  "aws-sdk-iam",
  "aws-sdk-s3",
  "aws-sdk-s3control",

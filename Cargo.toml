@@ -40,6 +40,10 @@ aws-sdk-cloudwatch = { version = "1.111.0", default-features = false, features =
   "default-https-client",
   "rt-tokio",
 ] }
+aws-sdk-costexplorer = { version = "1.110.0", default-features = false, features = [
+  "default-https-client",
+  "rt-tokio",
+] }
 aws-sdk-iam = { version = "1.108.1", default-features = false, features = [
   "default-https-client",
   "rt-tokio",

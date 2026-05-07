@@ -17,6 +17,15 @@ data "aws_iam_policy_document" "storage_report" {
     resources = ["*"]
   }
 
+  # Cost Explorer doesn't support resource-level permissions. The Lambda
+  # only calls GetCostAndUsage, scoped at runtime to this stack via the
+  # `Stack` cost allocation tag.
+  statement {
+    effect    = "Allow"
+    actions   = ["ce:GetCostAndUsage"]
+    resources = ["*"]
+  }
+
   statement {
     effect    = "Allow"
     actions   = ["s3:GetObject"]

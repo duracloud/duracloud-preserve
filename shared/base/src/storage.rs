@@ -23,6 +23,12 @@ pub struct StorageReportHeader {
     pub stack_name: String,
     pub generated_at: String,
     pub storage_capacity_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data_transfer_out_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data_transfer_out_period_start: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data_transfer_out_period_end: Option<String>,
 }
 
 /// Aggregated inventory data across all buckets
@@ -45,6 +51,9 @@ struct StorageReportView {
     prefix_count: usize,
     has_capacity: bool,
     capacity_used_pct: String,
+    has_data_transfer_out: bool,
+    data_transfer_out_formatted: String,
+    data_transfer_out_period: String,
     buckets: Vec<BucketView>,
     chart_size_json: String,
     chart_files_json: String,
@@ -69,19 +78,38 @@ struct PrefixView {
     pct_bucket_size: String,
 }
 
+/// S3 internet egress for the stack over a billing window. Year-to-date as
+/// reported by AWS Cost Explorer.
+#[derive(Debug, Clone)]
+pub struct BillingTransferOut {
+    pub bytes: u64,
+    pub period_start: String,
+    pub period_end: String,
+}
+
 impl StorageReport {
     pub fn assemble(
         owner: String,
         stack_name: String,
         storage_capacity_bytes: Option<u64>,
         bucket_stats: BTreeMap<String, InventoryStats>,
+        data_transfer_out: Option<BillingTransferOut>,
     ) -> Self {
+        let (data_transfer_out_bytes, data_transfer_out_period_start, data_transfer_out_period_end) =
+            match data_transfer_out {
+                Some(t) => (Some(t.bytes), Some(t.period_start), Some(t.period_end)),
+                None => (None, None, None),
+            };
+
         Self {
             header: StorageReportHeader {
                 owner,
                 stack_name,
                 generated_at: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
                 storage_capacity_bytes,
+                data_transfer_out_bytes,
+                data_transfer_out_period_start,
+                data_transfer_out_period_end,
             },
             data: StorageReportData::from_inventory(bucket_stats),
         }
@@ -133,6 +161,22 @@ impl StorageReportView {
             ),
             _ => (false, String::new()),
         };
+
+        let (has_data_transfer_out, data_transfer_out_formatted, data_transfer_out_period) =
+            match header.data_transfer_out_bytes {
+                Some(bytes) => (
+                    true,
+                    format_bytes(bytes),
+                    match (
+                        header.data_transfer_out_period_start.as_deref(),
+                        header.data_transfer_out_period_end.as_deref(),
+                    ) {
+                        (Some(start), Some(end)) => format!("{start} → {end}"),
+                        _ => String::new(),
+                    },
+                ),
+                None => (false, String::new(), String::new()),
+            };
 
         let buckets = data
             .buckets
@@ -220,6 +264,9 @@ impl StorageReportView {
             prefix_count,
             has_capacity,
             capacity_used_pct,
+            has_data_transfer_out,
+            data_transfer_out_formatted,
+            data_transfer_out_period,
             buckets,
             chart_size_json,
             chart_files_json,
@@ -254,6 +301,24 @@ mod tests {
             stack_name: "test-stack".to_string(),
             generated_at: "2026-03-06T00:00:00Z".to_string(),
             storage_capacity_bytes,
+            data_transfer_out_bytes: None,
+            data_transfer_out_period_start: None,
+            data_transfer_out_period_end: None,
+        }
+    }
+
+    fn test_header_with_transfer_out(
+        storage_capacity_bytes: Option<u64>,
+        bytes: u64,
+    ) -> StorageReportHeader {
+        StorageReportHeader {
+            owner: "Example Owner".to_string(),
+            stack_name: "test-stack".to_string(),
+            generated_at: "2026-03-06T00:00:00Z".to_string(),
+            storage_capacity_bytes,
+            data_transfer_out_bytes: Some(bytes),
+            data_transfer_out_period_start: Some("2026-01-01".to_string()),
+            data_transfer_out_period_end: Some("2026-05-07".to_string()),
         }
     }
 
@@ -405,7 +470,7 @@ mod tests {
     }
 
     #[test]
-    fn test_to_html_shows_capacity_kpi_when_present() {
+    fn test_to_html_shows_capacity_metric_when_present() {
         let report = test_report(Some(200_000_000));
         let html = report.to_html().unwrap();
 
@@ -414,11 +479,33 @@ mod tests {
     }
 
     #[test]
-    fn test_to_html_omits_capacity_kpi_when_absent() {
+    fn test_to_html_omits_capacity_metric_when_absent() {
         let report = test_report(None);
         let html = report.to_html().unwrap();
 
         assert!(!html.contains("Capacity Used"));
+    }
+
+    #[test]
+    fn test_to_html_shows_data_transfer_out_metric_when_present() {
+        let report = StorageReport {
+            header: test_header_with_transfer_out(None, 1_500_000_000),
+            data: StorageReportData::from_inventory(BTreeMap::new()),
+        };
+        let html = report.to_html().unwrap();
+
+        let expected_size = format_bytes(1_500_000_000);
+        assert!(html.contains("Data Transfer Out (YTD)"));
+        assert!(html.contains(&expected_size));
+        assert!(html.contains("2026-01-01 → 2026-05-07"));
+    }
+
+    #[test]
+    fn test_to_html_omits_data_transfer_out_metric_when_absent() {
+        let report = test_report(None);
+        let html = report.to_html().unwrap();
+
+        assert!(!html.contains("Data Transfer Out"));
     }
 
     #[test]
@@ -483,5 +570,68 @@ mod tests {
         assert_eq!(json["total_size"], 100_000_000);
         assert!(json.get("header").is_none());
         assert!(json.get("data").is_none());
+    }
+
+    #[test]
+    fn test_storage_report_omits_transfer_out_fields_from_json_when_absent() {
+        let report = test_report(None);
+        let json = serde_json::to_value(&report).unwrap();
+
+        assert!(json.get("data_transfer_out_bytes").is_none());
+        assert!(json.get("data_transfer_out_period_start").is_none());
+        assert!(json.get("data_transfer_out_period_end").is_none());
+    }
+
+    #[test]
+    fn test_storage_report_includes_transfer_out_fields_in_json_when_present() {
+        let report = StorageReport {
+            header: test_header_with_transfer_out(None, 1_500_000_000),
+            data: StorageReportData::from_inventory(BTreeMap::new()),
+        };
+        let json = serde_json::to_value(&report).unwrap();
+
+        assert_eq!(json["data_transfer_out_bytes"], 1_500_000_000);
+        assert_eq!(json["data_transfer_out_period_start"], "2026-01-01");
+        assert_eq!(json["data_transfer_out_period_end"], "2026-05-07");
+    }
+
+    #[test]
+    fn test_assemble_passes_transfer_out_into_header() {
+        let report = StorageReport::assemble(
+            "Example Owner".to_string(),
+            "test-stack".to_string(),
+            Some(200_000_000),
+            BTreeMap::new(),
+            Some(BillingTransferOut {
+                bytes: 7_500_000_000,
+                period_start: "2026-01-01".to_string(),
+                period_end: "2026-05-07".to_string(),
+            }),
+        );
+
+        assert_eq!(report.header.data_transfer_out_bytes, Some(7_500_000_000));
+        assert_eq!(
+            report.header.data_transfer_out_period_start.as_deref(),
+            Some("2026-01-01")
+        );
+        assert_eq!(
+            report.header.data_transfer_out_period_end.as_deref(),
+            Some("2026-05-07")
+        );
+    }
+
+    #[test]
+    fn test_assemble_leaves_transfer_out_none_when_not_provided() {
+        let report = StorageReport::assemble(
+            "Example Owner".to_string(),
+            "test-stack".to_string(),
+            None,
+            BTreeMap::new(),
+            None,
+        );
+
+        assert!(report.header.data_transfer_out_bytes.is_none());
+        assert!(report.header.data_transfer_out_period_start.is_none());
+        assert!(report.header.data_transfer_out_period_end.is_none());
     }
 }

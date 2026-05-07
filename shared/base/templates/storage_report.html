@@ -54,26 +54,26 @@
         color: rgba(255, 255, 255, 0.92);
       }
 
-      .kpis {
+      .metrics {
         margin-top: 1rem;
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
         gap: 0.7rem;
       }
 
-      .kpi {
+      .metric {
         background: rgba(255, 255, 255, 0.14);
         border: 1px solid rgba(255, 255, 255, 0.3);
         border-radius: 10px;
         padding: 0.65rem;
       }
 
-      .kpi .label {
+      .metric .label {
         font-size: 0.8rem;
         opacity: 0.95;
       }
 
-      .kpi .value {
+      .metric .value {
         margin-top: 0.2rem;
         font-size: 1.06rem;
         font-weight: 700;
@@ -161,27 +161,34 @@
         <h1>{{ owner }} Storage Report</h1>
         <p>Stack: {{ stack_name }}</p>
         <p>Generated: {{ generated_at }}</p>
-        <div class="kpis">
-          <article class="kpi">
+        <div class="metrics">
+          <article class="metric">
             <div class="label">Total Buckets</div>
             <div class="value">{{ bucket_count }}</div>
           </article>
-          <article class="kpi">
+          <article class="metric">
             <div class="label">Total Files</div>
             <div class="value">{{ total_files }}</div>
           </article>
-          <article class="kpi">
+          <article class="metric">
             <div class="label">Total Size</div>
             <div class="value">{{ total_size_formatted }}</div>
           </article>
-          <article class="kpi">
+          <article class="metric">
             <div class="label">Total Prefixes</div>
             <div class="value">{{ prefix_count }}</div>
           </article>
           {% if has_capacity %}
-          <article class="kpi">
+          <article class="metric">
             <div class="label">Capacity Used</div>
             <div class="value">{{ capacity_used_pct }}</div>
+          </article>
+          {% endif %}
+          {% if has_data_transfer_out %}
+          <article class="metric">
+            <div class="label">Data Transfer Out (YTD)</div>
+            <div class="value">{{ data_transfer_out_formatted }}</div>
+            <div class="label">{{ data_transfer_out_period }}</div>
           </article>
           {% endif %}
         </div>

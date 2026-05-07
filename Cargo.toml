@@ -102,6 +102,10 @@ bytes = "1.11.0"
 tempfile = "3"
 tracing = "0.1"
 
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+
 [profile.release]
 codegen-units = 1
 lto = "thin"

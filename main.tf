@@ -83,13 +83,3 @@ module "users" {
   sftpgo_enabled = local.sftpgo_enabled
   users          = local.users
 }
-
-# Outputs for creating the DNS alias record
-# (`dev1.example.org` -> `d1234567890abc.cloudfront.net` with zone ID `Z2FDTNDATAQYW2`)
-output "cloudfront_domain_name" {
-  value = module.stack.cloudfront_domain_name
-}
-
-output "cloudfront_hosted_zone_id" {
-  value = module.stack.cloudfront_hosted_zone_id
-}

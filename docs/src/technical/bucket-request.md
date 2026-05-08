@@ -34,16 +34,15 @@ make run-bucket-request f=files/buckets-list.txt s=digipres-dev1 p=default
 - `s=` — the stack name (used as a prefix for created buckets)
 - `p=` — the AWS profile to use
 
-You can also create a single bucket by name without a file, using the `cargo` CLI directly:
+You can also create a single bucket by name without a file, using the `cargo` CLI directly.
+> [!IMPORTANT]
+> Before testing, export your aws profile prior to using the `cargo` CLI.
 
 ```bash
 cargo run -p dcp -- bucket-request --stack=digipres-dev1 --name=rare-books
 ```
 
 This is useful for one-off bucket creation or quick iteration without maintaining a file.
-
-> [!IMPORTANT]
-> Export your aws profile prior to using the `cargo` CLI.
 
 ## Remote Testing
 

@@ -36,6 +36,7 @@ Example response:
 ```
 
 **Further reading:**
+
 - [Checking object integrity in Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html)
 - [Checking object integrity for data uploads in Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity-upload.html)
 
@@ -65,6 +66,7 @@ The checksum and version ID of the replica will match the source object exactly:
 Note that `ChecksumCRC64NVME` and `VersionId` are identical across both objects.
 
 **Further reading:**
+
 - [Meeting compliance requirements with S3 Replication Time Control](https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-time-control.html)
 - [Replicating objects within and across Regions](https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication.html)
 
@@ -76,7 +78,7 @@ AWS S3 is designed for 99.999999999% (eleven nines) durability. Given S3's uploa
 
 ### 4. Ongoing Verification
 
-S3 Batch Operations are used to generate checksum reports across all objects in both the source and replica buckets. These reports are compared on a regular schedule.
+S3 Batch Operations are used to generate checksum reports across all objects in both the source and replication buckets. These reports are compared on a regular schedule.
 
 | Result | Meaning |
 |---|---|
@@ -116,6 +118,7 @@ dcp checksum --file ${key}
 Learn more about [Lyrasis Hosting](lyrasis.md)
 
 **Further reading:**
+
 - [Compute checksums](https://docs.aws.amazon.com/AmazonS3/latest/userguide/batch-ops-compute-checksums.html)
 - [Examples: S3 Batch Operations completion reports](https://docs.aws.amazon.com/AmazonS3/latest/userguide/batch-ops-examples-reports.html)
 - [Efficiently verify Amazon S3 data at scale with compute checksum operation](https://aws.amazon.com/blogs/storage/efficiently-verify-amazon-s3-data-at-scale-with-compute-checksum-operation/)
@@ -129,6 +132,7 @@ This strategy is considered sufficient for the vast majority of standard use cas
 For the strongest possible guarantee, independent verification using locally managed checksums is required. See [Stricter Compliance Requirements](#stricter-compliance-requirements) below.
 
 **Further reading:**
+
 - [Data protection in Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/DataDurability.html)
 - [Amazon S3 Storage Classes](https://aws.amazon.com/s3/storage-classes/)
 
@@ -151,5 +155,6 @@ For organizations with higher assurance requirements — such as regulated indus
 It is also important to note that DuraCloud Preserve is entirely dependent on the Amazon AWS S3 service, its regional infrastructure, and its policies. Organizations with strict independence or sovereignty requirements should factor this into their preservation planning.
 
 **Frameworks and standards for reference:**
+
 - [NDSA Levels of Digital Preservation](https://ndsa.org/publications/levels-of-digital-preservation/) — A tiered framework for assessing digital preservation practices
 - [Digital Preservation Coalition — Audit and Certification](https://www.dpconline.org/handbook/institutional-strategies/audit-and-certification) — Overview of audit standards and certification options

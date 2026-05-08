@@ -1,11 +1,5 @@
 # Features
 
-This project is built on Amazon S3, a robust and distributed file storage service. You can think of the project as being in large part an extension of S3 that handles:
-
-* Configuring the more "complex" aspects of S3 to support long-term storage and preservation goals without a regular user needing to understand how to glue things together.
-* Preconfiguring [CloudFront](#) access for making files publicly available.
-* Providing additional value-added features via a set of scheduled tasks.
-
 This is a brief overview of the functionality that is explained more thoroughly in the [user guide](user/README.md) and [technical documentation](technical/README.md):
 
 ## Access controls
@@ -23,7 +17,7 @@ Request logs are generated for each user-created bucket. This is raw AWS provide
 
 ## Checksum reports
 
-Checksum reports are generated on a configurable schedule, comparing checksums across source and replica buckets to detect corruption. Files found to be corrupt can be restored from the verified copy. See the [checksum verification](./checksum-verification.md) documentation for more details.
+Checksum reports are generated on a configurable schedule, comparing checksums across source and replication buckets to detect corruption. Files found to be corrupt can be restored from the verified copy. See the [checksum verification](./checksum-verification.md) documentation for more details.
 
 ## Choice of region
 

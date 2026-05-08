@@ -5,7 +5,7 @@ The core service functionality is encapsulated by Lambda functions that run on a
 | Function | Trigger | Description |
 |---|---|---|
 | [bucket-request](bucket-request.md) | S3 event | Creates S3 buckets with prefab configuration from an uploaded text file |
-| [checksum-report](checksum-report.md) | Scheduled | Compares checksum results across source and replica buckets to detect corruption |
+| [checksum-report](checksum-report.md) | Scheduled | Compares checksum results across source and replication buckets to detect corruption |
 | [compute-checksums](compute-checksums.md) | Scheduled | Triggers S3 batch checksum jobs across all bucket pairs to verify data integrity |
 | [inventory-report](inventory-report.md) | S3 event | Processes S3 inventory data into a human-readable CSV manifest and generates storage stats |
 | [storage-report](storage-report.md) | Scheduled | Generates an HTML storage usage report across all buckets in the stack |

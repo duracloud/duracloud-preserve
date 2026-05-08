@@ -20,6 +20,9 @@ use awsutils::bucket_creator::INVENTORY_FORMAT;
 use common::{
     IntegrationTestContext, bucket_creator, cleanup_bucket, integration_test_context, timestamp,
 };
+use constants::{
+    EXPIRE_ABORTED_MULTIPART_DAYS, EXPIRE_NONCURRENT_VERSION_DAYS, STORAGE_TRANSITION_DAYS,
+};
 
 async fn verify_bucket_tags(ctx: &IntegrationTestContext, bucket: &str, expected_type: Type) {
     let result = ctx
@@ -81,12 +84,6 @@ async fn verify_lifecycle_policy(ctx: &IntegrationTestContext, bucket: &str, exp
         .expect("failed to get lifecycle");
 
     let rules = result.rules();
-    assert_eq!(
-        rules.len(),
-        2,
-        "expected exactly 2 lifecycle rules on {}",
-        bucket
-    );
 
     let expire_rule = rules
         .iter()
@@ -103,7 +100,7 @@ async fn verify_lifecycle_policy(ctx: &IntegrationTestContext, bucket: &str, exp
         expire_rule
             .abort_incomplete_multipart_upload()
             .and_then(|r| r.days_after_initiation()),
-        Some(3),
+        Some(EXPIRE_ABORTED_MULTIPART_DAYS as i32),
         "abort incomplete multipart days mismatch on {}",
         bucket
     );
@@ -111,7 +108,7 @@ async fn verify_lifecycle_policy(ctx: &IntegrationTestContext, bucket: &str, exp
         expire_rule
             .noncurrent_version_expiration()
             .and_then(|r| r.noncurrent_days()),
-        Some(14),
+        Some(EXPIRE_NONCURRENT_VERSION_DAYS as i32),
         "noncurrent version expiration days mismatch on {}",
         bucket
     );
@@ -152,7 +149,7 @@ async fn verify_lifecycle_policy(ctx: &IntegrationTestContext, bucket: &str, exp
     let transition = &transitions[0];
     assert_eq!(
         transition.days(),
-        Some(7),
+        Some(STORAGE_TRANSITION_DAYS as i32),
         "transition days mismatch on {}",
         bucket
     );

@@ -11,6 +11,10 @@ pub struct Args {
     /// Stack name (e.g., digipress-dev1)
     #[arg(short, long)]
     stack: String,
+
+    /// Bucket to delete (e.g., digipress-dev1-private)
+    #[arg(short, long)]
+    bucket: Option<String>,
 }
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
@@ -18,9 +22,16 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let sdk_config = config::load_defaults().await;
     let s3_client = aws_sdk_s3::Client::new(&sdk_config);
 
-    println!("Discovering buckets for stack: {}", stack.as_str());
-
-    let buckets = app_bucket::list_for_stack(&s3_client, &stack, None).await?;
+    let buckets = match &args.bucket {
+        Some(bucket) => aws_bucket::from_name(&s3_client, bucket)
+            .await?
+            .into_iter()
+            .collect(),
+        None => {
+            println!("Discovering buckets for stack: {}", stack.as_str());
+            app_bucket::list_for_stack(&s3_client, &stack, None).await?
+        }
+    };
 
     if buckets.is_empty() {
         println!("No buckets found for stack {}", stack.as_str());

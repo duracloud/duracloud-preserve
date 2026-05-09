@@ -48,7 +48,7 @@ aws-sdk-iam = { version = "1.108.1", default-features = false, features = [
   "default-https-client",
   "rt-tokio",
 ] }
-aws-sdk-s3 = { version = "1.131.0", default-features = false, features = [
+aws-sdk-s3 = { version = "1.132.0", default-features = false, features = [
   "default-https-client",
   "http-1x",
   "rt-tokio",
@@ -69,8 +69,8 @@ aws-sdk-sts = { version = "1.101.0", default-features = false, features = [
 aws-smithy-http-client = "1.1.12"
 aws-smithy-runtime = "1.9.4"
 aws-smithy-types = "1.4.7"
-aws_lambda_events = { version = "1.1.3", default-features = false }
-lambda_runtime = "1.1.3"
+aws_lambda_events = { version = "1.2.0", default-features = false }
+lambda_runtime = "1.2.0"
 
 # Serialization
 csv = "1.4.0"
@@ -79,7 +79,7 @@ serde_json = "1.0.149"
 
 # Async
 futures = "0.3.32"
-tokio = { version = "1.52.1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread"] }
 
 # Web/HTTP
 http = "1.4.0"

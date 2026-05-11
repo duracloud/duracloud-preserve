@@ -47,7 +47,7 @@ Of most significance for testing using the above example will create:
 
 - `digipres-dev1-s3-batch-role` (i.e. `${stack}-s3-batch-role`)
 - `digipres-dev1-s3-replication-role` (i.e. `${stack}-s3-replication-role`)
-- `digipres-dev1-bucket-request` (i.e. `${stack}-bucket-request`)
+- `digipres-dev1-request` (i.e. `${stack}-request`)
 - `digipres-dev1-managed` (i.e. `${stack}-managed`)
 - `digipres-dev1-public` (i.e. `${stack}-public`)
 - `digipres-dev1-public-repl` (i.e. `${stack}-public-repl`)
@@ -94,7 +94,7 @@ make upload b=digipres-dev1-public d=example f=files/buckets.txt p=default
 
 Then access the file in the browser, it should work:
 
-- <https://d2vy8bpfecxis5.cloudfront.net/example/buckets.txt>
+- <https://d2vy8bpfecxis5.cloudfront.net/example/files/buckets.txt>
 
 For production the other Terraform outputs can be used for setting up
 a custom domain using [ACM](#), see the [deployment documentation](#) for

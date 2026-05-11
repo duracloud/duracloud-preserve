@@ -27,14 +27,16 @@ The workflow is:
 Use `make run-bucket-request` to process a file locally without uploading to S3:
 
 ```bash
-make run-bucket-request f=files/buckets.txt s=digipres-dev1 p=default
+make run-bucket-request f=files/buckets-list.txt s=digipres-dev1 p=default
 ```
 
 - `f=` — path to a local file containing [bucket names](#)
 - `s=` — the stack name (used as a prefix for created buckets)
 - `p=` — the AWS profile to use
 
-You can also create a single bucket by name without a file, using the `cargo` CLI directly:
+You can also create a single bucket by name without a file, using the `cargo` CLI directly.
+> [!IMPORTANT]
+> Before testing, export your aws profile prior to using the `cargo` CLI.
 
 ```bash
 cargo run -p dcp -- bucket-request --stack=digipres-dev1 --name=rare-books
@@ -47,11 +49,11 @@ This is useful for one-off bucket creation or quick iteration without maintainin
 Use `make upload` to upload a file to S3 and trigger the Lambda function as it would run in production:
 
 ```bash
-make upload b=digipress-dev1-request d=buckets f=files/buckets.txt p=default
+make upload b=digipres-dev1-request d=buckets f=files/buckets.txt p=default
 ```
 
 - `b=` — the name of the S3 request bucket (typically `${stack}-request`)
-- `d=` — the S3 directory (path) to upload into (must be `bucket-request`)
+- `d=` — the S3 directory (path) to upload into (must be `buckets`)
 - `f=` — path to the local file containing [bucket names](#)
 - `p=` — the AWS profile to use
 

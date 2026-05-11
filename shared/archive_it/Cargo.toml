@@ -1,0 +1,10 @@
+[package]
+name = "archive_it"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+archive-it-client = "0.1.0"
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true

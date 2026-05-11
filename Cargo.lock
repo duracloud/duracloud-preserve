@@ -110,6 +110,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "archive-it-client"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fb9d5bdbdc69818a3d39c06415a592b92c6a6316fd0bc52c122bf5dd214e4e4"
+dependencies = [
+ "async-stream",
+ "aws-sdk-s3",
+ "bytes",
+ "futures-core",
+ "futures-util",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha1 0.11.0",
+ "thiserror",
+ "tokio",
+ "url",
+]
+
+[[package]]
+name = "archive_it"
+version = "0.1.0"
+dependencies = [
+ "archive-it-client",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1698,6 +1728,7 @@ name = "dcp"
 version = "0.1.0"
 dependencies = [
  "app",
+ "archive_it",
  "aws-config",
  "aws-sdk-cloudwatch",
  "aws-sdk-iam",
@@ -3405,12 +3436,14 @@ dependencies = [
  "sync_wrapper",
  "tokio",
  "tokio-rustls",
+ "tokio-util",
  "tower",
  "tower-http",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-streams",
  "web-sys",
  "webpki-roots",
 ]
@@ -4550,6 +4583,19 @@ dependencies = [
  "indexmap",
  "wasm-encoder",
  "wasmparser",
+]
+
+[[package]]
+name = "wasm-streams"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15053d8d85c7eccdbefef60f06769760a563c7f0a9d6902a13d35c7800b0ad65"
+dependencies = [
+ "futures-util",
+ "js-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

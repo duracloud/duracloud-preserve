@@ -12,6 +12,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Archive-It workflows (inventory, audit, sync)
+    #[command(name = "ait")]
+    ArchiveIt(commands::archive_it::Args),
     /// Show CloudWatch storage metrics for a bucket
     BucketMetrics(commands::bucket_metrics::Args),
     /// Check bucket configuration and report drift
@@ -45,6 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::ArchiveIt(args) => commands::archive_it::run(args).await?,
         Commands::BucketMetrics(args) => commands::bucket_metrics::run(args).await?,
         Commands::BucketReconciliation(args) => commands::bucket_reconciliation::run(args).await?,
         Commands::BucketRequest(args) => commands::bucket_request::run(args).await?,

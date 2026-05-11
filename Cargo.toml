@@ -10,6 +10,7 @@ members = [
   "functions/storage-report",
   "functions/sync-users",
   "shared/app",
+  "shared/archive_it",
   "shared/awsutils",
   "shared/base",
   "shared/constants",
@@ -24,6 +25,7 @@ edition = "2024"
 [workspace.dependencies]
 # Internal
 app = { path = "shared/app" }
+archive_it = { path = "shared/archive_it" }
 awsutils = { path = "shared/awsutils" }
 base = { path = "shared/base" }
 constants = { path = "shared/constants" }

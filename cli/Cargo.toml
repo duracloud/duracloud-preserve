@@ -9,6 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 app = { workspace = true, features = ["duckdb"] }
+archive_it.workspace = true
 base = { workspace = true, features = ["duckdb"] }
 awsutils = { workspace = true, features = ["duckdb"] }
 aws-config = { workspace = true, features = ["behavior-version-latest"] }

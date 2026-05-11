@@ -88,6 +88,27 @@ impl Stack {
         Self::new(&stack_name)
     }
 
+    /// Archive-It service integration bucket
+    pub fn archive_it_bucket(&self) -> String {
+        format!("{}{ARCHIVE_IT_SUFFIX}", self.as_str())
+    }
+
+    /// Archive-It service integration inventory
+    pub fn archive_it_inventory(&self) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{ARCHIVE_IT_PREFIX}/warcs.csv"),
+        }
+    }
+
+    /// Archive-It service integration sync file
+    pub fn archive_it_sync(&self) -> ManagedFile {
+        ManagedFile {
+            bucket: self.managed_bucket(),
+            key: format!("{ARCHIVE_IT_PREFIX}/warcs_sync.csv"),
+        }
+    }
+
     /// Batch manifest prefix for job processing
     pub fn batch_manifest_prefix(&self, job_type: &str) -> ManagedFile {
         ManagedFile {
@@ -282,6 +303,28 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_archive_it_bucket() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(stack.archive_it_bucket(), "test-stack-archive-it");
+    }
+
+    #[test]
+    fn test_archive_it_inventory() {
+        let stack = Stack::new("test-stack").unwrap();
+        let mf = stack.archive_it_inventory();
+        assert_eq!(mf.key(), "archive-it/warcs.csv");
+        assert_eq!(mf.bucket(), "test-stack-managed");
+    }
+
+    #[test]
+    fn test_archive_it_sync() {
+        let stack = Stack::new("test-stack").unwrap();
+        let mf = stack.archive_it_sync();
+        assert_eq!(mf.key(), "archive-it/warcs_sync.csv");
+        assert_eq!(mf.bucket(), "test-stack-managed");
+    }
+
+    #[test]
     fn test_batch_manifest_prefix() {
         let stack = Stack::new("test-stack").unwrap();
         let mf = stack.batch_manifest_prefix("checksum");
@@ -333,6 +376,17 @@ mod tests {
         let stack = Stack::new("test-stack").unwrap();
         let mf = stack.feedback_path("bucket-request/test.txt");
         assert_eq!(mf.key(), "feedback/bucket-request/test.txt");
+        assert_eq!(mf.bucket(), "test-stack-managed");
+    }
+
+    #[test]
+    fn test_inventory_manifest_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        let mf = stack.inventory_manifest_path("my-bucket", DateCtx::Latest);
+        assert_eq!(
+            mf.key(),
+            "manifests/my-bucket/inventory/latestT01-00Z/manifest.json"
+        );
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
@@ -431,6 +485,23 @@ mod tests {
     fn test_request_bucket() {
         let stack = Stack::new("test-stack").unwrap();
         assert_eq!(stack.request_bucket(), "test-stack-request");
+    }
+
+    #[test]
+    fn test_storage_capacity_param_name() {
+        let stack = Stack::new("test-stack").unwrap();
+        assert_eq!(
+            stack.storage_capacity_param_name(),
+            "test-stack-storage-capacity"
+        );
+    }
+
+    #[test]
+    fn test_sync_users_path() {
+        let stack = Stack::new("test-stack").unwrap();
+        let mf = stack.sync_users_path("TRIGGER");
+        assert_eq!(mf.key(), "sync-users/TRIGGER");
+        assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
     #[test]

@@ -1,4 +1,6 @@
 // Prefixes and suffixes
+pub const ARCHIVE_IT_PREFIX: &str = "archive-it";
+pub const ARCHIVE_IT_SUFFIX: &str = "-archive-it";
 pub const BATCH_CHECKSUM_PREFIX: &str = "batch/reports/checksum";
 pub const BATCH_MANIFEST_PREFIX: &str = "batch/manifests";
 pub const BATCH_POLICY_SUFFIX: &str = "-s3-batch-policy";

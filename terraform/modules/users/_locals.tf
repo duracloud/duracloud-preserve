@@ -4,6 +4,8 @@
 locals {
 
   # Prefixes and suffixes
+  archive_it_prefix         = "archive-it"
+  archive_it_suffix         = "-archive-it"
   batch_checksum_prefix     = "batch/reports/checksum"
   batch_manifest_prefix     = "batch/manifests"
   batch_policy_suffix       = "-s3-batch-policy"

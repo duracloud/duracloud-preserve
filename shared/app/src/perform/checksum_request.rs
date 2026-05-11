@@ -24,6 +24,11 @@ pub async fn perform(config: &Config, args: &PerformArgs) -> Result<String, Chec
     let csv_file = &args.csv_file;
     let bucket = bucket::name_from_file(csv_file)?;
 
+    if !file::exists(config.s3(), csv_file).await {
+        tracing::warn!("Inventory report not found: {}", csv_file.s3_url());
+        return Err(ChecksumRequestError::InventoryNotFound(csv_file.s3_url()));
+    }
+
     let bytes = file::download_bytes(config.s3(), csv_file)
         .await
         .map_err(ChecksumRequestError::Download)?;
@@ -127,7 +132,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_download_failure_aborts() {
+    async fn test_missing_inventory_report_aborts_before_download() {
         let sdk_config = TestClientBuilder::new()
             .s3_error("NoSuchKey", "csv not found")
             .build_sdk_config();
@@ -136,8 +141,24 @@ mod tests {
         let args = csv_args(&config);
         let result = perform(&config, &args).await;
         assert!(
+            matches!(result, Err(ChecksumRequestError::InventoryNotFound(_))),
+            "should abort before downloading a missing CSV: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_download_failure_after_exists_check_aborts() {
+        let sdk_config = TestClientBuilder::new()
+            .ok()
+            .s3_error("NoSuchKey", "csv not found")
+            .build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, false);
+
+        let args = csv_args(&config);
+        let result = perform(&config, &args).await;
+        assert!(
             matches!(result, Err(ChecksumRequestError::Download(_))),
-            "should abort on CSV download failure: {result:?}"
+            "should abort on CSV download failure after existence check: {result:?}"
         );
     }
 
@@ -146,6 +167,7 @@ mod tests {
         let csv = inventory_csv(&[("test-bucket", "denied.jpg", "9999")]);
 
         let sdk_config = TestClientBuilder::new()
+            .ok()
             .success(SdkBody::from(csv), None)
             .s3_error("AccessDenied", "forbidden")
             .ok()
@@ -166,6 +188,7 @@ mod tests {
         let csv = inventory_csv(&[("test-bucket", "no-crc.jpg", "5678")]);
 
         let sdk_config = TestClientBuilder::new()
+            .ok()
             .success(SdkBody::from(csv), None)
             .ok() // HEAD 200, no checksum header
             .ok()
@@ -186,6 +209,7 @@ mod tests {
         let csv = inventory_csv(&[("test-bucket", "deleted.jpg", "1234")]);
 
         let sdk_config = TestClientBuilder::new()
+            .ok()
             .success(SdkBody::from(csv), None)
             .error(404, "NotFound", "not found")
             .ok()
@@ -206,6 +230,7 @@ mod tests {
         let csv = inventory_csv(&[("test-bucket", "file.jpg", "1234")]);
 
         let sdk_config = TestClientBuilder::new()
+            .ok()
             .success(SdkBody::from(csv), None)
             .success_with_headers(SdkBody::empty(), &[CHECKSUM_HEADER])
             .ok()
@@ -227,6 +252,7 @@ mod tests {
         ]);
 
         let (sdk_config, replay) = TestClientBuilder::new()
+            .ok()
             .success(SdkBody::from(csv), None)
             .success_with_headers(SdkBody::empty(), &[CHECKSUM_HEADER])
             .error(404, "NotFound", "not found")

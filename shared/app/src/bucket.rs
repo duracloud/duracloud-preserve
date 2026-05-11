@@ -166,6 +166,11 @@ pub async fn fetch_latest_inventory_stats(
                 .metadata_manifests_stats_path(&bucket_name, DateCtx::Latest),
         );
 
+        if !file::exists(config.s3(), &stats_file).await {
+            tracing::warn!("No stats found for: {bucket_name} {bucket_type}");
+            continue;
+        }
+
         let bytes = file::download_bytes(config.s3(), &stats_file)
             .await
             .map_err(|source| StorageReportError::DownloadStats {

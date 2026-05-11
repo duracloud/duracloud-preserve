@@ -46,6 +46,8 @@ pub enum ChecksumRequestError {
     Download(#[source] RequestError),
     #[error("cannot extract bucket name from inventory file key: {0}")]
     InvalidFileKey(#[from] FileKeyError),
+    #[error("inventory report not found: {0}")]
+    InventoryNotFound(String),
     #[error("failed to upload checksum inventory: {0}")]
     Upload(#[source] RequestError),
 }

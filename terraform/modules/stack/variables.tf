@@ -1,3 +1,9 @@
+variable "archive_it_enabled" {
+  description = "Enable Archive-It scheduled tasks (inventory, audit, sync)"
+  type        = bool
+  default     = false
+}
+
 variable "billing_alert_threshold" {
   description = "Trigger billing alert when threshold is exceeded"
   type        = number

@@ -23,9 +23,8 @@ But there are many others and you are free to use any S3 compatible client that 
 
 After connecting to your S3 account via your preferred method, you will
 see the folders already created for your account using your
-`duracloud-$ID`, including:
+`dcp-$ID`, including:
 
--   `-bucket-requested`
 -   `-managed`
 -   `-private` (default bucket for files that cannot be accessed
     publicly)
@@ -60,7 +59,7 @@ If you have multiple AWS accounts or environments, set up a named
 profile and configure with your key, secret, and region (`us-west-2`):
 
 ``` bash
-aws configure --profile duracloud
+aws configure --profile dcp
 ```
 
 ### Setting Region for Lyrasis Hosting
@@ -80,7 +79,7 @@ aws s3 ls --region us-west-2
 With a profile:
 
 ``` bash
-aws s3 sync ./data s3://{stackname}-bucket --profile duracloud-pilot --region us-west-2
+aws s3 sync ./data s3://{stackname}-bucket --profile dcp --region us-west-2
 ```
 
 #### 2. Set the region temporarily in your shell
@@ -94,7 +93,7 @@ Then commands can be run without specifying the region.
 
 #### 3. Set the region inside the profile
 ``` ini
-[profile duracloud-pilot]
+[profile dcp]
 region = us-west-2
 output = json
 ```

@@ -23,7 +23,7 @@ But there are many others and you are free to use any S3 compatible client that 
 
 After connecting to your S3 account via your preferred method, you will
 see the folders already created for your account using your
-`dcp-$ID`, including:
+`duracloud-$ID`, including:
 
 -   `-managed`
 -   `-private` (default bucket for files that cannot be accessed
@@ -132,7 +132,7 @@ small person icon in the upper-right corner of the screen.
 
 ![Account Icon Change Password](images/account_icon_change_password.png)
 
-**NOTE:** With this option, clients will not create their own buckets.
+**NOTE:** With this option, hosting clients will not create their own buckets.
 Instead, upon login you will see three buckets already created for you:
 
 -   `managed`

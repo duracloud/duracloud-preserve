@@ -8,6 +8,12 @@ archive-it-client = "0.1.0"
 aws-sdk-s3.workspace = true
 awsutils.workspace = true
 base.workspace = true
+csv.workspace = true
+futures.workspace = true
+serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -93,11 +93,17 @@ impl Stack {
         format!("{}{ARCHIVE_IT_SUFFIX}", self.as_str())
     }
 
-    /// Archive-It service integration inventory
-    pub fn archive_it_inventory(&self) -> ManagedFile {
+    /// Archive-It service integration inventory.
+    /// `None` returns the live "current" copy; `Some(date_ctx)` returns a
+    /// dated snapshot path.
+    pub fn archive_it_inventory(&self, date_ctx: Option<DateCtx>) -> ManagedFile {
+        let key = match date_ctx {
+            None => format!("{ARCHIVE_IT_PREFIX}/warcs.csv"),
+            Some(date_ctx) => format!("{ARCHIVE_IT_PREFIX}/{date_ctx}/warcs.csv"),
+        };
         ManagedFile {
             bucket: self.managed_bucket(),
-            key: format!("{ARCHIVE_IT_PREFIX}/warcs.csv"),
+            key,
         }
     }
 
@@ -311,8 +317,16 @@ mod tests {
     #[test]
     fn test_archive_it_inventory() {
         let stack = Stack::new("test-stack").unwrap();
-        let mf = stack.archive_it_inventory();
+        let mf = stack.archive_it_inventory(None);
         assert_eq!(mf.key(), "archive-it/warcs.csv");
+        assert_eq!(mf.bucket(), "test-stack-managed");
+    }
+
+    #[test]
+    fn test_archive_it_inventory_dated() {
+        let stack = Stack::new("test-stack").unwrap();
+        let mf = stack.archive_it_inventory(Some(DateCtx::Latest));
+        assert_eq!(mf.key(), "archive-it/latest/warcs.csv");
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
 

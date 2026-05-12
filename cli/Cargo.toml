@@ -31,6 +31,7 @@ constants.workspace = true
 crc-fast = "1"
 serde_json.workspace = true
 shellexpand = "3"
+tempfile.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber = "0.3"

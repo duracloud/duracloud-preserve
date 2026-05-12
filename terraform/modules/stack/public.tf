@@ -99,4 +99,8 @@ resource "aws_cloudfront_distribution" "public" {
       cloudfront_default_certificate = true
     }
   }
+
+  tags = {
+    (local.bucket_tag_stack_key) = local.stack
+  }
 }

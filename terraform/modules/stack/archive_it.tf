@@ -1,7 +1,9 @@
 # Archive-It tasks
 locals {
-  archive_it_enabled = var.archive_it_enabled
-  archive_it_image   = "public.ecr.aws/docker/library/alpine:latest"
+  archive_it_enabled      = var.archive_it_enabled
+  archive_it_image        = "public.ecr.aws/docker/library/alpine:latest"
+  archive_it_password_arn = "arn:aws:ssm:${local.region}:${local.account_id}:parameter/archive-it/password"
+  archive_it_username_arn = "arn:aws:ssm:${local.region}:${local.account_id}:parameter/archive-it/username"
   archive_it_tasks = {
     audit = {
       cpu               = 256
@@ -91,6 +93,16 @@ resource "aws_ecs_task_definition" "archive_it" {
       image     = local.archive_it_image
       essential = true
       command   = each.value.command
+      secrets = [
+        {
+          name      = "ARCHIVE_IT_PASSWORD"
+          valueFrom = local.archive_it_password_arn
+        },
+        {
+          name      = "ARCHIVE_IT_USERNAME"
+          valueFrom = local.archive_it_username_arn
+        },
+      ]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -101,6 +113,23 @@ resource "aws_ecs_task_definition" "archive_it" {
       }
     }
   ])
+}
+
+resource "aws_iam_role_policy" "archive_it_execution_secrets" {
+  name = "${local.stack}-archive-it-secrets"
+  role = aws_iam_role.execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = "ssm:GetParameters"
+      Resource = [
+        local.archive_it_password_arn,
+        local.archive_it_username_arn,
+      ]
+    }]
+  })
 }
 
 resource "aws_iam_role_policy" "archive_it_scheduler" {

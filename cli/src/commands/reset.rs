@@ -8,11 +8,11 @@ use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
 pub struct Args {
-    /// Stack name (e.g., digipress-dev1)
+    /// Stack name (e.g., digipres-dev1)
     #[arg(short, long)]
     stack: String,
 
-    /// Bucket to delete (e.g., digipress-dev1-private)
+    /// Bucket to delete (e.g., digipres-dev1-private)
     #[arg(short, long)]
     bucket: Option<String>,
 }

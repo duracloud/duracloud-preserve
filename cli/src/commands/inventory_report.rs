@@ -9,7 +9,7 @@ use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
 pub struct Args {
-    /// Bucket to process inventory for (e.g., digipress-dev1-private)
+    /// Bucket to process inventory for (e.g., digipres-dev1-private)
     #[arg(short, long)]
     bucket: String,
 }

@@ -12,7 +12,7 @@ use std::path::PathBuf;
         .args(["file", "name"])
 ))]
 pub struct Args {
-    /// Stack name (e.g., digipress-dev1)
+    /// Stack name (e.g., digipres-dev1)
     #[arg(short, long)]
     stack: String,
 

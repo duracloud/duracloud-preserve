@@ -86,7 +86,7 @@ variable "stack" {
   # This is additionally verified in Rust stack.rs
   validation {
     condition     = can(regex("^[a-z][a-z0-9]+-[a-z][a-z0-9]+$", var.stack))
-    error_message = "Stack name must be two lowercase alphanumeric parts separated by a hyphen (e.g. 'digipress-dev1')."
+    error_message = "Stack name must be two lowercase alphanumeric parts separated by a hyphen (e.g. 'digipres-dev1')."
   }
 }
 

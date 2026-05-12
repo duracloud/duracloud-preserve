@@ -8,7 +8,7 @@ use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
 pub struct Args {
-    /// Stack destination bucket that receives files (e.g., digipress-dev1-private)
+    /// Stack destination bucket that receives files (e.g., digipres-dev1-private)
     #[arg(short, long)]
     destination: String,
 

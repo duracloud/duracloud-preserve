@@ -51,7 +51,7 @@ To access the latest report you can do:
 
 ```bash
 aws s3 cp \
-    s3://digipress-dev1-managed/reports/latest/manifests/digipress-dev1-private.csv \
+    s3://digipres-dev1-managed/reports/latest/manifests/digipres-dev1-private.csv \
     . \
     --profile default
 ```

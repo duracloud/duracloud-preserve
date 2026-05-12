@@ -5,7 +5,7 @@ use clap::Args as ClapArgs;
 
 #[derive(ClapArgs)]
 pub struct Args {
-    /// Bucket to generate checksum report for (e.g., digipress-dev1-private)
+    /// Bucket to generate checksum report for (e.g., -dev1-private)
     #[arg(short, long)]
     bucket: String,
 }

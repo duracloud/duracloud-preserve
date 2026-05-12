@@ -11,7 +11,7 @@ use constants::TEXT_CSV;
 
 #[derive(ClapArgs)]
 pub struct Args {
-    /// Stack name (e.g., digipress-dev1)
+    /// Stack name (e.g., digipres-dev1)
     #[arg(short, long)]
     stack: String,
 

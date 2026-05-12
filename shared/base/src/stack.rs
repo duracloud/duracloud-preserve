@@ -557,8 +557,8 @@ mod tests {
         assert_eq!(Stack::new("test-stack").unwrap().as_str(), "test-stack");
         assert_eq!(Stack::new("test-STaCK").unwrap().as_str(), "test-stack");
         assert_eq!(
-            Stack::new("digipress-dev1").unwrap().as_str(),
-            "digipress-dev1"
+            Stack::new("digipres-dev1").unwrap().as_str(),
+            "digipres-dev1"
         );
         assert_eq!(Stack::new("my-stack2").unwrap().as_str(), "my-stack2");
 

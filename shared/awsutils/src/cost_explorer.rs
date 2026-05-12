@@ -7,7 +7,7 @@ use crate::errors::{RequestError, S3ResultExt};
 
 const STACK_TAG_KEY: &str = "Stack";
 const S3_SERVICE_NAME: &str = "Amazon Simple Storage Service";
-const S3_TRANSFER_OUT_USAGE_GROUP: &str = "S3: Data Transfer Out";
+const S3_TRANSFER_OUT_USAGE_GROUP: &str = "S3: Data Transfer - Internet (Out)";
 const USAGE_QUANTITY_METRIC: &str = "UsageQuantity";
 
 #[derive(Debug, Clone)]

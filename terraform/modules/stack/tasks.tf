@@ -93,16 +93,27 @@ resource "aws_sns_topic_policy" "task_failures_publish" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Service = "events.amazonaws.com" }
-      Action    = "sns:Publish"
-      Resource  = aws_sns_topic.email_notification[0].arn
-      Condition = {
-        ArnEquals = {
-          "aws:SourceArn" = aws_cloudwatch_event_rule.task_failures[0].arn
+    Statement = [
+      {
+        Sid       = "AllowSameAccountServices"
+        Effect    = "Allow"
+        Principal = { AWS = "*" }
+        Action    = "sns:Publish"
+        Resource  = aws_sns_topic.email_notification[0].arn
+        Condition = {
+          StringEquals = { "AWS:SourceOwner" = local.account_id }
         }
-      }
-    }]
+      },
+      {
+        Sid       = "AllowEventBridgeTaskFailures"
+        Effect    = "Allow"
+        Principal = { Service = "events.amazonaws.com" }
+        Action    = "sns:Publish"
+        Resource  = aws_sns_topic.email_notification[0].arn
+        Condition = {
+          ArnEquals = { "aws:SourceArn" = aws_cloudwatch_event_rule.task_failures[0].arn }
+        }
+      },
+    ]
   })
 }

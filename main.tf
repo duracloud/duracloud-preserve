@@ -25,6 +25,7 @@ variable "archive_it_enabled" { default = false }
 variable "cloudfront_domain" { default = "" }
 variable "cloudfront_enabled" { default = true }
 variable "deploy" { default = false }
+variable "emails_to_notify" { default = [] }
 variable "sftpgo_enabled" { default = false }
 variable "stack" {}
 variable "users" { default = {} }
@@ -77,6 +78,7 @@ module "stack" {
   cloudfront_domain  = var.cloudfront_domain
   cloudfront_enabled = var.cloudfront_enabled
   deploy_functions   = var.deploy
+  emails_to_notify   = var.emails_to_notify
   stack              = local.stack
   storage_capacity   = pow(10, 12) # 1TB
 

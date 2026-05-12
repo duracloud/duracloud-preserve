@@ -56,3 +56,53 @@ resource "aws_iam_role" "task_scheduler" {
     }]
   })
 }
+
+# Surface task failures via the existing email topic.
+resource "aws_cloudwatch_event_rule" "task_failures" {
+  count = local.email_alarms_enabled ? 1 : 0
+
+  name        = "${local.cluster_name}-failures"
+  description = "ECS task failures in ${aws_ecs_cluster.this.name}"
+
+  event_pattern = jsonencode({
+    source        = ["aws.ecs"]
+    "detail-type" = ["ECS Task State Change"]
+    detail = {
+      clusterArn = [aws_ecs_cluster.this.arn]
+      lastStatus = ["STOPPED"]
+      "$or" = [
+        { stopCode = ["TaskFailedToStart"] },
+        { containers = { exitCode = [{ "anything-but" = [0] }] } },
+      ]
+    }
+  })
+}
+
+resource "aws_cloudwatch_event_target" "task_failures_sns" {
+  count = local.email_alarms_enabled ? 1 : 0
+
+  rule = aws_cloudwatch_event_rule.task_failures[0].name
+  arn  = aws_sns_topic.email_notification[0].arn
+}
+
+# EventBridge needs explicit Publish permission on the topic
+resource "aws_sns_topic_policy" "task_failures_publish" {
+  count = local.email_alarms_enabled ? 1 : 0
+
+  arn = aws_sns_topic.email_notification[0].arn
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "events.amazonaws.com" }
+      Action    = "sns:Publish"
+      Resource  = aws_sns_topic.email_notification[0].arn
+      Condition = {
+        ArnEquals = {
+          "aws:SourceArn" = aws_cloudwatch_event_rule.task_failures[0].arn
+        }
+      }
+    }]
+  })
+}

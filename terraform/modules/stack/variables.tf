@@ -109,3 +109,25 @@ variable "storage_capacity" {
     error_message = "Storage capacity must be a whole number greater than or equal to 0 bytes"
   }
 }
+
+variable "tasks" {
+  description = "Scheduled ECS Fargate tasks, keyed by short name"
+  type = map(object({
+    cpu      = number
+    mem      = number
+    image    = string
+    command  = list(string)
+    schedule = string
+    enabled  = optional(bool, true)
+    environment = optional(list(object({
+      name  = string
+      value = string
+    })), [])
+    secrets = optional(list(object({
+      name      = string
+      valueFrom = string
+    })), [])
+    policy_statements = optional(list(any), [])
+  }))
+  default = {}
+}

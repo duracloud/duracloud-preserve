@@ -121,7 +121,7 @@ https://docs.cyberduck.io/cyberduck/connection/
 
 ## SFTPGo Documentation
 
-Navigate to: [new url](http://newurl.org)
+Navigate to: [DuraCloud Preserve](https://preserve.duracloud.org/web/client/login)
 
 Use this web-based interface to log in, upload, and download content.
 

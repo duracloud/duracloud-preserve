@@ -55,6 +55,13 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let bytes = file::download_bytes(&s3, &sync_file).await?;
     tokio::fs::write(&local_sync, &bytes).await?;
 
+    // Claim the work by deleting the live sync CSV up front. A concurrent
+    // sync that starts now will see no CSV and exit as a no-op; a fresh
+    // audit afterward will rebuild a smaller list for anything we don't
+    // finish. The client's HEAD-then-skip handles per-object overlap.
+    file::delete(&s3, &sync_file).await?;
+    tracing::info!(s3_url = %sync_file.s3_url(), "Claimed sync CSV (deleted from S3)");
+
     sync::perform(
         &s3,
         &sync::PerformArgs {
@@ -66,9 +73,6 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         },
     )
     .await?;
-
-    file::delete(&s3, &sync_file).await?;
-    tracing::info!(s3_url = %sync_file.s3_url(), "Deleted sync CSV");
 
     Ok(())
 }

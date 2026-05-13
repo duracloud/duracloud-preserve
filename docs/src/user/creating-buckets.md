@@ -44,7 +44,7 @@ The following **cannot** be used in bucket names:
    - Buckets can only be created from files uploaded to the `buckets` folder in the request bucket.
 3. The file will be processed in the background and an attempt will be made to create each bucket.
    - Processing normally takes **0–2 minutes**.
-4. A report file will be uploaded to the `logs` folder inside the `-managed` bucket, providing details about the outcome.
+4. A report file will be uploaded to the `feedback` folder inside the `-managed` bucket, providing details about the outcome.
 5. Review the log when it becomes available.
 6. Refresh your client view or reconnect to S3.
    - Successfully created buckets will now be visible.

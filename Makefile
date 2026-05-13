@@ -86,6 +86,10 @@ run-bucket-request: ## Run run-bucket-request cli (make run-bucket-request f=fil
 run-checksum-report: ## Run run-checksum-report cli (make run-checksum-report b=bucket p=profile)
 	@AWS_PROFILE=$(p) cargo run -p dcp -- checksum-report --bucket=$(b)
 
+.PHONY: run-checksum-request
+run-checksum-request: ## Run run-checksum-request cli (make run-checksum-request b=bucket p=profile)
+	@AWS_PROFILE=$(p) cargo run -p dcp -- checksum-request --bucket=$(b)
+
 .PHONY: run-compute-checksums
 run-compute-checksums: ## Run run-compute-checksums cli (make run-compute-checksums b=bucket p=profile)
 	@AWS_PROFILE=$(p) cargo run -p dcp -- compute-checksums --bucket=$(b)
@@ -97,6 +101,10 @@ run-inventory-report: ## Run run-inventory-report cli (make run-inventory-report
 .PHONY: run-storage-report
 run-storage-report: ## Run run-storage-report cli (make run-storage-report s=stack p=profile)
 	@AWS_PROFILE=$(p) cargo run -p dcp -- storage-report --stack=$(s)
+
+.PHONY: run-sync-users
+run-sync-users: ## Run run-sync-users cli (make run-sync-users p=profile)
+	@AWS_PROFILE=$(p) cargo run -p dcp -- sync-users
 
 .PHONY: setup
 setup: locals ## Create base infrastructure (make setup s=stack p=profile)

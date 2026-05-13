@@ -23,7 +23,7 @@ The trigger file's name (minus the extension) identifies which bucket's inventor
 Run locally against an existing manifest:
 
 ```bash
-cargo run -p dcp -- checksum-request --bucket digipres-dev1-private
+make run-checksum-request p=digipres-dev1-private
 ```
 
 | Flag       | Description                                          |

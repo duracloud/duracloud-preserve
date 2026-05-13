@@ -30,7 +30,7 @@ The CLI can sync a single user or all users. SFTPGo credentials are read from th
 SFTPGO_HOST=https://sftpgo.example.org \
 SFTPGO_USERNAME=admin \
 SFTPGO_PASSWORD=secret \
-cargo run -p dcp -- sync-users
+make run-sync-users p=default
 ```
 
 To sync a specific user only:

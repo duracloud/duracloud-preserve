@@ -2,8 +2,8 @@
 
 FROM --platform=$BUILDPLATFORM ghcr.io/rust-cross/cargo-zigbuild:latest AS builder
 WORKDIR /src
-RUN rustup target add aarch64-unknown-linux-gnu
 COPY . .
+RUN rustup target add aarch64-unknown-linux-gnu
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target,id=dcp-target-aarch64 \
     cargo zigbuild --release --locked \

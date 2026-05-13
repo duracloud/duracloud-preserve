@@ -17,7 +17,7 @@ build: ## Build lambda functions with release profile (make build)
 
 .PHONY: cli
 cli: ## Build dcp arm64 Docker image tagged latest (make cli)
-	docker buildx build --platform linux/arm64 \
+	@docker buildx build --platform linux/arm64 \
 		-t duracloud/dcp:latest \
 		--load .
 

@@ -3,7 +3,7 @@ When you view your S3 account using a GUI client or the AWS CLI for the first ti
 
 ## Pre-Existing Buckets
 - `duracloud-$ID-request`: Used to make requests to create new buckets.
-  See: https://wiki.lyrasis.org/display/D2/How+to+Create+Buckets
+  See: [Creating Buckets](./creating-buckets.md)
 - `duracloud-$ID-managed`: Used to deposit generated files such as audit history, exports, inventory, and reports.
   **This bucket is read-only.**
 - `duracloud-$ID-private`: Default private bucket.

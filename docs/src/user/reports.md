@@ -37,7 +37,7 @@ After you begin creating buckets and uploading content, you will see folders in 
 - Mostly machine-readable data
 - Provides outputs from S3 inventory
 
-## manifests
+## metadata
 
 - Provides raw stats related to checksum and inventory processes
 
@@ -47,52 +47,43 @@ This is the primary folder for content intended for review.
 
 ### Checksum
 
-TODO: needs update.
+Checksum reports are organized by date and stored under `reports/` in the managed bucket:
 
-- Contains checksum data organized by date
-- Each date folder includes two subfolders:
-  - `CSV` – file manifests with individual checksums for each file (most useful for users)
+- `reports/latest/checksums/<bucket>_checksum-inventory.csv` — most recent report
+- `reports/YYYY-MM-DD/checksums/<bucket>_checksum-inventory.csv` — date-stamped archive
 
-**CSV header columns include:**
+Each CSV is a per-object checksum inventory. Each row includes the object key, its CRC64NVMe checksum (when present), and a status:
 
-- `BucketName` – where you uploaded content  
-- `ObjectKey` – filename  
-- `Checksum` – the file's checksum  
-- `LastChecksumSuccess` – TRUE or FALSE  
-- `LastChecksumDate`  
-- `LastChecksumMessage` – “ok” unless there was a checksum failure  
+- `ok` — checksum verified successfully
+- `not_found` — object was not found
+- `missing_checksum` — object exists but has no checksum recorded
+- `error` — checksum computation failed
+
+A separate checksum verification report is also generated summarising totals: matches, mismatches, missing replicas, and failures.
 
 ### Manifest
 
-TODO: needs update.
+Inventory manifest reports provide a listing of all files in each bucket. They are stored under `reports/` in the managed bucket:
 
-- A folder for each bucket you created
-- Provides a listing of all files in each bucket with limited metadata
-- Most users will want to review the CSV files located at:  
-  `inventory/$bucket/inventory/csv`
+- `reports/latest/manifests/<bucket>.csv` — most recent report
+- `reports/YYYY-MM-DD/manifests/<bucket>.csv` — date-stamped archive
 
-**CSV header columns include:**
-
-- `BucketName` – where you uploaded content  
-- `ObjectKey` – filename (includes folder/directory structure)  
-- `version_id` – latest ID of the object  
-- `is_latest` – TRUE or FALSE  
-- `delete_marker` – TRUE or FALSE (usually FALSE unless the object was deleted)  
-- `size` – object size in bytes (folders show 0; deleted items may be empty)  
-- `last_modified` – timestamp  
-- `storage_class` – STANDARD or GLACIER  
-  - Objects remain in STANDARD for 7 days before moving to Glacier unless they are in a `-public` bucket
-
-Also within the `inventory` folder is a `stats` folder containing `.json` files. These are used to generate the HTML reports found in the `reports` folder.perations
+Each CSV contains one row per object with metadata including filename, size, last modified date, and storage class. Objects remain in STANDARD storage for 7 days before moving to Glacier unless they are in a `-public` bucket.
 
 ### Storage
 
-- HTML storage reports detailing storage usage
-- Includes:
-  - Number of files
-  - Storage size by bucket
-  - Overall storage usage
-- These reports are the most human-readable summaries available
+Storage reports are interactive HTML files generated weekly. They are stored under `reports/` in the managed bucket:
+
+- `reports/latest/storage/<stack>.html` — most recent report
+- `reports/YYYY-MM-DD/storage/<stack>.html` — date-stamped archive
+
+Open the HTML file in a browser to view charts and tables covering:
+
+- **Aggregated totals** — storage usage across all buckets in the stack
+- **Per bucket totals** — storage usage broken down by individual bucket
+- **Per bucket / per prefix totals** — storage usage by folder within each bucket
+
+These reports are the most human-readable summaries available.
 
 ---
 

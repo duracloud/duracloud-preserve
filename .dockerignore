@@ -1,0 +1,11 @@
+.git
+.github
+target
+docs/book
+payloads
+terraform/.terraform*
+terraform/terraform.tfstate*
+terraform/terraform.tfvars
+*.pdf
+*.csv
+.DS_Store

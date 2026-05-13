@@ -14,11 +14,12 @@ bucket: ## Perform action on a bucket (make bucket a=action b=bucket p=profile)
 build: ## Build lambda functions with release profile (make build)
 	@cargo lambda build --workspace --exclude dcp --release --arm64 --output-format zip
 	@rm -rf target/lambda/dcp
-	@version=$$(cargo metadata --no-deps --format-version=1 | jq -r '.packages[0].version'); \
-	for f in functions/*/Cargo.toml; do \
-		name=$$(basename $$(dirname $$f)); \
-		cp target/lambda/$$name/bootstrap.zip target/lambda/$$name/$$name-$$version.zip; \
-	done
+
+.PHONY: cli
+cli: ## Build dcp arm64 Docker image tagged latest (make cli)
+	docker buildx build --platform linux/arm64 \
+		-t duracloud/dcp:latest \
+		--load .
 
 .PHONY: ci
 ci: test ## Run the ci checks locally
@@ -28,7 +29,7 @@ ci: test ## Run the ci checks locally
 	@terraform fmt .
 
 .PHONY: deploy
-deploy: locals build ## Deploy all resources including functions (make deploy s=stack p=profile)
+deploy: locals ## Deploy all resources including functions (make deploy s=stack p=profile)
 	@AWS_PROFILE=$(p) TF_VAR_stack=$(s) TF_VAR_deploy=true terraform apply
 
 .PHONY: docs

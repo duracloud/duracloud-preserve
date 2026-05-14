@@ -2,14 +2,23 @@
 
 There are two ways to make content public.
 
-## Pre-created bucket with friendly domain (recommended)
+## Pre-created public bucket (recommended)
 
-Docs needed.
+Each stack includes a pre-created `-public` bucket that is served through a CloudFront distribution with a friendly domain. This is the recommended way to make content publicly accessible. Your administrator will provide the public domain URL.
 
-To use this:
+### Cyberduck
 
-- upload files to your stack `-public` bucket.
-- upload content to your `public` folder if you're using the SFTPGo web-based application
+Navigate to the `duracloud-$ID-public` bucket and upload your files there (see [Uploading Files](./uploading-files.md)). Files uploaded to this bucket will be publicly accessible via the CloudFront domain.
+
+### SFTPGo
+
+Navigate to the `public` folder and upload your content there (see [Uploading Files](./uploading-files.md)). Files placed here will be publicly accessible via the CloudFront domain.
+
+### AWS CLI
+
+```bash
+aws s3 cp myfile.jpg s3://duracloud-$ID-public/myfolder/myfile.jpg
+```
 
 ## Public buckets (not recommended)
 

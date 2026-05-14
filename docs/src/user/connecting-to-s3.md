@@ -132,8 +132,7 @@ small person icon in the upper-right corner of the screen.
 
 ![Account Icon Change Password](images/account_icon_change_password.png)
 
-**NOTE:** With this option, hosting clients will not create their own buckets.
-Instead, upon login you will see three buckets already created for you:
+Upon login you will see three folders already created for you:
 
 -   `managed`
 -   `private`
@@ -141,8 +140,10 @@ Instead, upon login you will see three buckets already created for you:
 
 You may:
 
+-   Create new buckets by uploading a request file (see [Creating Buckets](./creating-buckets.md))
 -   Upload content to the `private` and `public` buckets (creating
     subfolder structures as needed)
+-   Download content from the `private` and `public` buckets
 -   Download reports and other hosted content from the `managed` bucket
 
 ![Provided buckets displayed in SFTPGo web interface showing three bucket folders labeled managed, private, and public with upload and download options available](images/provided_buckets_webapp_option.png)

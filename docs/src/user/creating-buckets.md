@@ -1,7 +1,7 @@
 # Creating Buckets
 
 > [!IMPORTANT]
-> **Note:** These instructions apply if you are directly creating buckets (for example, via the command line or Cyberduck). If you are using SFTPGo, you are **not** creating buckets directly. Instead, you are creating folder structures within the `-private` and `-public` buckets that have already been created for you.
+> These instructions apply to all users, whether using Cyberduck, SFTPGo, the AWS CLI, or another S3-compatible client. The process is the same for everyone: upload a text file containing your bucket names to the `duracloud-$ID-request` bucket under the `buckets` folder. Instructions for each client are provided in the [Steps](#steps) section below.
 
 ## Create a Bucket
 
@@ -38,10 +38,37 @@ The following **cannot** be used in bucket names:
 
 ## Steps
 
-1. Open a text editor (such as Notepad or Notepad++) and decide on your bucket names.
-2. Upload your text file to the `duracloud-$ID-request` bucket, inside the `buckets` folder.
+1. Open a text editor (such as Notepad or Notepad++) and create a file containing your bucket names, one per line. Save it as a `.txt` file.
+
+2. Upload the file to the `duracloud-$ID-request` bucket, inside the `buckets` folder.
    - If the `buckets` folder does not exist then create it first.
    - Buckets can only be created from files uploaded to the `buckets` folder in the request bucket.
+
+### Cyberduck
+
+1. Connect to your S3 account (see [Connecting to S3](./connecting-to-s3.md)).
+2. Navigate to the `duracloud-$ID-request` bucket.
+3. If a `buckets` folder does not exist, create one: **Action → New Folder**.
+4. Open the `buckets` folder and drag your `.txt` file into the Cyberduck window, or click **Upload** to browse for it.
+5. Cyberduck will show a transfer log confirming the upload.
+
+> [!Tip]
+> When re-using the same file with updated bucket names (Step 8 below), Cyberduck may ask you to confirm overwriting the existing file. Confirm to proceed.
+
+### SFTPGo
+
+1. Log in to the SFTPGo web interface (see [Connecting to S3](./connecting-to-s3.md)).
+2. Navigate to your home folder. You will see `managed`, `private`, and `public` folders — **do not** upload to these. Instead, navigate back to the root or look for a `request` folder corresponding to `duracloud-$ID-request`.
+3. If a `buckets` folder does not exist inside the request area, click **New Folder** to create it.
+4. Open the `buckets` folder, then click **Upload Files** or drag your `.txt` file into the upload area.
+5. Click **Save** to complete the upload.
+
+### AWS CLI
+
+```bash
+aws s3 cp mybuckets.txt s3://duracloud-$ID-request/buckets/mybuckets.txt
+```
+
 3. The file will be processed in the background and an attempt will be made to create each bucket.
    - Processing normally takes **0–2 minutes**.
 4. A report file will be uploaded to the `feedback` folder inside the `-managed` bucket, providing details about the outcome.
@@ -54,9 +81,6 @@ The following **cannot** be used in bucket names:
 8. To create more buckets:
    - Re-use and re-upload the same file with new bucket names, **or**
    - Create and upload an entirely new file. Both approaches work.
-
-> [!Tip]
-> If you're using Cyberduck or another GUI client, the client may ask you to confirm that you wish to overwrite the existing `.txt` file if re-using the original file (option 1 in Step 8).
 
 ## Troubleshooting
 

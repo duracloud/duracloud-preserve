@@ -89,6 +89,53 @@ These reports are the most human-readable summaries available.
 
 You may download data from any of these folders for local review and storage.
 
+## Accessing Reports
+
+### Cyberduck
+
+1. Connect to your S3 account (see [Connecting to S3](./connecting-to-s3.md)).
+2. Navigate to the `duracloud-$ID-managed` bucket and open the `reports/latest/` folder.
+3. Open the relevant subfolder:
+   - `checksums/` — checksum report CSVs per bucket
+   - `manifests/` — inventory manifest CSVs per bucket
+   - `storage/` — interactive HTML storage report for your stack
+4. Right-click (or control-click on macOS) the file and select **Download**, **Download As**, or **Download To** to save it locally.
+5. To view the storage report, open the downloaded `.html` file in your browser.
+
 > [!Tip]
-> - Downloaded logs and files are saved to your default **Downloads** folder. You can change this in **Edit → Preferences → Transfers** under the General tab.  
-> - Right-click (Control-click on macOS or two-finger click on a trackpad) to rename files when downloading manifests or reports. This helps prevent overwriting files with similar names and avoids overwrite warnings.
+> - Downloaded files are saved to your default **Downloads** folder. You can change this in **Edit → Preferences → Transfers** under the General tab.
+> - Right-click to rename files when downloading to avoid overwriting reports from previous dates.
+
+### SFTPGo
+
+1. Log in to the SFTPGo web interface (see [Connecting to S3](./connecting-to-s3.md)).
+2. Navigate to the `managed` folder, then open `reports/latest/`.
+3. Open the relevant subfolder:
+   - `checksums/` — checksum report CSVs per bucket
+   - `manifests/` — inventory manifest CSVs per bucket
+   - `storage/` — interactive HTML storage report for your stack
+4. To download a single file, click directly on its filename.
+5. To download multiple files, check the boxes next to them and use the **Actions** menu → **Download**. Selected items will be zipped automatically.
+6. To view the storage report, download the `.html` file and open it in your browser.
+
+### AWS CLI
+
+Download the latest storage report:
+```bash
+aws s3 cp s3://duracloud-$ID-managed/reports/latest/storage/$ID.html .
+```
+
+Download the latest checksum report for a bucket:
+```bash
+aws s3 cp s3://duracloud-$ID-managed/reports/latest/checksums/$BUCKET_checksum-inventory.csv .
+```
+
+Download the latest manifest report for a bucket:
+```bash
+aws s3 cp s3://duracloud-$ID-managed/reports/latest/manifests/$BUCKET.csv .
+```
+
+Sync an entire dated archive locally:
+```bash
+aws s3 sync s3://duracloud-$ID-managed/reports/ ./reports/
+```

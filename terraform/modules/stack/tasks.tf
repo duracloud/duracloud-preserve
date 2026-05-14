@@ -33,7 +33,7 @@ resource "aws_ecs_cluster" "this" {
 }
 
 # Fargate uses this to pull images and write logs. Shared by all tasks.
-resource "aws_iam_role" "execution" {
+resource "aws_iam_role" "task_execution" {
   name = "${local.cluster_name}-execution"
 
   assume_role_policy = jsonencode({
@@ -46,9 +46,25 @@ resource "aws_iam_role" "execution" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "execution" {
-  role       = aws_iam_role.execution.name
+resource "aws_iam_role_policy_attachment" "task_execution" {
+  role       = aws_iam_role.task_execution.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+resource "aws_iam_role_policy" "task_secrets" {
+  count = length(local.task_secret_arns) > 0 ? 1 : 0
+
+  name = "${local.cluster_name}-secrets"
+  role = aws_iam_role.task_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "ssm:GetParameters"
+      Resource = local.task_secret_arns
+    }]
+  })
 }
 
 # EventBridge Scheduler uses this to RunTask + PassRole.
@@ -66,32 +82,30 @@ resource "aws_iam_role" "task_scheduler" {
   })
 }
 
-# Surface task failures via the existing email topic.
-resource "aws_cloudwatch_event_rule" "task_failures" {
-  count = local.email_alarms_enabled ? 1 : 0
+resource "aws_iam_role_policy" "task_scheduler" {
+  for_each = local.tasks
 
-  name        = "${local.cluster_name}-failures"
-  description = "ECS task failures in ${aws_ecs_cluster.this.name}"
+  name = "${local.stack}-${each.key}-task-scheduler"
+  role = aws_iam_role.task_scheduler.id
 
-  event_pattern = jsonencode({
-    source        = ["aws.ecs"]
-    "detail-type" = ["ECS Task State Change"]
-    detail = {
-      clusterArn = [aws_ecs_cluster.this.arn]
-      lastStatus = ["STOPPED"]
-      "$or" = [
-        { stopCode = ["TaskFailedToStart"] },
-        { containers = { exitCode = [{ "anything-but" = [0] }] } },
-      ]
-    }
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "ecs:RunTask"
+        Resource = aws_ecs_task_definition.task[each.key].arn
+      },
+      {
+        Effect = "Allow"
+        Action = "iam:PassRole"
+        Resource = [
+          aws_iam_role.task_execution.arn,
+          aws_iam_role.task[each.key].arn,
+        ]
+      },
+    ]
   })
-}
-
-resource "aws_cloudwatch_event_target" "task_failures_sns" {
-  count = local.email_alarms_enabled ? 1 : 0
-
-  rule = aws_cloudwatch_event_rule.task_failures[0].name
-  arn  = aws_sns_topic.email_notification[0].arn
 }
 
 resource "aws_iam_role" "task" {
@@ -137,7 +151,7 @@ resource "aws_ecs_task_definition" "task" {
   network_mode             = "awsvpc"
   cpu                      = each.value.cpu
   memory                   = each.value.mem
-  execution_role_arn       = aws_iam_role.execution.arn
+  execution_role_arn       = aws_iam_role.task_execution.arn
   task_role_arn            = aws_iam_role.task[each.key].arn
 
   runtime_platform {
@@ -161,48 +175,6 @@ resource "aws_ecs_task_definition" "task" {
       }
     }
   }])
-}
-
-resource "aws_iam_role_policy" "task_execution_secrets" {
-  count = length(local.task_secret_arns) > 0 ? 1 : 0
-
-  name = "${local.stack}-task-secrets"
-  role = aws_iam_role.execution.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = "ssm:GetParameters"
-      Resource = local.task_secret_arns
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "task_scheduler" {
-  for_each = local.tasks
-
-  name = "${local.stack}-${each.key}-scheduler"
-  role = aws_iam_role.task_scheduler.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = "ecs:RunTask"
-        Resource = aws_ecs_task_definition.task[each.key].arn
-      },
-      {
-        Effect = "Allow"
-        Action = "iam:PassRole"
-        Resource = [
-          aws_iam_role.execution.arn,
-          aws_iam_role.task[each.key].arn,
-        ]
-      },
-    ]
-  })
 }
 
 resource "aws_scheduler_schedule" "task" {
@@ -233,6 +205,34 @@ resource "aws_scheduler_schedule" "task" {
       }
     }
   }
+}
+
+# Surface task failures via the existing email topic.
+resource "aws_cloudwatch_event_rule" "task_failures" {
+  count = local.email_alarms_enabled ? 1 : 0
+
+  name        = "${local.cluster_name}-failures"
+  description = "ECS task failures in ${aws_ecs_cluster.this.name}"
+
+  event_pattern = jsonencode({
+    source        = ["aws.ecs"]
+    "detail-type" = ["ECS Task State Change"]
+    detail = {
+      clusterArn = [aws_ecs_cluster.this.arn]
+      lastStatus = ["STOPPED"]
+      "$or" = [
+        { stopCode = ["TaskFailedToStart"] },
+        { containers = { exitCode = [{ "anything-but" = [0] }] } },
+      ]
+    }
+  })
+}
+
+resource "aws_cloudwatch_event_target" "task_failures" {
+  count = local.email_alarms_enabled ? 1 : 0
+
+  rule = aws_cloudwatch_event_rule.task_failures[0].name
+  arn  = aws_sns_topic.email_notification[0].arn
 }
 
 # EventBridge needs explicit Publish permission on the topic

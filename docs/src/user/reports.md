@@ -47,19 +47,32 @@ This is the primary folder for content intended for review.
 
 ### Checksum
 
-Checksum reports are organized by date and stored under `reports/` in the managed bucket:
+Checksum reports are organized by date and stored under `reports/` in the managed bucket.
+
+There are two types of checksum reports:
+
+1. Checksum verification report (<bucket>_checksum-report.csv)
+2. Checksum inventory report (<bucket>_checksum-inventory.csv)
+
+#### Checksum verification report
+
+A checksum verification report that provides generated summarising totals: matches, mismatches, missing replicas, and failures.
+
+#### Checksum inventory report
+
+This report uses existing inventory reports to generate csv of checksum metadata.
 
 - `reports/latest/checksums/<bucket>_checksum-inventory.csv` — most recent report
 - `reports/YYYY-MM-DD/checksums/<bucket>_checksum-inventory.csv` — date-stamped archive
 
 Each CSV is a per-object checksum inventory. Each row includes the object key, its CRC64NVMe checksum (when present), and a status:
 
-- `ok` — checksum verified successfully
+- `ok` — no errors were encountered retrieving metadata for this object
 - `not_found` — object was not found
 - `missing_checksum` — object exists but has no checksum recorded
-- `error` — checksum computation failed
+- `error` — other failure
 
-A separate checksum verification report is also generated summarising totals: matches, mismatches, missing replicas, and failures.
+*Note: checksum inventory does not provide checksum verification.*
 
 ### Manifest
 
@@ -68,7 +81,7 @@ Inventory manifest reports provide a listing of all files in each bucket. They a
 - `reports/latest/manifests/<bucket>.csv` — most recent report
 - `reports/YYYY-MM-DD/manifests/<bucket>.csv` — date-stamped archive
 
-Each CSV contains one row per object with metadata including filename, size, last modified date, and storage class. Objects remain in STANDARD storage for 7 days before moving to Glacier unless they are in a `-public` bucket.
+Each CSV contains one row per object with metadata including filename, size, last modified date, and storage class.
 
 ### Storage
 
@@ -103,6 +116,7 @@ You may download data from any of these folders for local review and storage.
 5. To view the storage report, open the downloaded `.html` file in your browser.
 
 > [!Tip]
+>
 > - Downloaded files are saved to your default **Downloads** folder. You can change this in **Edit → Preferences → Transfers** under the General tab.
 > - Right-click to rename files when downloading to avoid overwriting reports from previous dates.
 
@@ -121,21 +135,25 @@ You may download data from any of these folders for local review and storage.
 ### AWS CLI
 
 Download the latest storage report:
+
 ```bash
 aws s3 cp s3://duracloud-$ID-managed/reports/latest/storage/$ID.html .
 ```
 
-Download the latest checksum report for a bucket:
+Download the latest checksum inventory for a bucket:
+
 ```bash
 aws s3 cp s3://duracloud-$ID-managed/reports/latest/checksums/$BUCKET_checksum-inventory.csv .
 ```
 
 Download the latest manifest report for a bucket:
+
 ```bash
 aws s3 cp s3://duracloud-$ID-managed/reports/latest/manifests/$BUCKET.csv .
 ```
 
 Sync an entire dated archive locally:
+
 ```bash
 aws s3 sync s3://duracloud-$ID-managed/reports/ ./reports/
 ```

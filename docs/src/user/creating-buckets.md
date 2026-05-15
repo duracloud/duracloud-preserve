@@ -58,7 +58,7 @@ The following **cannot** be used in bucket names:
 ### SFTPGo
 
 1. Log in to the SFTPGo web interface (see [Connecting to S3](./connecting-to-s3.md)).
-2. Navigate to your home folder. You will see `managed`, `private`, and `public` folders — **do not** upload to these. Instead, navigate back to the root or look for a `request` folder corresponding to `duracloud-$ID-request`.
+2. Navigate to your home folder. You will see `managed` and `public` folders — **do not** upload to these. Instead, navigate back to the root or look for a `request` folder corresponding to `duracloud-$ID-request`.
 3. If a `buckets` folder does not exist inside the request area, click **New Folder** to create it.
 4. Open the `buckets` folder, then click **Upload Files** or drag your `.txt` file into the upload area.
 5. Click **Save** to complete the upload.
@@ -69,16 +69,16 @@ The following **cannot** be used in bucket names:
 aws s3 cp mybuckets.txt s3://duracloud-$ID-request/buckets/mybuckets.txt
 ```
 
-3. The file will be processed in the background and an attempt will be made to create each bucket.
+1. The file will be processed in the background and an attempt will be made to create each bucket.
    - Processing normally takes **0–2 minutes**.
-4. A report file will be uploaded to the `feedback` folder inside the `-managed` bucket, providing details about the outcome.
-5. Review the log when it becomes available.
-6. Refresh your client view or reconnect to S3.
+2. A report file will be uploaded to the `feedback` folder inside the `-managed` bucket, providing details about the outcome.
+3. Review the log when it becomes available.
+4. Refresh your client view or reconnect to S3.
    - Successfully created buckets will now be visible.
    - Each new bucket will have an associated replication bucket with a `-repl` suffix.
    - Replication buckets are **list-only** (files cannot be downloaded).
-7. The newly created buckets are now usable, and files can be uploaded.
-8. To create more buckets:
+5. The newly created buckets are now usable, and files can be uploaded.
+6. To create more buckets:
    - Re-use and re-upload the same file with new bucket names, **or**
    - Create and upload an entirely new file. Both approaches work.
 

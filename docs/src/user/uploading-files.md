@@ -1,5 +1,5 @@
 # Uploading Files
-You will be able to upload files to the buckets you've created (see [How to Create Buckets](https://wiki.lyrasis.org/display/D2/How+to+Create+Buckets)). After your content has been uploaded, it will be mirrored in Glacier Deep Archive in the bucket that duplicates your bucket names with the `-repl` suffix.
+You will be able to upload files to the buckets you've created (see [Creating Buckets](./creating-buckets.md)). After your content has been uploaded, it will be mirrored in Glacier Deep Archive in the bucket that duplicates your bucket names with the `-repl` suffix.
 
 You **will not be able to do anything with the content in the `-repl` bucket**. You will be able to see filenames, as a reassurance that your content has been mirrored, but if you attempt to download or get information about the files, you will likely encounter:
 

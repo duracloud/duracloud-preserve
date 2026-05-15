@@ -14,10 +14,10 @@ point.
 
 Here's a list of clients that have been used or tested by Lyrasis staff:
 
--  [AWS CLI](https://aws.amazon.com/cli/)
--  [Cyberduck](https://cyberduck.io/)
--  [S3Browser](https://s3browser.com/) **(Windows only - we are not providing additional documentation about this option)**
--  [SFTPGo](https://sftpgo.com/)
+- [AWS CLI](https://aws.amazon.com/cli/)
+- [Cyberduck](https://cyberduck.io/)
+- [S3Browser](https://s3browser.com/) **(Windows only - we are not providing additional documentation about this option)**
+- [SFTPGo](https://sftpgo.com/)
 
 But there are many others and you are free to use any S3 compatible client that you prefer.
 
@@ -25,11 +25,9 @@ After connecting to your S3 account via your preferred method, you will
 see the folders already created for your account using your
 `duracloud-$ID`, including:
 
--   `-bucket-requested`
--   `-managed`
--   `-private` (default bucket for files that cannot be accessed
-    publicly)
--   `-public` (default bucket for files that can be accessed publicly)
+- `-managed`
+- `-public` (default bucket for files that can be accessed publicly through CloudFront)
+- `-request` (used for making create bucket or checksum inventory requests)
 
 ## AWS CLI Documentation
 
@@ -60,7 +58,7 @@ If you have multiple AWS accounts or environments, set up a named
 profile and configure with your key, secret, and region (`us-west-2`):
 
 ``` bash
-aws configure --profile duracloud
+aws configure --profile dcp
 ```
 
 ### Setting Region for Lyrasis Hosting
@@ -80,7 +78,7 @@ aws s3 ls --region us-west-2
 With a profile:
 
 ``` bash
-aws s3 sync ./data s3://{stackname}-bucket --profile duracloud-pilot --region us-west-2
+aws s3 sync ./data s3://{stackname}-bucket --profile dcp --region us-west-2
 ```
 
 #### 2. Set the region temporarily in your shell
@@ -90,39 +88,44 @@ This applies only to the current terminal session:
 ``` bash
 export AWS_REGION=us-west-2
 ```
+
 Then commands can be run without specifying the region.
 
 #### 3. Set the region inside the profile
+
 ``` ini
-[profile duracloud-pilot]
+[profile dcp]
 region = us-west-2
 output = json
 ```
 
 ## Cyberduck Documentation
+
 Cyberduck documentation for setting up new connections:\
-https://docs.cyberduck.io/cyberduck/connection/
+<https://docs.cyberduck.io/cyberduck/connection/>
 
 ### Step-by-step Instructions
-1.  File → Open Connection\
-2.  Change dropdown menu to **Amazon S3**
-    -   If you are a Lyrasis Hosting Services client, update Server to:\
+
+1. File → Open Connection\
+2. Change dropdown menu to **Amazon S3**
+    - If you are a Lyrasis Hosting Services client, update Server to:\
         `s3.us-west-2.amazonaws.com`\
-    -   (Lyrasis Hosting currently supports `us-west-2` and `us-east-2`)
-3.  Type in provided Access Key ID and Secret Access Key\
-4.  Click **Connect**
+    - (Lyrasis Hosting currently supports `us-west-2` and `us-east-2`)
+3. Type in provided Access Key ID and Secret Access Key\
+4. Click **Connect**
 
 ![Cyberduck Setting UpConnection](images/cyberduck_setting_up_connection.png)
 
 > [!TIP]
-> -   Click **Go → Enclosing Folder** to navigate up the file path tree
+>
+> - Click **Go → Enclosing Folder** to navigate up the file path tree
     one level at a time, or click in the filepath dropdown to navigate
     up multiple levels after your connection is set up.
-> -   Logs and other items you download will go to your **Downloads** folder by default. You can change this under **Edit → Preferences → Transfers (General tab)**
+> - Logs and other items you download will go to your **Downloads** folder by default. You can change this under **Edit → Preferences → Transfers (General tab)**
 
 ## SFTPGo Documentation
 
-Navigate to: [new url](http://newurl.org)
+Navigate to: [DuraCloud Preserve](https://preserve.duracloud.org/web/client/login)
 
 Use this web-based interface to log in, upload, and download content.
 
@@ -133,20 +136,20 @@ small person icon in the upper-right corner of the screen.
 
 ![Account Icon Change Password](images/account_icon_change_password.png)
 
-**NOTE:** With this option, clients will not create their own buckets.
-Instead, upon login you will see three buckets already created for you:
+Upon login you will see three folders already created for you:
 
--   `managed`
--   `private`
--   `public`
+- `managed`
+- `public`
+- `request`
 
 You may:
 
--   Upload content to the `private` and `public` buckets (creating
-    subfolder structures as needed)
--   Download reports and other hosted content from the `managed` bucket
+- Create new buckets by uploading a request file (see [Creating Buckets](./creating-buckets.md))
+- Upload content buckets (creating subfolder structures as needed)
+- Download content from buckets
+- Download reports and other hosted content from the `managed` bucket
 
-![Provided buckets displayed in SFTPGo web interface showing three bucket folders labeled managed, private, and public with upload and download options available](images/provided_buckets_webapp_option.png)
+![Provided buckets displayed in SFTPGo web interface showing three bucket folders labeled managed, public and request with upload and download options available](images/provided_buckets_webapp_option.png)
 
 > [!Tip]
 > Before proceeding, confirm that you are able to successfully connect to S3.

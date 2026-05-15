@@ -37,7 +37,7 @@ After you begin creating buckets and uploading content, you will see folders in 
 - Mostly machine-readable data
 - Provides outputs from S3 inventory
 
-## manifests
+## metadata
 
 - Provides raw stats related to checksum and inventory processes
 
@@ -47,57 +47,113 @@ This is the primary folder for content intended for review.
 
 ### Checksum
 
-TODO: needs update.
+Checksum reports are organized by date and stored under `reports/` in the managed bucket.
 
-- Contains checksum data organized by date
-- Each date folder includes two subfolders:
-  - `CSV` – file manifests with individual checksums for each file (most useful for users)
+There are two types of checksum reports:
 
-**CSV header columns include:**
+1. Checksum verification report (<bucket>_checksum-report.csv)
+2. Checksum inventory report (<bucket>_checksum-inventory.csv)
 
-- `BucketName` – where you uploaded content  
-- `ObjectKey` – filename  
-- `Checksum` – the file's checksum  
-- `LastChecksumSuccess` – TRUE or FALSE  
-- `LastChecksumDate`  
-- `LastChecksumMessage` – “ok” unless there was a checksum failure  
+#### Checksum verification report
+
+A checksum verification report that provides generated summarising totals: matches, mismatches, missing replicas, and failures.
+
+#### Checksum inventory report
+
+This report uses existing inventory reports to generate csv of checksum metadata.
+
+- `reports/latest/checksums/<bucket>_checksum-inventory.csv` — most recent report
+- `reports/YYYY-MM-DD/checksums/<bucket>_checksum-inventory.csv` — date-stamped archive
+
+Each CSV is a per-object checksum inventory. Each row includes the object key, its CRC64NVMe checksum (when present), and a status:
+
+- `ok` — no errors were encountered retrieving metadata for this object
+- `not_found` — object was not found
+- `missing_checksum` — object exists but has no checksum recorded
+- `error` — other failure
+
+*Note: checksum inventory does not provide checksum verification.*
 
 ### Manifest
 
-TODO: needs update.
+Inventory manifest reports provide a listing of all files in each bucket. They are stored under `reports/` in the managed bucket:
 
-- A folder for each bucket you created
-- Provides a listing of all files in each bucket with limited metadata
-- Most users will want to review the CSV files located at:  
-  `inventory/$bucket/inventory/csv`
+- `reports/latest/manifests/<bucket>.csv` — most recent report
+- `reports/YYYY-MM-DD/manifests/<bucket>.csv` — date-stamped archive
 
-**CSV header columns include:**
-
-- `BucketName` – where you uploaded content  
-- `ObjectKey` – filename (includes folder/directory structure)  
-- `version_id` – latest ID of the object  
-- `is_latest` – TRUE or FALSE  
-- `delete_marker` – TRUE or FALSE (usually FALSE unless the object was deleted)  
-- `size` – object size in bytes (folders show 0; deleted items may be empty)  
-- `last_modified` – timestamp  
-- `storage_class` – STANDARD or GLACIER  
-  - Objects remain in STANDARD for 7 days before moving to Glacier unless they are in a `-public` bucket
-
-Also within the `inventory` folder is a `stats` folder containing `.json` files. These are used to generate the HTML reports found in the `reports` folder.perations
+Each CSV contains one row per object with metadata including filename, size, last modified date, and storage class.
 
 ### Storage
 
-- HTML storage reports detailing storage usage
-- Includes:
-  - Number of files
-  - Storage size by bucket
-  - Overall storage usage
-- These reports are the most human-readable summaries available
+Storage reports are interactive HTML files generated weekly. They are stored under `reports/` in the managed bucket:
+
+- `reports/latest/storage/<stack>.html` — most recent report
+- `reports/YYYY-MM-DD/storage/<stack>.html` — date-stamped archive
+
+Open the HTML file in a browser to view charts and tables covering:
+
+- **Aggregated totals** — storage usage across all buckets in the stack
+- **Per bucket totals** — storage usage broken down by individual bucket
+- **Per bucket / per prefix totals** — storage usage by folder within each bucket
+
+These reports are the most human-readable summaries available.
 
 ---
 
 You may download data from any of these folders for local review and storage.
 
+## Accessing Reports
+
+### Cyberduck
+
+1. Connect to your S3 account (see [Connecting to S3](./connecting-to-s3.md)).
+2. Navigate to the `duracloud-$ID-managed` bucket and open the `reports/latest/` folder.
+3. Open the relevant subfolder:
+   - `checksums/` — checksum report CSVs per bucket
+   - `manifests/` — inventory manifest CSVs per bucket
+   - `storage/` — interactive HTML storage report for your stack
+4. Right-click (or control-click on macOS) the file and select **Download**, **Download As**, or **Download To** to save it locally.
+5. To view the storage report, open the downloaded `.html` file in your browser.
+
 > [!Tip]
-> - Downloaded logs and files are saved to your default **Downloads** folder. You can change this in **Edit → Preferences → Transfers** under the General tab.  
-> - Right-click (Control-click on macOS or two-finger click on a trackpad) to rename files when downloading manifests or reports. This helps prevent overwriting files with similar names and avoids overwrite warnings.
+>
+> - Downloaded files are saved to your default **Downloads** folder. You can change this in **Edit → Preferences → Transfers** under the General tab.
+> - Right-click to rename files when downloading to avoid overwriting reports from previous dates.
+
+### SFTPGo
+
+1. Log in to the SFTPGo web interface (see [Connecting to S3](./connecting-to-s3.md)).
+2. Navigate to the `managed` folder, then open `reports/latest/`.
+3. Open the relevant subfolder:
+   - `checksums/` — checksum report CSVs per bucket
+   - `manifests/` — inventory manifest CSVs per bucket
+   - `storage/` — interactive HTML storage report for your stack
+4. To download a single file, click directly on its filename.
+5. To download multiple files, check the boxes next to them and use the **Actions** menu → **Download**. Selected items will be zipped automatically.
+6. To view the storage report, download the `.html` file and open it in your browser.
+
+### AWS CLI
+
+Download the latest storage report:
+
+```bash
+aws s3 cp s3://duracloud-$ID-managed/reports/latest/storage/$ID.html .
+```
+
+Download the latest checksum inventory for a bucket:
+
+```bash
+aws s3 cp s3://duracloud-$ID-managed/reports/latest/checksums/$BUCKET_checksum-inventory.csv .
+```
+
+Download the latest manifest report for a bucket:
+
+```bash
+aws s3 cp s3://duracloud-$ID-managed/reports/latest/manifests/$BUCKET.csv .
+```
+
+Sync an entire dated archive locally:
+
+```bash
+aws s3 sync s3://duracloud-$ID-managed/reports/ ./reports/
+```

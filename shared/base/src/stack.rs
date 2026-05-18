@@ -107,11 +107,17 @@ impl Stack {
         }
     }
 
-    /// Archive-It service integration sync file
-    pub fn archive_it_sync(&self) -> ManagedFile {
+    /// Archive-It service integration sync file.
+    /// `None` returns the live "current" copy; `Some(date_ctx)` returns a
+    /// dated snapshot path.
+    pub fn archive_it_sync(&self, date_ctx: Option<DateCtx>) -> ManagedFile {
+        let key = match date_ctx {
+            None => format!("{ARCHIVE_IT_PREFIX}/warcs_sync.csv"),
+            Some(date_ctx) => format!("{ARCHIVE_IT_PREFIX}/{date_ctx}/warcs_sync.csv"),
+        };
         ManagedFile {
             bucket: self.managed_bucket(),
-            key: format!("{ARCHIVE_IT_PREFIX}/warcs_sync.csv"),
+            key,
         }
     }
 
@@ -333,8 +339,16 @@ mod tests {
     #[test]
     fn test_archive_it_sync() {
         let stack = Stack::new("test-stack").unwrap();
-        let mf = stack.archive_it_sync();
+        let mf = stack.archive_it_sync(None);
         assert_eq!(mf.key(), "archive-it/warcs_sync.csv");
+        assert_eq!(mf.bucket(), "test-stack-managed");
+    }
+
+    #[test]
+    fn test_archive_it_sync_dated() {
+        let stack = Stack::new("test-stack").unwrap();
+        let mf = stack.archive_it_sync(Some(DateCtx::Latest));
+        assert_eq!(mf.key(), "archive-it/latest/warcs_sync.csv");
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
 

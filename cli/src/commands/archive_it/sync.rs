@@ -43,7 +43,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         .into());
     }
 
-    let sync_file: File = stack.archive_it_sync().into();
+    let sync_file: File = stack.archive_it_sync(None).into();
     if !file::exists(&s3, &sync_file).await {
         tracing::info!(
             s3_url = %sync_file.s3_url(),

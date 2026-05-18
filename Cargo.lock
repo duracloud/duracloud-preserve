@@ -135,8 +135,10 @@ version = "0.1.0"
 dependencies = [
  "archive-it-client",
  "aws-sdk-s3",
+ "aws-smithy-types",
  "awsutils",
  "base",
+ "chrono",
  "csv",
  "futures",
  "serde",

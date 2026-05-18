@@ -6,8 +6,10 @@ edition.workspace = true
 [dependencies]
 archive-it-client = "0.1.0"
 aws-sdk-s3.workspace = true
+aws-smithy-types.workspace = true
 awsutils.workspace = true
 base.workspace = true
+chrono.workspace = true
 csv.workspace = true
 futures.workspace = true
 serde.workspace = true

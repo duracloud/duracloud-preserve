@@ -134,13 +134,6 @@ pub async fn perform(
         }
     }
 
-    tracing::info!(
-        uploaded = stats.uploaded,
-        skipped = stats.skipped,
-        wasapi_missing = stats.wasapi_missing,
-        failed = stats.failed,
-        "Archive-It sync complete"
-    );
     Ok(stats)
 }
 

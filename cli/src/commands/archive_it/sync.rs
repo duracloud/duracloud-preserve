@@ -62,7 +62,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     file::delete(&s3, &sync_file).await?;
     tracing::info!(s3_url = %sync_file.s3_url(), "Claimed sync CSV (deleted from S3)");
 
-    sync::perform(
+    let stats = sync::perform(
         &s3,
         &sync::PerformArgs {
             username: args.username,
@@ -73,6 +73,14 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         },
     )
     .await?;
+
+    tracing::info!(
+        uploaded = stats.uploaded,
+        skipped = stats.skipped,
+        wasapi_missing = stats.wasapi_missing,
+        failed = stats.failed,
+        "Archive-It sync complete"
+    );
 
     Ok(())
 }

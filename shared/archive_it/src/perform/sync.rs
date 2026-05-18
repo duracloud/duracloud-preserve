@@ -32,6 +32,8 @@ pub struct PerformArgs {
     /// S3 bucket sync uploads land in (typically `stack.archive_it_bucket()`).
     pub bucket: String,
     pub key_prefix: Option<String>,
+    /// When true, log each row and skip the actual WASAPI download / S3 upload.
+    pub dry_run: bool,
 }
 
 pub async fn perform(
@@ -57,6 +59,14 @@ pub async fn perform(
             sha1 = ?file.checksums.sha1,
             "[{n}/{total_rows}] Re-syncing WARC"
         );
+
+        if args.dry_run {
+            tracing::info!(
+                filename = %file.filename,
+                "[{n}/{total_rows}] Dry run; skipping download"
+            );
+            continue;
+        }
 
         let mut stream = pin!(client.download_to_s3(
             file,

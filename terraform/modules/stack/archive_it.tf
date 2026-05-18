@@ -40,8 +40,24 @@ locals {
       ]
     })
     "archive-it-sync" = merge(local.archive_it_defaults, {
-      command           = ["ait", "sync", "-h"]
-      policy_statements = []
+      command = ["ait", "sync", "--dry-run"]
+      policy_statements = [
+        {
+          Effect   = "Allow"
+          Action   = "s3:ListBucket"
+          Resource = "arn:aws:s3:::${local.stack}${local.archive_it_suffix}"
+        },
+        {
+          Effect   = "Allow"
+          Action   = ["s3:GetObject", "s3:PutObject"]
+          Resource = "arn:aws:s3:::${local.stack}${local.archive_it_suffix}/*"
+        },
+        {
+          Effect   = "Allow"
+          Action   = ["s3:GetObject", "s3:DeleteObject"]
+          Resource = "${aws_s3_bucket.main["managed"].arn}/${local.archive_it_prefix}/*"
+        },
+      ]
     })
   }
 }

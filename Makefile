@@ -11,6 +11,7 @@ export SFTPGO_PASSWORD ?= admin
 bucket: ## Perform action on a bucket (make bucket a=action b=bucket p=profile)
 	@AWS_PROFILE=$(p) ./scripts/bucket.sh $(a) $(b)
 
+.PHONY: build
 build: ## Build lambda functions with release profile (make build)
 	@cargo lambda build --workspace --exclude dcp --release --arm64 --output-format zip
 	@rm -rf target/lambda/dcp
@@ -67,12 +68,13 @@ job-status-by-receipt: ## Lookup job status by checksum receipt (make job-status
 	    $(MAKE) job i=$$(AWS_PROFILE=$(p) aws s3 cp s3://$${stack}-managed/metadata/latest/checksums/receipts/$(b).json - | jq -r .repl_job_id) p=$(p)
 
 .PHONY: publish
-publish: build ## Publish lambda release artifacts to dcp-artifacts buckets (make publish p=profile)
+publish: build cli ## Publish lambda release artifacts to dcp-artifacts buckets (make publish p=profile)
 	@for region in $(ARTIFACT_REGIONS); do \
 		echo "Publishing to dcp-artifacts-$$region..."; \
 		AWS_PROFILE=$(p) aws s3 sync target/lambda/ s3://dcp-artifacts-$$region/ \
 			--region $$region --exclude "*" --include "*.zip"; \
 	done
+	@docker push duracloud/dcp:latest
 
 .PHONY: reset
 reset: ## Reset (empty) stack buckets (make reset s=stack p=profile)

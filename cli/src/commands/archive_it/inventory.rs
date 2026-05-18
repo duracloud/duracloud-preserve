@@ -48,12 +48,26 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         tokio::fs::write(&local_csv, &bytes).await?;
     }
 
-    inventory::perform(&inventory::PerformArgs {
+    let stats = inventory::perform(&inventory::PerformArgs {
         username: args.username,
         password: args.password,
         output: local_csv.clone(),
     })
     .await?;
+
+    tracing::info!(
+        new_warcs = stats.warc_count,
+        collections = stats.collection_count,
+        skipped_collections = stats.collection_skipped,
+        cached_warcs = stats.cache_hit_count,
+        path = %local_csv.display(),
+        "Inventory build complete"
+    );
+
+    if stats.warc_count == 0 {
+        tracing::info!("Inventory up-to-date (no updates available)");
+        return Ok(());
+    }
 
     let body = tokio::fs::read(&local_csv).await?;
     // Dated first: it's the only permanent historical record. If the live

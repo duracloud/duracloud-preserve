@@ -11,6 +11,14 @@ use futures::TryStreamExt;
 use crate::errors::ArchiveItError;
 use crate::inventory::InventoryRow;
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct InventoryStats {
+    pub collection_count: u64,
+    pub collection_skipped: u64,
+    pub warc_count: u64,
+    pub cache_hit_count: u64,
+}
+
 #[derive(Debug, Clone)]
 pub struct PerformArgs {
     pub username: String,
@@ -18,7 +26,7 @@ pub struct PerformArgs {
     pub output: PathBuf,
 }
 
-pub async fn perform(args: &PerformArgs) -> Result<(), ArchiveItError> {
+pub async fn perform(args: &PerformArgs) -> Result<InventoryStats, ArchiveItError> {
     let partner = PartnerClient::new(args.username.clone(), args.password.clone())?;
     let wasapi = WasapiClient::new(args.username.clone(), args.password.clone())?;
 
@@ -47,10 +55,7 @@ pub async fn perform(args: &PerformArgs) -> Result<(), ArchiveItError> {
         .from_writer(file);
 
     let mut collections = pin!(partner.collections());
-    let mut collection_count = 0_u64;
-    let mut collection_skipped = 0_u64;
-    let mut warc_count = 0_u64;
-    let mut cache_hit_count = 0_u64;
+    let mut stats = InventoryStats::default();
 
     while let Some(collection) = collections.try_next().await? {
         let cached = state.counts.get(&collection.id).copied().unwrap_or(0);
@@ -70,8 +75,8 @@ pub async fn perform(args: &PerformArgs) -> Result<(), ArchiveItError> {
         // the API side, which can hide additions — paginate fully to catch
         // them.
         if total > 0 && cached == total {
-            collection_skipped += 1;
-            cache_hit_count += cached;
+            stats.collection_skipped += 1;
+            stats.cache_hit_count += cached;
             tracing::info!(
                 collection_id = collection.id,
                 collection_name = %collection.name,
@@ -91,7 +96,7 @@ pub async fn perform(args: &PerformArgs) -> Result<(), ArchiveItError> {
             );
         }
 
-        collection_count += 1;
+        stats.collection_count += 1;
         let expected_new = total.saturating_sub(cached);
         tracing::info!(
             collection_id = collection.id,
@@ -149,21 +154,13 @@ pub async fn perform(args: &PerformArgs) -> Result<(), ArchiveItError> {
             }
         }
 
-        warc_count += written_in_collection;
-        cache_hit_count += cached_in_collection;
+        stats.warc_count += written_in_collection;
+        stats.cache_hit_count += cached_in_collection;
     }
 
     writer.flush()?;
-    tracing::info!(
-        new_warcs = warc_count,
-        collections = collection_count,
-        skipped_collections = collection_skipped,
-        cached_warcs = cache_hit_count,
-        path = %output.display(),
-        "Inventory build complete"
-    );
 
-    Ok(())
+    Ok(stats)
 }
 
 /// Resume state derived from an existing inventory CSV.

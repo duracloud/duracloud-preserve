@@ -134,7 +134,10 @@ administrator (such as the Lyrasis Hosting team). The first time you log
 in, you will be asked to change your password. You can do this from the
 small person icon in the upper-right corner of the screen.
 
-![Account Icon Change Password](images/account_icon_change_password.png)
+![First login change password message](images/dcp-first-login.png)
+
+
+![Change password screen](images/dcp-change-password.png)
 
 Upon login you will see three folders already created for you:
 
@@ -149,7 +152,7 @@ You may:
 - Download content from buckets
 - Download reports and other hosted content from the `managed` bucket
 
-![Provided buckets displayed in SFTPGo web interface showing three bucket folders labeled managed, public and request with upload and download options available](images/provided_buckets_webapp_option.png)
+![Provided buckets displayed in SFTPGo web interface showing three bucket folders labeled managed, public and request with upload and download options available](images/dcp-files.png)
 
 > [!Tip]
 > Before proceeding, confirm that you are able to successfully connect to S3.

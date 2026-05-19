@@ -1,5 +1,6 @@
+use archive_it::audit::ExpirationPolicy;
 use archive_it::errors::ArchiveItError;
-use archive_it::perform::audit::{self, DEFAULT_CONCURRENCY, ExpirationPolicy};
+use archive_it::perform::audit::{self, DEFAULT_CONCURRENCY};
 use awsutils::{
     bucket, config,
     file::{self, File},
@@ -29,14 +30,14 @@ pub struct Args {
     #[arg(long)]
     expire_after_years: Option<u32>,
 
-    /// Tag key to apply to expired objects. Requires --expire-after-years and
-    /// --expire-tag-value.
-    #[arg(long, requires_all = ["expire_after_years", "expire_tag_value"])]
+    /// Tag key to apply to expired objects. Ignored unless --expire-after-years
+    /// is also set; pair with --expire-tag-value.
+    #[arg(long, env = "EXPIRE_TAG_KEY")]
     expire_tag_key: Option<String>,
 
-    /// Tag value to apply to expired objects. Requires --expire-after-years and
-    /// --expire-tag-key.
-    #[arg(long, requires_all = ["expire_after_years", "expire_tag_key"])]
+    /// Tag value to apply to expired objects. Ignored unless --expire-after-years
+    /// is also set; pair with --expire-tag-key.
+    #[arg(long, env = "EXPIRE_TAG_VALUE")]
     expire_tag_value: Option<String>,
 }
 

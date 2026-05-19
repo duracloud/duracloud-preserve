@@ -4,6 +4,17 @@ variable "archive_it_enabled" {
   default     = false
 }
 
+variable "archive_it_expiration" {
+  description = "When set, audit reports (and tags) Archive-It WARCs older than N years as expired. Null disables expiration."
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.archive_it_expiration == null || var.archive_it_expiration > 0
+    error_message = "archive_it_expiration must be greater than 0 when set."
+  }
+}
+
 variable "billing_alert_threshold" {
   description = "Trigger billing alert when threshold is exceeded"
   type        = number

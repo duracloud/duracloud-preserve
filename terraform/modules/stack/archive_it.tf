@@ -8,7 +8,7 @@ locals {
     cpu      = 256
     mem      = 512
     image    = local.archive_it_image
-    schedule = "rate(1 hour)"
+    schedule = "rate(1 day)"
     enabled  = var.archive_it_enabled
     environment = [
       { name = "STACK", value = local.stack },
@@ -21,8 +21,34 @@ locals {
 
   archive_it_tasks = {
     "archive-it-audit" = merge(local.archive_it_defaults, {
-      command           = ["ait", "audit", "-h"]
-      policy_statements = []
+      command = concat(
+        ["ait", "audit"],
+        var.archive_it_expiration == null ? [] : ["--expire-after-years", tostring(var.archive_it_expiration)],
+      )
+      environment = concat(
+        local.archive_it_defaults.environment,
+        [
+          { name = "EXPIRE_TAG_KEY", value = local.lifecycle_legacy_duracloud_file_tag_key },
+          { name = "EXPIRE_TAG_VALUE", value = local.lifecycle_legacy_duracloud_file_tag_val },
+        ],
+      )
+      policy_statements = [
+        {
+          Effect   = "Allow"
+          Action   = "s3:ListBucket"
+          Resource = "arn:aws:s3:::${local.stack}${local.archive_it_suffix}"
+        },
+        {
+          Effect   = "Allow"
+          Action   = ["s3:GetObject", "s3:PutObjectTagging"]
+          Resource = "arn:aws:s3:::${local.stack}${local.archive_it_suffix}/*"
+        },
+        {
+          Effect   = "Allow"
+          Action   = ["s3:GetObject", "s3:PutObject"]
+          Resource = "${aws_s3_bucket.main["managed"].arn}/${local.archive_it_prefix}/*"
+        },
+      ]
     })
     "archive-it-inventory" = merge(local.archive_it_defaults, {
       command = ["ait", "inventory"]

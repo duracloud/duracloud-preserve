@@ -44,13 +44,13 @@ locals {
       bucket = local.functions_bucket
       file   = "bucket-request/bootstrap.zip"
     }
-    checksum-request = {
-      bucket = local.functions_bucket
-      file   = "checksum-request/bootstrap.zip"
-    }
     checksum-report = {
       bucket = local.functions_bucket
       file   = "checksum-report/bootstrap.zip"
+    }
+    checksum-request = {
+      bucket = local.functions_bucket
+      file   = "checksum-request/bootstrap.zip"
     }
     compute-checksums = {
       bucket   = local.functions_bucket
@@ -81,10 +81,9 @@ module "stack" {
   cloudfront_enabled = var.cloudfront_enabled
   deploy_functions   = var.deploy
   emails_to_notify   = var.emails_to_notify
+  functions          = local.functions
   stack              = local.stack
   storage_capacity   = pow(10, 12) # 1TB
-
-  functions = local.functions
 }
 
 module "users" {

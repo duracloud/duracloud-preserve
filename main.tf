@@ -101,4 +101,10 @@ module "archive_it" {
 
   stack      = local.stack
   expiration = var.archive_it_expiration
+
+  config = {
+    inventory = { schedule = "cron(0 2 * * ? *)" }
+    audit     = { schedule = "cron(0 3 * * ? *)" }
+    sync      = { schedule = "cron(0 4 * * ? *)" }
+  }
 }

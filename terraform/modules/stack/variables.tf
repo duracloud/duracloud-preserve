@@ -67,6 +67,12 @@ variable "cloudfront_price_class" {
   default     = "PriceClass_100"
 }
 
+variable "cloudfront_web_acl_id" {
+  description = "Optional WAFv2 web ACL ARN to associate with the CloudFront distribution"
+  type        = string
+  default     = null
+}
+
 variable "deploy_functions" {
   description = "Enable to deploy functions"
   type        = bool

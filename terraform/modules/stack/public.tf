@@ -6,6 +6,7 @@ locals {
   cloudfront_geo_restriction_list = var.cloudfront_geo_restriction_list
   cloudfront_geo_restriction_type = var.cloudfront_geo_restriction_type
   cloudfront_price_class          = var.cloudfront_price_class
+  cloudfront_web_acl_id           = var.cloudfront_web_acl_id
   deploy_cloudfront               = local.cloudfront_enabled ? { "public" = {} } : {}
   fqdn                            = "${local.subdomain}.${var.cloudfront_domain}"
   subdomain                       = split("-", local.stack)[1]
@@ -65,6 +66,7 @@ resource "aws_cloudfront_distribution" "public" {
   aliases         = local.custom_domain ? [local.fqdn] : []
   enabled         = true
   is_ipv6_enabled = true
+  web_acl_id      = local.cloudfront_web_acl_id
 
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD", "OPTIONS"]

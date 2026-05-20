@@ -22,6 +22,7 @@ data "aws_organizations_organization" "current" {}
 data "aws_region" "current" {}
 
 variable "archive_it_enabled" { default = false }
+variable "archive_it_expiration" { default = null }
 variable "cloudfront_domain" { default = "" }
 variable "cloudfront_enabled" { default = true }
 variable "deploy" { default = false }
@@ -76,7 +77,6 @@ locals {
 module "stack" {
   source = "./terraform/modules/stack"
 
-  archive_it_enabled = var.archive_it_enabled
   cloudfront_domain  = var.cloudfront_domain
   cloudfront_enabled = var.cloudfront_enabled
   deploy_functions   = var.deploy
@@ -84,6 +84,7 @@ module "stack" {
   functions          = local.functions
   stack              = local.stack
   storage_capacity   = pow(10, 12) # 1TB
+  tasks              = merge(module.archive_it[*].tasks...)
 }
 
 module "users" {
@@ -91,4 +92,13 @@ module "users" {
 
   sftpgo_enabled = local.sftpgo_enabled
   users          = local.users
+}
+
+module "archive_it" {
+  source = "./terraform/modules/archive_it"
+
+  count = var.archive_it_enabled ? 1 : 0
+
+  stack      = local.stack
+  expiration = var.archive_it_expiration
 }

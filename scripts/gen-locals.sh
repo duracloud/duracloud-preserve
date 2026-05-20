@@ -5,6 +5,7 @@ set -euo pipefail
 
 RUST_SRC="shared/constants/src/lib.rs"
 TF_OUT=(
+  "terraform/modules/archive_it/_locals.tf"
   "terraform/modules/stack/_locals.tf"
   "terraform/modules/users/_locals.tf"
 )
@@ -48,5 +49,5 @@ for out in "${TF_OUT[@]}"; do
   generate_locals "$out"
 done
 
-terraform fmt "${TF_OUT[@]}"
+terraform fmt "${TF_OUT[@]}" >/dev/null
 printf 'Generated %s\n' "${TF_OUT[@]}"

@@ -2,12 +2,9 @@
 locals {
   cluster_name = "${local.stack}-tasks"
 
-  # Internally-defined + externally-passed tasks merged into one map.
-  tasks = merge(local.archive_it_tasks, var.tasks)
-
   # Union of all secret ARNs across tasks, for the shared execution role.
   task_secret_arns = distinct(flatten([
-    for t in local.tasks : [for s in t.secrets : s.valueFrom]
+    for t in var.tasks : [for s in t.secrets : s.valueFrom]
   ]))
 
 }
@@ -83,7 +80,7 @@ resource "aws_iam_role" "task_scheduler" {
 }
 
 resource "aws_iam_role_policy" "task_scheduler" {
-  for_each = local.tasks
+  for_each = var.tasks
 
   name = "${local.stack}-${each.key}-task-scheduler"
   role = aws_iam_role.task_scheduler.id
@@ -109,7 +106,7 @@ resource "aws_iam_role_policy" "task_scheduler" {
 }
 
 resource "aws_iam_role" "task" {
-  for_each = local.tasks
+  for_each = var.tasks
   name     = "${local.stack}-${each.key}-task"
 
   assume_role_policy = jsonencode({
@@ -124,7 +121,7 @@ resource "aws_iam_role" "task" {
 
 resource "aws_iam_role_policy" "task" {
   for_each = {
-    for k, v in local.tasks : k => v
+    for k, v in var.tasks : k => v
     if length(v.policy_statements) > 0
   }
 
@@ -138,13 +135,13 @@ resource "aws_iam_role_policy" "task" {
 }
 
 resource "aws_cloudwatch_log_group" "task" {
-  for_each          = local.tasks
+  for_each          = var.tasks
   name              = "/aws/ecs/${local.stack}-${each.key}"
   retention_in_days = 7
 }
 
 resource "aws_ecs_task_definition" "task" {
-  for_each = local.tasks
+  for_each = var.tasks
 
   family                   = "${local.stack}-${each.key}"
   requires_compatibilities = ["FARGATE"]
@@ -178,7 +175,7 @@ resource "aws_ecs_task_definition" "task" {
 }
 
 resource "aws_scheduler_schedule" "task" {
-  for_each = { for k, v in local.tasks : k => v if v.enabled }
+  for_each = { for k, v in var.tasks : k => v if v.enabled }
 
   name       = "${local.stack}-${each.key}"
   group_name = "default"

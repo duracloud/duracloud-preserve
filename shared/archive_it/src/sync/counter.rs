@@ -1,26 +1,25 @@
+use std::fs::File;
+use std::io::{BufReader, Read};
 use std::path::Path;
-use std::process::Command;
 
 use crate::errors::ArchiveItError;
 
-/// Approximate data-row count via `wc -l` (file lines minus header). Used only
-/// for `[N/M]` log prefixes; an embedded newline in a quoted field would
-/// undercount but never affects the rows the CSV reader actually processes
-/// and is very unlikely for this dataset.
+/// Approximate data-row count by counting newline bytes (file lines minus
+/// header). Used only for `[N/M]` log prefixes; an embedded newline in a
+/// quoted field would undercount but never affects the rows the CSV reader
+/// actually processes and is very unlikely for this dataset.
 pub fn count_data_rows(path: &Path) -> Result<usize, ArchiveItError> {
-    let output = Command::new("wc").arg("-l").arg(path).output()?;
-    if !output.status.success() {
-        return Err(ArchiveItError::Io(std::io::Error::other(format!(
-            "wc -l failed: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        ))));
+    let mut reader = BufReader::new(File::open(path)?);
+    let mut buf = [0u8; 8192];
+    let mut newlines: usize = 0;
+    loop {
+        let n = reader.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        newlines += buf[..n].iter().filter(|&&b| b == b'\n').count();
     }
-    let count = String::from_utf8_lossy(&output.stdout)
-        .split_whitespace()
-        .next()
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(0);
-    Ok(count.saturating_sub(1))
+    Ok(newlines.saturating_sub(1))
 }
 
 #[cfg(test)]

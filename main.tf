@@ -53,16 +53,18 @@ locals {
       file   = "checksum-report/bootstrap.zip"
     }
     compute-checksums = {
-      bucket = local.functions_bucket
-      file   = "compute-checksums/bootstrap.zip"
+      bucket   = local.functions_bucket
+      file     = "compute-checksums/bootstrap.zip"
+      schedule = "cron(0 0 1 * ? *)"
     }
     inventory-report = {
       bucket = local.functions_bucket
       file   = "inventory-report/bootstrap.zip"
     }
     storage-report = {
-      bucket = local.functions_bucket
-      file   = "storage-report/bootstrap.zip"
+      bucket   = local.functions_bucket
+      file     = "storage-report/bootstrap.zip"
+      schedule = "cron(0 6 ? * * *)"
     }
     sync-users = {
       bucket = local.functions_bucket

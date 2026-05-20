@@ -1,31 +1,49 @@
 # Downloading Content
-Remember that you will not be able to download content from your replicated buckets (buckets ending in `-repl`). If you need to get content from the replicated buckets, such as because of accidental deletion or corruption, you will need to ask your hosting provider for assistance.
 
-## AWS CLI Option
-Refer to https://docs.aws.amazon.com/cli/latest/userguide/cli-services-s3-commands.html
+You can download content from any bucket you have access to using Cyberduck, SFTPGo, or the AWS CLI.
 
-Download files from bucket
+> [!IMPORTANT]
+> You cannot download content from replication buckets (buckets ending in `-repl`). Those are managed by the system for backup purposes. If you need to recover content from a replication bucket due to accidental deletion or corruption, contact your hosting provider.
+
+## AWS CLI
+
+Download a folder:
 
 ```bash
-aws s3 sync s3://{stackname}-bucket/myfolder ./local-folder
+aws s3 sync s3://duracloud-$ID-mybucket/myfolder ./local-folder
 ```
 
-Download a single file
+Download a single file:
+
 ```bash
-aws s3 cp s3://{stackname}-bucket/myfile.txt .
+aws s3 cp s3://duracloud-$ID-mybucket/myfile.txt .
 ```
+
+Replace `duracloud-$ID-mybucket` with the name of the bucket you are downloading from.
+
+For full AWS CLI documentation, see https://docs.aws.amazon.com/cli/latest/userguide/cli-services-s3-commands.html
 
 ## Cyberduck
-Refer to https://docs.cyberduck.io/cyberduck/download/
-If you right- or control-click on an item or selected group of items to download, you will have the options to:
-- Download — goes to your general preferences folder or the system Downloads folder if not changed
-- Download As — change the type of an individual item
-- Download To — change where the item(s) are saved
+
+1. Connect to S3 (see [Connecting to S3](./connecting-to-s3.md)).
+2. Navigate to the bucket and folder you want to download from.
+3. Select the file(s) or folder(s) you want to download.
+4. Right-click (or Control-click on Mac) and choose a download option:
+   - **Download** — saves to your Downloads folder (or your configured default)
+   - **Download As** — rename the file as you save it
+   - **Download To** — choose a different save location
+
+For full Cyberduck documentation, see https://docs.cyberduck.io/cyberduck/download/
 
 ## SFTPGo
-In order to download content from SFTPGo, navigate to the folder structure you wish to download from and select the folder(s) or item(s) you wish to download. The application will let you download, move, or copy content from a dropdown menu after you've selected content. This option will automatically zip up all selected items. If you just want to download a single item, click directly on its filename. This option will not work if you want to download a folder of content.
 
-![SFTPGo screenshot](images/download_move_copy_delete_sftpgo.png)
+1. Log in to the web interface (see [Connecting to S3](./connecting-to-s3.md)).
+2. Navigate to the folder containing the content you want to download.
+3. Check the box next to the file(s) you want to download.
+4. Click **Actions** and select **Download**. Selected items will be zipped automatically.
+![SFTPGo download screenshot](images/dcp-download.png)
+To download a single file without zipping, click directly on its filename.
 
 > [!Tip]
-> You may be able to view some file types directly in SFTPGo, such as .jpg, .txt, and .pdf files, by clicking on the little eye icon to the right of the filename; the application will use your browser settings.
+> Some file types (such as `.jpg`, `.txt`, and `.pdf`) can be previewed directly in your browser by clicking the eye icon to the right of the filename.
+

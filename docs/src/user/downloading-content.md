@@ -1,5 +1,5 @@
 # Downloading Content
-Remember that you will not be able to download content from your replicated buckets (buckets ending in `-repl`). If you need to get content from the replicated buckets, such as because of accidental deletion or corruption, you will need to ask your hosting provider for assistance.
+Remember that you will not be able to download content from your replicated buckets (buckets ending in `-repl`). If you need to get content from the replicated buckets, in case of accidental deletion or corruption, you will need to ask your hosting provider for assistance.
 
 ## AWS CLI Option
 Refer to https://docs.aws.amazon.com/cli/latest/userguide/cli-services-s3-commands.html

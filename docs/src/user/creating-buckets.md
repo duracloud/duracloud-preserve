@@ -23,7 +23,9 @@ Save the file with any name, for example `bucket-list.txt`.
 - Use only **letters, numbers, and hyphens** (`-`)
 - Names must **not** start or end with a hyphen
 - Names must be short enough that the full bucket name stays under 63 characters — the system prepends `duracloud-$ID` and reserves `-repl` as a suffix
-- To make a bucket **publicly accessible**, end the name with `-public`
+
+> [!Tip]
+> To make objects publicly accessible, upload directly into the `-public` bucket. Sub-folders can be created within the `-public` bucket to align with your desired asset management methods.
 
 The following are reserved and cannot be used in names: `duracloud-`, `-logs`, `-managed`, `-repl`, `-request`
 

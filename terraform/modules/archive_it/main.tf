@@ -6,6 +6,7 @@ locals {
   account_id = data.aws_caller_identity.current.account_id
   region     = data.aws_region.current.region
 
+  # TODO: construct via input vars with defaults?
   password_arn = "arn:aws:ssm:${local.region}:${local.account_id}:parameter/archive-it/password"
   username_arn = "arn:aws:ssm:${local.region}:${local.account_id}:parameter/archive-it/username"
 

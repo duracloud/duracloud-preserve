@@ -92,6 +92,8 @@ module "users" {
 
   sftpgo_enabled = local.sftpgo_enabled
   users          = local.users
+
+  depends_on = [module.stack]
 }
 
 module "archive_it" {

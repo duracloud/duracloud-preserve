@@ -5,12 +5,13 @@ use crate::{config::Config, errors::ChecksumRequestError};
 
 pub const CHECKSUM_TYPE: &str = "crc64nvme";
 const CONCURRENCY: usize = 64;
-const HEADERS: [&str; 6] = [
+const HEADERS: [&str; 7] = [
     "bucket",
     "key",
     "size",
     "content_type",
     "checksum",
+    "checksum_algorithm",
     "status",
 ];
 
@@ -26,6 +27,7 @@ struct ChecksumResult {
     size: String,
     content_type: String,
     checksum: String,
+    checksum_algorithm: &'static str,
     status: &'static str,
 }
 
@@ -71,9 +73,9 @@ pub async fn generate_inventory(
                 }
             };
 
-            let (checksum, status) = match head.checksum_crc64_nvme() {
-                Some(c) => (c.to_string(), STATUS_OK),
-                None => (String::new(), STATUS_MISSING_CHECKSUM),
+            let (checksum, checksum_algorithm, status) = match head.checksum_crc64_nvme() {
+                Some(c) => (c.to_string(), CHECKSUM_TYPE, STATUS_OK),
+                None => (String::new(), "", STATUS_MISSING_CHECKSUM),
             };
 
             let size = head.content_length.unwrap_or(0).to_string();
@@ -85,6 +87,7 @@ pub async fn generate_inventory(
                 size,
                 content_type,
                 checksum,
+                checksum_algorithm,
                 status,
             })
         })
@@ -98,6 +101,7 @@ pub async fn generate_inventory(
                     &row.size,
                     &row.content_type,
                     &row.checksum,
+                    row.checksum_algorithm,
                     row.status,
                 ])?;
                 let skipped = if row.status == STATUS_OK {

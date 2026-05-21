@@ -281,14 +281,17 @@ mod tests {
             match row["key"].as_str() {
                 "good.jpg" => {
                     assert_eq!(row["checksum"], TEST_CHECKSUM);
+                    assert_eq!(row["checksum_algorithm"], "crc64nvme");
                     assert_eq!(row["status"], "ok");
                 }
                 "deleted.jpg" => {
                     assert_eq!(row["checksum"], "");
+                    assert_eq!(row["checksum_algorithm"], "");
                     assert_eq!(row["status"], "not_found");
                 }
                 "no-crc.jpg" => {
                     assert_eq!(row["checksum"], "");
+                    assert_eq!(row["checksum_algorithm"], "");
                     assert_eq!(row["status"], "missing_checksum");
                 }
                 key => panic!("unexpected key: {key}"),

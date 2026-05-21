@@ -6,7 +6,10 @@ terraform.tfstate*
 terraform.tfvars
 *.auto.tfvars
 *.csv
+!files/*.csv
 *.pdf
+*.txt
+!files/*.txt
 tmp_*.json
 payloads
 target

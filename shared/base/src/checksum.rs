@@ -223,7 +223,7 @@ impl ChecksumVerifier {
                 column4 AS error_code,
                 column5 AS http_status_code,
                 column6 AS result_message,
-                json_extract_string(column6, '$.checksum_hex') AS checksum,
+                json_extract_string(column6, '$.checksum_base64') AS checksum,
                 json_extract_string(column6, '$.checksumAlgorithm') AS checksum_algorithm
             FROM read_csv([{from}]);
             "#
@@ -421,6 +421,36 @@ mod tests {
 
     // Tests using CSV fixtures (the fully happy path)
 
+    struct Fixture {
+        source: &'static str,
+        replication: &'static str,
+        sample_key: &'static str,
+        sample_algorithm: &'static str,
+        sample_checksum: &'static str,
+        row_count: i64,
+    }
+
+    fn fixtures() -> [Fixture; 2] {
+        [
+            Fixture {
+                source: "../../files/checksum-source_sha256.csv",
+                replication: "../../files/checksum-replication_sha256.csv",
+                sample_key: "wasteland01elio.pdf",
+                sample_algorithm: "SHA256",
+                sample_checksum: "l2kHKxgAOCnRFlcGDcmNz7XJbVDBl79A60DZLi0teGk=",
+                row_count: 4,
+            },
+            Fixture {
+                source: "../../files/checksum-source_crc64nvme.csv",
+                replication: "../../files/checksum-replication_crc64nvme.csv",
+                sample_key: "ARCHIVEIT-2135-ANNUAL-JOB2682296-SEED1387333-20260329172559707-00000-h3.warc.gz",
+                sample_algorithm: "CRC64NVME",
+                sample_checksum: "Jc59MrAghVY=",
+                row_count: 2,
+            },
+        ]
+    }
+
     #[test]
     fn test_all_match() {
         let verifier = create_test_verifier(
@@ -489,66 +519,61 @@ mod tests {
 
     #[test]
     fn test_load_extracts_algorithm() {
-        let verifier = ChecksumVerifier::load(
-            &["../../files/checksum-source.csv"],
-            &["../../files/checksum-replication.csv"],
-        )
-        .unwrap();
+        for fx in fixtures() {
+            let verifier = ChecksumVerifier::load(&[fx.source], &[fx.replication]).unwrap();
 
-        let algorithm: String = verifier
-            .conn
-            .query_row(
-                "SELECT checksum_algorithm FROM source WHERE key = 'wasteland01elio.pdf'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
+            let algorithm: String = verifier
+                .conn
+                .query_row(
+                    "SELECT checksum_algorithm FROM source WHERE key = ?",
+                    [fx.sample_key],
+                    |row| row.get(0),
+                )
+                .unwrap();
 
-        assert_eq!(algorithm, "SHA256");
+            assert_eq!(algorithm, fx.sample_algorithm, "fixture: {}", fx.source);
+        }
     }
 
     #[test]
     fn test_load_extracts_checksum() {
-        let verifier = ChecksumVerifier::load(
-            &["../../files/checksum-source.csv"],
-            &["../../files/checksum-replication.csv"],
-        )
-        .unwrap();
+        for fx in fixtures() {
+            let verifier = ChecksumVerifier::load(&[fx.source], &[fx.replication]).unwrap();
 
-        let checksum: String = verifier
-            .conn
-            .query_row(
-                "SELECT checksum FROM source WHERE key = 'wasteland01elio.pdf'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
+            let checksum: String = verifier
+                .conn
+                .query_row(
+                    "SELECT checksum FROM source WHERE key = ?",
+                    [fx.sample_key],
+                    |row| row.get(0),
+                )
+                .unwrap();
 
-        assert_eq!(
-            checksum,
-            "9769072B18003829D11657060DC98DCFB5C96D50C197BF40EB40D92E2D2D7869"
-        );
+            assert_eq!(checksum, fx.sample_checksum, "fixture: {}", fx.source);
+        }
     }
 
     #[test]
     fn test_load_valid_csv() {
-        let verifier = ChecksumVerifier::load(
-            &["../../files/checksum-source.csv"],
-            &["../../files/checksum-replication.csv"],
-        )
-        .unwrap();
+        for fx in fixtures() {
+            let verifier = ChecksumVerifier::load(&[fx.source], &[fx.replication]).unwrap();
 
-        let source_count: i64 = verifier
-            .conn
-            .query_row("SELECT COUNT(*) FROM source", [], |row| row.get(0))
-            .unwrap();
-        let replication_count: i64 = verifier
-            .conn
-            .query_row("SELECT COUNT(*) FROM replication", [], |row| row.get(0))
-            .unwrap();
+            let source_count: i64 = verifier
+                .conn
+                .query_row("SELECT COUNT(*) FROM source", [], |row| row.get(0))
+                .unwrap();
+            let replication_count: i64 = verifier
+                .conn
+                .query_row("SELECT COUNT(*) FROM replication", [], |row| row.get(0))
+                .unwrap();
 
-        assert_eq!(source_count, 4);
-        assert_eq!(replication_count, 4);
+            assert_eq!(source_count, fx.row_count, "fixture: {}", fx.source);
+            assert_eq!(
+                replication_count, fx.row_count,
+                "fixture: {}",
+                fx.replication
+            );
+        }
     }
 
     #[test]
@@ -636,24 +661,23 @@ mod tests {
 
     #[test]
     fn test_process_returns_matching_csv_and_stats() {
-        let (csv, stats) = process(
-            &["../../files/checksum-source.csv"],
-            &["../../files/checksum-replication.csv"],
-        )
-        .unwrap();
+        for fx in fixtures() {
+            let (csv, stats) = process(&[fx.source], &[fx.replication]).unwrap();
+            let expected = fx.row_count as usize;
 
-        assert_eq!(stats.total_objects(), 4);
-        assert_eq!(stats.matches, 4);
-        assert_eq!(stats.mismatches, 0);
-        assert_eq!(stats.missing_replica, 0);
-        assert_eq!(stats.missing_source, 0);
-        assert_eq!(stats.failed_source, 0);
-        assert_eq!(stats.failed_replication, 0);
+            assert_eq!(stats.total_objects(), expected, "fixture: {}", fx.source);
+            assert_eq!(stats.matches, expected, "fixture: {}", fx.source);
+            assert_eq!(stats.mismatches, 0, "fixture: {}", fx.source);
+            assert_eq!(stats.missing_replica, 0, "fixture: {}", fx.source);
+            assert_eq!(stats.missing_source, 0, "fixture: {}", fx.source);
+            assert_eq!(stats.failed_source, 0, "fixture: {}", fx.source);
+            assert_eq!(stats.failed_replication, 0, "fixture: {}", fx.source);
 
-        let csv = String::from_utf8(csv).unwrap();
-        let lines: Vec<&str> = csv.lines().collect();
-        assert_eq!(lines.len(), 5);
-        assert!(csv.contains(",ok,"));
+            let csv = String::from_utf8(csv).unwrap();
+            let lines: Vec<&str> = csv.lines().collect();
+            assert_eq!(lines.len(), expected + 1, "fixture: {}", fx.source);
+            assert!(csv.contains(",ok,"), "fixture: {}", fx.source);
+        }
     }
 
     // Tests using in-memory data

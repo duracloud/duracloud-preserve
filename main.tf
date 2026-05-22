@@ -44,6 +44,7 @@ locals {
     bucket-request = {
       bucket = local.functions_bucket
       file   = "bucket-request/bootstrap.zip"
+      env    = { STORAGE_TIER = "INTELLIGENT_TIERING" }
     }
     checksum-report = {
       bucket = local.functions_bucket
@@ -56,7 +57,7 @@ locals {
     compute-checksums = {
       bucket   = local.functions_bucket
       file     = "compute-checksums/bootstrap.zip"
-      schedule = "cron(0 0 1 * ? *)"
+      schedule = "cron(0 8 ? * SUN *)"
     }
     inventory-report = {
       bucket = local.functions_bucket
@@ -65,7 +66,7 @@ locals {
     storage-report = {
       bucket   = local.functions_bucket
       file     = "storage-report/bootstrap.zip"
-      schedule = "cron(0 6 ? * * *)"
+      schedule = "cron(0 8 ? * * *)"
     }
     sync-users = {
       bucket = local.functions_bucket

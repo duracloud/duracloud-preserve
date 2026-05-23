@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use archive_it_client::models::wasapi::WasapiFile;
 use archive_it_client::{DownloadOutcome, Error, WasapiClient};
-use futures::TryStreamExt;
+use futures::StreamExt;
 
 /// Minimum gap between per-file `Progress` log lines. Keeps tracing output
 /// readable for slow WASAPI fetches without going silent for minutes.
@@ -47,9 +47,9 @@ pub async fn sync_one_row(
     let mut counts = RowCounts::default();
     let mut last_progress_log = Instant::now();
 
-    loop {
-        match stream.try_next().await {
-            Ok(Some(DownloadOutcome::Downloaded { file, verified, .. })) => {
+    while let Some(outcome) = stream.next().await {
+        match outcome {
+            DownloadOutcome::Downloaded { file, verified, .. } => {
                 tracing::info!(
                     filename = %file.filename,
                     verified,
@@ -57,14 +57,14 @@ pub async fn sync_one_row(
                 );
                 counts.uploaded += 1;
             }
-            Ok(Some(DownloadOutcome::Skipped { file, .. })) => {
+            DownloadOutcome::Skipped { file, .. } => {
                 tracing::info!(
                     filename = %file.filename,
                     "[{n}/{total}] Skipped (already present in S3)"
                 );
                 counts.skipped += 1;
             }
-            Ok(Some(DownloadOutcome::Failed { file, error })) => {
+            DownloadOutcome::Failed { file, error } => {
                 if matches!(error, Error::NotFound(_)) {
                     tracing::warn!(
                         filename = %file.filename,
@@ -81,11 +81,11 @@ pub async fn sync_one_row(
                     counts.failed += 1;
                 }
             }
-            Ok(Some(DownloadOutcome::Progress {
+            DownloadOutcome::Progress {
                 file,
                 received,
                 total: bytes_total,
-            })) => {
+            } => {
                 if last_progress_log.elapsed() >= PROGRESS_LOG_INTERVAL {
                     let pct = if bytes_total == 0 {
                         100.0
@@ -101,11 +101,9 @@ pub async fn sync_one_row(
                     last_progress_log = Instant::now();
                 }
             }
-            Ok(None) => break,
-            Err(e) => {
-                // Stream-level fault — count once and move to the next row.
+            DownloadOutcome::StreamFailed { error } => {
                 tracing::error!(
-                    error = %e,
+                    error = %error,
                     "[{n}/{total}] Stream error during re-sync"
                 );
                 counts.failed += 1;

@@ -2,6 +2,7 @@ use awsutils::file::{self, File};
 use base::stack::DateCtx;
 
 use crate::config::Config;
+use crate::errors::InventoryManifestError;
 
 #[cfg(feature = "duckdb")]
 use awsutils::inventory::InventoryManifest;
@@ -38,13 +39,18 @@ pub async fn download_parquets(
 }
 
 /// Determine which inventory to use: today's if available, otherwise yesterday's.
-pub async fn get_manifest(config: &Config, target_bucket: &str) -> Result<File, &'static str> {
+pub async fn get_manifest(
+    config: &Config,
+    target_bucket: &str,
+) -> Result<File, InventoryManifestError> {
     for ctx in [DateCtx::Today, DateCtx::Yesterday] {
         let manifest = File::from(config.stack().inventory_manifest_path(target_bucket, ctx));
         println!("Checking for manifest: {}", manifest.s3_url());
-        if file::exists(config.s3(), &manifest).await {
+        if file::exists(config.s3(), &manifest).await? {
             return Ok(manifest);
         }
     }
-    Err("No inventory manifest found for today or yesterday")
+    Err(InventoryManifestError::NotFound {
+        target_bucket: target_bucket.to_string(),
+    })
 }

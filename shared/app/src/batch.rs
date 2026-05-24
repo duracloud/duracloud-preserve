@@ -22,7 +22,10 @@ async fn fetch_manifest(
             .batch_reports_checksum_manifest(bucket, job_id),
     );
 
-    if !file::exists(config.s3(), manifest).await {
+    if !file::exists(config.s3(), manifest)
+        .await
+        .map_err(aws_batch::BatchError::from)?
+    {
         tracing::info!("Manifest not found: {}", manifest.s3_url());
         return Err(BatchStatusError::ManifestNotFound(manifest.s3_url()));
     }

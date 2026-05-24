@@ -24,7 +24,10 @@ pub async fn perform(config: &Config, args: &PerformArgs) -> Result<String, Chec
     let csv_file = &args.csv_file;
     let bucket = bucket::name_from_file(csv_file)?;
 
-    if !file::exists(config.s3(), csv_file).await {
+    if !file::exists(config.s3(), csv_file)
+        .await
+        .map_err(ChecksumRequestError::Download)?
+    {
         tracing::warn!("Inventory report not found: {}", csv_file.s3_url());
         return Err(ChecksumRequestError::InventoryNotFound(csv_file.s3_url()));
     }

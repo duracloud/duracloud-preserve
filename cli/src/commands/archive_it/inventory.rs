@@ -30,7 +30,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let s3 = aws_sdk_s3::Client::new(&sdk_config);
 
     let archive_it_bucket = stack.archive_it_bucket();
-    if !bucket::exists(&s3, &archive_it_bucket).await {
+    if !bucket::exists(&s3, &archive_it_bucket).await? {
         return Err(ArchiveItError::NotFound(format!(
             "Archive-It bucket not found (does this stack have Archive-It enabled?): {archive_it_bucket}"
         ))
@@ -42,7 +42,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let temp_dir = tempfile::tempdir()?;
     let local_csv = temp_dir.path().join("warcs.csv");
 
-    if file::exists(&s3, &inventory_file).await {
+    if file::exists(&s3, &inventory_file).await? {
         tracing::info!(s3_url = %inventory_file.s3_url(), "Downloading existing inventory for resume");
         let bytes = file::download_bytes(&s3, &inventory_file).await?;
         tokio::fs::write(&local_csv, &bytes).await?;

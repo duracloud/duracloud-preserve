@@ -45,7 +45,7 @@ pub(crate) async fn function_handler(
             .metadata_checksums_receipts_path(&job.job_id, DateCtx::Latest),
     );
 
-    if !file::exists(config.s3(), &receipt_file).await {
+    if !file::exists(config.s3(), &receipt_file).await? {
         tracing::info!("Batch job does not belong to this stack");
         return Ok(());
     }

@@ -100,6 +100,14 @@ pub enum FileKeyError {
     MissingExtension(String),
 }
 
+#[derive(Debug, Error)]
+pub enum InventoryManifestError {
+    #[error("no inventory manifest found for {target_bucket} today or yesterday")]
+    NotFound { target_bucket: String },
+    #[error("failed to check inventory manifest: {0}")]
+    Request(#[from] RequestError),
+}
+
 #[cfg(feature = "duckdb")]
 #[derive(Debug, Error)]
 pub enum InventoryReportError {

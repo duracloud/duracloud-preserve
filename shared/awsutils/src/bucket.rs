@@ -1,4 +1,8 @@
-use aws_sdk_s3::Client;
+use aws_sdk_s3::{
+    Client,
+    error::{ProvideErrorMetadata, SdkError},
+    operation::head_bucket::HeadBucketError,
+};
 pub use base::bucket::{Bucket, Type};
 use constants::BUCKET_TAG_TYPE_KEY;
 
@@ -78,8 +82,27 @@ pub async fn empty(client: &Client, bucket: &str) -> Result<(), RequestError> {
 }
 
 /// Check if a bucket exists.
-pub async fn exists(client: &Client, bucket: &str) -> bool {
-    client.head_bucket().bucket(bucket).send().await.is_ok()
+/// Returns `Ok(false)` when the bucket is absent (404/NotFound); other failures
+/// (network, permissions, throttling) surface as `Err`.
+pub async fn exists(client: &Client, bucket: &str) -> Result<bool, RequestError> {
+    match client.head_bucket().bucket(bucket).send().await {
+        Ok(_) => Ok(true),
+        Err(e) if is_missing_bucket(&e) => Ok(false),
+        Err(e) => Err(e).s3_err(format!("failed to head bucket {bucket}")),
+    }
+}
+
+fn is_missing_bucket(e: &SdkError<HeadBucketError>) -> bool {
+    match e {
+        SdkError::ServiceError(service) => {
+            matches!(service.err(), HeadBucketError::NotFound(_))
+                || service
+                    .err()
+                    .code()
+                    .is_some_and(|code| matches!(code, "NotFound" | "NoSuchBucket"))
+        }
+        _ => false,
+    }
 }
 
 /// Fetch bucket from S3 and determine its type from tags.
@@ -134,6 +157,44 @@ pub fn type_from_tags(tags: &[aws_sdk_s3::types::Tag]) -> Option<Type> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_support::TestClientBuilder;
+
+    #[tokio::test]
+    async fn test_exists_returns_true_for_head_success() {
+        let client = TestClientBuilder::new().ok().build();
+
+        assert!(exists(&client, "test-bucket").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_exists_returns_false_for_not_found() {
+        let client = TestClientBuilder::new()
+            .error(404, "NotFound", "not found")
+            .build();
+
+        assert!(!exists(&client, "test-bucket").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_exists_returns_false_for_no_such_bucket() {
+        let client = TestClientBuilder::new()
+            .s3_error("NoSuchBucket", "bucket not found")
+            .build();
+
+        assert!(!exists(&client, "test-bucket").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_exists_errors_for_access_denied() {
+        let client = TestClientBuilder::new()
+            .s3_error("AccessDenied", "forbidden")
+            .build();
+
+        let err = exists(&client, "test-bucket")
+            .await
+            .expect_err("access denied should not be treated as missing");
+        assert!(err.to_string().contains("failed to head bucket"));
+    }
 
     #[test]
     fn test_from_tags() {

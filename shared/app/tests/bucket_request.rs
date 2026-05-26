@@ -42,11 +42,11 @@ async fn test_perform() {
     let args = bucket_request::PerformArgs::new(file.clone());
     bucket_request::perform(&config, &args).await.unwrap();
 
-    assert!(bucket::exists(config.s3(), &primary).await);
-    assert!(bucket::exists(config.s3(), &repl).await);
+    assert!(bucket::exists(config.s3(), &primary).await.unwrap());
+    assert!(bucket::exists(config.s3(), &repl).await.unwrap());
 
     assert!(
-        !file::exists(config.s3(), &file).await,
+        !file::exists(config.s3(), &file).await.unwrap(),
         "request file should be deleted after processing"
     );
 

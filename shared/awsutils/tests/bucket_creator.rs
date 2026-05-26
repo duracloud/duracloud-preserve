@@ -735,14 +735,18 @@ async fn test_rollback_deletes_bucket() {
     creator.create().await.expect("bucket creation failed");
 
     assert!(
-        bucket::exists(&ctx.s3, &bucket_name).await,
+        bucket::exists(&ctx.s3, &bucket_name)
+            .await
+            .expect("exists check failed"),
         "bucket should exist after creation"
     );
 
     creator.rollback().await.expect("rollback failed");
 
     assert!(
-        !bucket::exists(&ctx.s3, &bucket_name).await,
+        !bucket::exists(&ctx.s3, &bucket_name)
+            .await
+            .expect("exists check failed"),
         "bucket should not exist after rollback"
     );
 }

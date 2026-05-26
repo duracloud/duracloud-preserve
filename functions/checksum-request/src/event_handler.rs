@@ -44,7 +44,7 @@ pub(crate) async fn function_handler(
             .reports_manifests_path(bucket, DateCtx::Latest),
     );
 
-    if !file::exists(config.s3(), &report).await {
+    if !file::exists(config.s3(), &report).await? {
         return Err(Error::from(format!(
             "Inventory report not found for bucket: {bucket}"
         )));

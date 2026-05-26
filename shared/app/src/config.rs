@@ -133,7 +133,7 @@ pub async fn load(stack: Stack) -> Result<Config, RequestError> {
     let managed_bucket = stack.managed_bucket();
     let clients = Clients::new(&sdk_config);
 
-    if !bucket::exists(&clients.s3, &managed_bucket).await {
+    if !bucket::exists(&clients.s3, &managed_bucket).await? {
         return Err(RequestError::ConfigError(format!(
             "failed to find managed bucket for stack (does this stack exist?): {}",
             &managed_bucket

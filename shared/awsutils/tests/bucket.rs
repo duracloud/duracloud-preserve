@@ -113,7 +113,9 @@ async fn test_empty_bucket() {
         .expect("cleanup failed");
 
     assert!(
-        !bucket::exists(&ctx.s3, &bucket_name).await,
+        !bucket::exists(&ctx.s3, &bucket_name)
+            .await
+            .expect("exists check failed"),
         "bucket should not exist after deletion"
     );
 }

@@ -19,7 +19,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::from_prefixed_name(&bucket)?;
     let config = config::load(stack.clone()).await?;
 
-    if !bucket::exists(config.s3(), &bucket).await {
+    if !bucket::exists(config.s3(), &bucket).await? {
         return Err("Bucket not found".into());
     }
 

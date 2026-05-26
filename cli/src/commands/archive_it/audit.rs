@@ -59,7 +59,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let s3 = aws_sdk_s3::Client::new(&sdk_config);
 
     let archive_it_bucket = stack.archive_it_bucket();
-    if !bucket::exists(&s3, &archive_it_bucket).await {
+    if !bucket::exists(&s3, &archive_it_bucket).await? {
         return Err(ArchiveItError::NotFound(format!(
             "Archive-It bucket not found (does this stack have Archive-It enabled?): {archive_it_bucket}"
         ))
@@ -67,7 +67,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let inventory_file: File = stack.archive_it_inventory(None).into();
-    if !file::exists(&s3, &inventory_file).await {
+    if !file::exists(&s3, &inventory_file).await? {
         return Err(ArchiveItError::NotFound(format!(
             "Archive-It inventory CSV not found: {}",
             inventory_file.s3_url()

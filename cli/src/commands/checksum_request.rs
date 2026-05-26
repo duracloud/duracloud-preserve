@@ -21,7 +21,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             .reports_manifests_path(&bucket, DateCtx::Latest),
     );
 
-    if !file::exists(config.s3(), &report).await {
+    if !file::exists(config.s3(), &report).await? {
         return Err("Inventory report not found".into());
     }
 

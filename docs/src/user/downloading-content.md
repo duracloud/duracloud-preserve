@@ -33,6 +33,9 @@ For full AWS CLI documentation, see https://docs.aws.amazon.com/cli/latest/userg
    - **Download As** — rename the file as you save it
    - **Download To** — choose a different save location
 
+[!Tip]
+If you're attempting to download from a bucket to which you don't have download rights, such as a replication bucket, you will get a "Bad request. Request error" message or similar.
+
 For full Cyberduck documentation, see https://docs.cyberduck.io/cyberduck/download/
 
 ## SFTPGo

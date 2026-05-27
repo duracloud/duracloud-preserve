@@ -1,3 +1,4 @@
+use aws_smithy_types::error::display::DisplayErrorContext;
 use base::errors::BucketValidationError;
 use thiserror::Error;
 
@@ -77,8 +78,10 @@ pub trait S3ResultExt<T> {
     fn s3_err(self, context: impl Into<String>) -> Result<T, RequestError>;
 }
 
-impl<T, E: std::fmt::Display> S3ResultExt<T> for Result<T, E> {
+impl<T, E: std::error::Error> S3ResultExt<T> for Result<T, E> {
     fn s3_err(self, context: impl Into<String>) -> Result<T, RequestError> {
-        self.map_err(|e| RequestError::S3Error(format!("{}: {e}", context.into())))
+        self.map_err(|e| {
+            RequestError::S3Error(format!("{}: {}", context.into(), DisplayErrorContext(e)))
+        })
     }
 }

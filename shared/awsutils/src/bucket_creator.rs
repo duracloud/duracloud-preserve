@@ -77,14 +77,12 @@ impl<'a> BucketCreator<'a> {
 
     pub async fn create(&self) -> Result<(), RequestError> {
         let region = config::get_region(self.client)?;
-        let constraint = BucketLocationConstraint::from(region.as_str());
 
         let stack = self.stack.as_str();
         let bucket_name = self.bucket.name();
         let bucket_type = self.bucket.bucket_type().to_string();
 
-        let cfg = CreateBucketConfiguration::builder()
-            .location_constraint(constraint)
+        let mut cfg = CreateBucketConfiguration::builder()
             .tags(
                 Tag::builder()
                     .key(BUCKET_TAG_ORIGIN_KEY)
@@ -112,12 +110,18 @@ impl<'a> BucketCreator<'a> {
                     .value(self.storage_tier().as_str())
                     .build()
                     .unwrap(),
-            )
-            .build();
+            );
+
+        // us-east-1 must not receive an explicit LocationConstraint: it is
+        // represented by an absent/empty constraint. Sending "us-east-1" makes
+        // S3 reject the request with InvalidLocationConstraint.
+        if region != "us-east-1" {
+            cfg = cfg.location_constraint(BucketLocationConstraint::from(region.as_str()));
+        }
 
         self.client
             .create_bucket()
-            .create_bucket_configuration(cfg)
+            .create_bucket_configuration(cfg.build())
             .bucket(bucket_name)
             .send()
             .await

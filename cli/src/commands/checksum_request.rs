@@ -22,7 +22,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     );
 
     if !file::exists(config.s3(), &report).await? {
-        return Err("Inventory report not found".into());
+        return Err(format!("Inventory report not found for bucket: {bucket}").into());
     }
 
     let args = checksum_request::PerformArgs::new(report);

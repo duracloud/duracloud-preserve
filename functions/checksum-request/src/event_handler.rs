@@ -2,6 +2,7 @@ use app::{
     bucket,
     config::Config,
     perform::checksum_request::{self, PerformArgs},
+    upload,
 };
 use aws_lambda_events::event::s3::S3Event;
 use awsutils::file::{self, File};
@@ -51,9 +52,14 @@ pub(crate) async fn function_handler(
     }
 
     let args = PerformArgs::new(report);
-    let inventory = checksum_request::perform(config, &args)
-        .await
-        .map_err(|e| Error::from(e.to_string()))?;
+    let inventory = match checksum_request::perform(config, &args).await {
+        Ok(inventory) => inventory,
+        Err(e) => {
+            tracing::error!("Error processing checksum request: {e}");
+            upload::put_feedback(config, trigger.key(), e.to_string()).await;
+            return Err(Error::from(e.to_string()));
+        }
+    };
 
     tracing::info!("Checksum inventory uploaded to: {inventory}");
 

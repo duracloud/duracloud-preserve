@@ -7,4 +7,4 @@ pub mod inventory;
 pub mod perform;
 pub mod reconcile;
 pub mod sftpgo;
-mod upload;
+pub mod upload;

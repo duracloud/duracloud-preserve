@@ -26,7 +26,13 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let args = checksum_request::PerformArgs::new(report);
-    let inventory = checksum_request::perform(&config, &args).await?;
+    let inventory = match checksum_request::perform(&config, &args).await {
+        Ok(inventory) => inventory,
+        Err(e) => {
+            eprintln!("Error processing checksum request: {e}");
+            return Err(e.into());
+        }
+    };
 
     println!("Checksum inventory uploaded to: {inventory}");
 

@@ -69,7 +69,7 @@ pub async fn perform(config: &Config, args: &PerformArgs) -> Result<String, Chec
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{assert_matches, collections::HashMap};
 
     use aws_sdk_s3::primitives::SdkBody;
     use test_support::TestClientBuilder;
@@ -143,8 +143,9 @@ mod tests {
 
         let args = csv_args(&config);
         let result = perform(&config, &args).await;
-        assert!(
-            matches!(result, Err(ChecksumRequestError::InventoryNotFound(_))),
+        assert_matches!(
+            result,
+            Err(ChecksumRequestError::InventoryNotFound(_)),
             "should abort before downloading a missing CSV: {result:?}"
         );
     }
@@ -159,8 +160,9 @@ mod tests {
 
         let args = csv_args(&config);
         let result = perform(&config, &args).await;
-        assert!(
-            matches!(result, Err(ChecksumRequestError::Download(_))),
+        assert_matches!(
+            result,
+            Err(ChecksumRequestError::Download(_)),
             "should abort on CSV download failure after existence check: {result:?}"
         );
     }

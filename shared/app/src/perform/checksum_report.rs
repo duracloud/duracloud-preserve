@@ -89,6 +89,8 @@ pub async fn perform(
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
     use crate::{config as app_config, errors::ChecksumReportError};
     use test_support::TestClientBuilder;
@@ -106,8 +108,9 @@ mod tests {
             .await
             .expect_err("perform should fail when receipt download fails");
 
-        assert!(
-            matches!(err, ChecksumReportError::ReceiptDownload(_)),
+        assert_matches!(
+            err,
+            ChecksumReportError::ReceiptDownload(_),
             "expected ReceiptDownload, got: {err:?}"
         );
     }
@@ -125,8 +128,9 @@ mod tests {
             .await
             .expect_err("perform should fail when receipt is invalid json");
 
-        assert!(
-            matches!(err, ChecksumReportError::ReceiptParse(_)),
+        assert_matches!(
+            err,
+            ChecksumReportError::ReceiptParse(_),
             "expected ReceiptParse, got: {err:?}"
         );
     }

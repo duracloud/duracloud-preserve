@@ -35,6 +35,7 @@ mod tests {
     use constants::{
         EXPIRE_ABORTED_MULTIPART_DAYS, EXPIRE_NONCURRENT_VERSION_DAYS, STORAGE_TRANSITION_DAYS,
     };
+    use std::assert_matches;
     use test_support::TestClientBuilder;
 
     const TEST_STACK: &str = "test-stack";
@@ -335,10 +336,10 @@ mod tests {
             .iter()
             .find(|s| s.name == "replication")
             .expect("replication step should exist for source bucket");
-        assert!(matches!(
+        assert_matches!(
             repl_step.status,
             awsutils::bucket_reconciliator::StepStatus::Error(_)
-        ));
+        );
     }
 
     #[tokio::test]

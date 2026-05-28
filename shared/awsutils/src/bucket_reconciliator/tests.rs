@@ -2,6 +2,8 @@ use crate::bucket_creator::{
     STORAGE_CLASS_PUBLIC_DEFAULT, STORAGE_CLASS_REPLICATION_DEFAULT, STORAGE_CLASS_STANDARD_DEFAULT,
 };
 
+use std::assert_matches;
+
 use super::*;
 
 #[test]
@@ -26,18 +28,18 @@ fn test_default_storage_class() {
 
 #[test]
 fn test_parse_transition_storage_class() {
-    assert!(matches!(
+    assert_matches!(
         config::parse_storage_class("GLACIER_IR"),
         Some(TransitionStorageClass::GlacierIr)
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         config::parse_storage_class("DEEP_ARCHIVE"),
         Some(TransitionStorageClass::DeepArchive)
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         config::parse_storage_class("INTELLIGENT_TIERING"),
         Some(TransitionStorageClass::IntelligentTiering)
-    ));
+    );
     assert!(config::parse_storage_class("not-a-class").is_none());
     assert!(config::parse_storage_class("").is_none());
 }
@@ -60,7 +62,7 @@ async fn test_reconcile_internal_bucket_unsupported() {
     assert!(report.has_errors());
     assert_eq!(report.steps.len(), 1);
     assert_eq!(report.steps[0].name, "setup");
-    assert!(matches!(report.steps[0].status, StepStatus::Error(_)));
+    assert_matches!(report.steps[0].status, StepStatus::Error(_));
 }
 
 #[tokio::test]
@@ -132,7 +134,7 @@ async fn test_reconcile_public_access_blocked() {
         .iter()
         .find(|s| s.name == "public-access")
         .unwrap();
-    assert!(matches!(pab.status, StepStatus::Drift));
+    assert_matches!(pab.status, StepStatus::Drift);
 }
 
 #[tokio::test]
@@ -260,7 +262,7 @@ async fn test_reconcile_public_missing_policy() {
         .iter()
         .find(|s| s.name == "bucket-policy")
         .unwrap();
-    assert!(matches!(policy.status, StepStatus::Drift));
+    assert_matches!(policy.status, StepStatus::Drift);
 }
 
 #[tokio::test]
@@ -577,8 +579,9 @@ async fn test_reconcile_standard_all_ok() {
     assert_eq!(report.bucket_name, bucket_name);
     assert!(!report.has_errors());
     for step in &report.steps {
-        assert!(
-            matches!(step.status, StepStatus::Ok),
+        assert_matches!(
+            step.status,
+            StepStatus::Ok,
             "step '{}' expected Ok, got {:?}",
             step.name,
             step.status,
@@ -645,7 +648,7 @@ async fn test_reconcile_standard_lifecycle_drift_missing_config() {
 
     assert!(report.has_drift());
     let lifecycle = report.steps.iter().find(|s| s.name == "lifecycle").unwrap();
-    assert!(matches!(lifecycle.status, StepStatus::Drift));
+    assert_matches!(lifecycle.status, StepStatus::Drift);
 }
 
 #[tokio::test]
@@ -698,7 +701,7 @@ async fn test_reconcile_standard_logging_wrong_target() {
 
     assert!(report.has_drift());
     let logging = report.steps.iter().find(|s| s.name == "logging").unwrap();
-    assert!(matches!(logging.status, StepStatus::Drift));
+    assert_matches!(logging.status, StepStatus::Drift);
 }
 
 #[tokio::test]
@@ -760,11 +763,11 @@ async fn test_reconcile_standard_missing_tag_inferred_from_lifecycle() {
         .iter()
         .find(|s| s.name == "transition-tag")
         .unwrap();
-    assert!(matches!(tag_step.status, StepStatus::Drift));
+    assert_matches!(tag_step.status, StepStatus::Drift);
 
     // Lifecycle should be Ok (inferred class matches existing rules).
     let lifecycle = report.steps.iter().find(|s| s.name == "lifecycle").unwrap();
-    assert!(matches!(lifecycle.status, StepStatus::Ok));
+    assert_matches!(lifecycle.status, StepStatus::Ok);
 }
 
 #[tokio::test]
@@ -823,11 +826,12 @@ async fn test_reconcile_standard_missing_tag_no_lifecycle_falls_back_to_default(
         .iter()
         .find(|s| s.name == "transition-tag")
         .unwrap();
-    assert!(matches!(tag_step.status, StepStatus::Drift));
+    assert_matches!(tag_step.status, StepStatus::Drift);
 
     let lifecycle = report.steps.iter().find(|s| s.name == "lifecycle").unwrap();
-    assert!(
-        matches!(lifecycle.status, StepStatus::Ok),
+    assert_matches!(
+        lifecycle.status,
+        StepStatus::Ok,
         "lifecycle expected Ok with default class, got {:?}",
         lifecycle.status,
     );
@@ -888,7 +892,7 @@ async fn test_reconcile_standard_no_replication_bucket() {
         .iter()
         .find(|s| s.name == "replication")
         .unwrap();
-    assert!(matches!(repl_step.status, StepStatus::Error(_)));
+    assert_matches!(repl_step.status, StepStatus::Error(_));
 }
 
 #[tokio::test]
@@ -952,7 +956,7 @@ async fn test_reconcile_standard_notifications_missing_eventbridge() {
         .iter()
         .find(|s| s.name == "notifications")
         .unwrap();
-    assert!(matches!(notif.status, StepStatus::Drift));
+    assert_matches!(notif.status, StepStatus::Drift);
 }
 
 #[tokio::test]
@@ -1015,7 +1019,7 @@ async fn test_reconcile_standard_replication_drift_wrong_role() {
         .iter()
         .find(|s| s.name == "replication")
         .unwrap();
-    assert!(matches!(repl_step.status, StepStatus::Drift));
+    assert_matches!(repl_step.status, StepStatus::Drift);
 }
 
 #[tokio::test]
@@ -1077,13 +1081,14 @@ async fn test_reconcile_standard_versioning_suspended() {
         .iter()
         .find(|s| s.name == "versioning")
         .unwrap();
-    assert!(matches!(versioning.status, StepStatus::Drift));
+    assert_matches!(versioning.status, StepStatus::Drift);
 
     // All other steps should be Ok.
     for step in &report.steps {
         if step.name != "versioning" {
-            assert!(
-                matches!(step.status, StepStatus::Ok),
+            assert_matches!(
+                step.status,
+                StepStatus::Ok,
                 "step '{}' expected Ok, got {:?}",
                 step.name,
                 step.status,

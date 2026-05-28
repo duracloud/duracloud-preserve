@@ -479,6 +479,7 @@ pub fn review_request_names(
 mod tests {
     use super::*;
     use constants::{APPLICATION_JSON, MAX_BUCKETS_PER_REQUEST, TEXT_PLAIN};
+    use std::assert_matches;
     use test_support::TestClientBuilder;
 
     fn list_buckets_xml(names: &[&str]) -> String {
@@ -746,7 +747,7 @@ mod tests {
 
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(matches!(err, BucketValidationError::ValidationError(_)));
+        assert_matches!(err, BucketValidationError::ValidationError(_));
         assert!(err.to_string().contains("beta"));
     }
 
@@ -825,7 +826,7 @@ mod tests {
         let result = read_request_names(&client, &file).await;
 
         assert!(result.is_err());
-        assert!(matches!(result, Err(RequestError::InvalidContentType)));
+        assert_matches!(result, Err(RequestError::InvalidContentType));
     }
 
     #[tokio::test]

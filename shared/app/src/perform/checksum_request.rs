@@ -169,13 +169,13 @@ mod tests {
     async fn test_error_status_on_non_404_failure() {
         let csv = inventory_csv(&[("test-bucket", "denied.jpg", "9999")]);
 
-        let sdk_config = TestClientBuilder::new()
+        let (sdk_config, replay) = TestClientBuilder::new()
             .ok()
             .success(SdkBody::from(csv), None)
             .s3_error("AccessDenied", "forbidden")
             .ok()
             .ok()
-            .build_sdk_config();
+            .build_sdk_config_with_replay();
         let config = app_config::Config::for_tests(sdk_config, false);
 
         let args = csv_args(&config);
@@ -183,6 +183,23 @@ mod tests {
         assert!(
             result.is_ok(),
             "perform should not abort on non-404 HEAD error: {result:?}"
+        );
+
+        let requests = test_support::recorded_requests(&replay);
+        let put = requests
+            .iter()
+            .find(|r| r.method == "PUT")
+            .expect("should have a PUT request");
+        let rows = parse_output_csv(&put.body);
+        let row = rows
+            .iter()
+            .find(|r| r["key"] == "denied.jpg")
+            .expect("row for denied.jpg");
+        assert_eq!(row["status"], "error");
+        assert!(
+            row["detail"].contains("AccessDenied"),
+            "detail should surface the underlying error code, got: {:?}",
+            row["detail"]
         );
     }
 

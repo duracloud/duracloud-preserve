@@ -1,3 +1,4 @@
+use aws_smithy_types::error::display::DisplayErrorContext;
 use awsutils::file::{self, File};
 use futures::stream::{self, TryStreamExt};
 
@@ -5,7 +6,7 @@ use crate::{config::Config, errors::ChecksumRequestError};
 
 pub const CHECKSUM_TYPE: &str = "crc64nvme";
 const CONCURRENCY: usize = 64;
-const HEADERS: [&str; 7] = [
+const HEADERS: [&str; 8] = [
     "bucket",
     "key",
     "size",
@@ -13,6 +14,7 @@ const HEADERS: [&str; 7] = [
     "checksum",
     "checksum_algorithm",
     "status",
+    "detail",
 ];
 
 const STATUS_OK: &str = "ok";
@@ -29,6 +31,7 @@ struct ChecksumResult {
     checksum: String,
     checksum_algorithm: &'static str,
     status: &'static str,
+    detail: String,
 }
 
 pub struct InventoryRow {
@@ -52,22 +55,28 @@ pub async fn generate_inventory(
                 Err(err) => {
                     let is_not_found = err.as_service_error().is_some_and(|e| e.is_not_found());
 
-                    let status = if is_not_found {
-                        STATUS_NOT_FOUND
-                    } else {
-                        tracing::warn!(
-                            bucket = row.bucket,
-                            key = row.key,
-                            %err,
-                            "Head request failed",
-                        );
-                        STATUS_ERROR
-                    };
+                    if is_not_found {
+                        return Ok::<_, ChecksumRequestError>(ChecksumResult {
+                            bucket: row.bucket,
+                            key: row.key,
+                            status: STATUS_NOT_FOUND,
+                            ..Default::default()
+                        });
+                    }
+
+                    let detail = DisplayErrorContext(err).to_string();
+                    tracing::warn!(
+                        bucket = row.bucket,
+                        key = row.key,
+                        %detail,
+                        "Head request failed",
+                    );
 
                     return Ok::<_, ChecksumRequestError>(ChecksumResult {
                         bucket: row.bucket,
                         key: row.key,
-                        status,
+                        status: STATUS_ERROR,
+                        detail,
                         ..Default::default()
                     });
                 }
@@ -89,6 +98,7 @@ pub async fn generate_inventory(
                 checksum,
                 checksum_algorithm,
                 status,
+                detail: String::new(),
             })
         })
         .try_buffer_unordered(CONCURRENCY)
@@ -103,6 +113,7 @@ pub async fn generate_inventory(
                     &row.checksum,
                     row.checksum_algorithm,
                     row.status,
+                    &row.detail,
                 ])?;
                 let skipped = if row.status == STATUS_OK {
                     skipped

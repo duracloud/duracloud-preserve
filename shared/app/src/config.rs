@@ -1,4 +1,4 @@
-use aws_config::{Region, SdkConfig};
+use aws_config::{Region, SdkConfig, retry::RetryConfig};
 use base::Stack;
 
 use awsutils::{
@@ -27,11 +27,16 @@ impl Clients {
             .region(Region::new(COST_EXPLORER_REGION))
             .build();
 
+        let s3_config = sdk_config
+            .to_builder()
+            .retry_config(RetryConfig::adaptive().with_max_attempts(5))
+            .build();
+
         Self {
             account: aws_sdk_account::Client::new(sdk_config),
             cost_explorer: aws_sdk_costexplorer::Client::new(&cost_explorer_config),
             iam: aws_sdk_iam::Client::new(sdk_config),
-            s3: aws_sdk_s3::Client::new(sdk_config),
+            s3: aws_sdk_s3::Client::new(&s3_config),
             s3control: aws_sdk_s3control::Client::new(sdk_config),
             ssm: aws_sdk_ssm::Client::new(sdk_config),
             sts: aws_sdk_sts::Client::new(sdk_config),

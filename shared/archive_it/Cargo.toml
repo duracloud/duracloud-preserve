@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-archive-it-client = "0.2.0"
+archive-it-client = "0.3.0"
 aws-sdk-s3.workspace = true
 aws-smithy-types.workspace = true
 awsutils.workspace = true

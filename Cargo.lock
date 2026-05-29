@@ -111,19 +111,18 @@ dependencies = [
 
 [[package]]
 name = "archive-it-client"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce518eea6eb6eb05173fbaeaed9445e56d1716f210a32fdcf561463209c40dc1"
+checksum = "f8ba94b38d6549db76489afc5fc5da7da9498c6bc2e7621594b99441d86764d3"
 dependencies = [
  "async-stream",
  "aws-sdk-s3",
- "bytes",
  "futures-core",
  "futures-util",
+ "http-ferry",
  "reqwest",
  "serde",
  "serde_json",
- "sha1 0.11.0",
  "thiserror",
  "tokio",
  "url",
@@ -2328,6 +2327,24 @@ dependencies = [
  "http 1.4.0",
  "http-body 1.0.1",
  "pin-project-lite",
+]
+
+[[package]]
+name = "http-ferry"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "868b7884ababc6b659cbe4a01c68cc7d4a51242756821feb05efbdcb07b8c582"
+dependencies = [
+ "async-stream",
+ "aws-sdk-s3",
+ "futures-core",
+ "futures-util",
+ "md-5",
+ "reqwest",
+ "sha1 0.11.0",
+ "thiserror",
+ "tokio",
+ "url",
 ]
 
 [[package]]

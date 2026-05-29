@@ -1,8 +1,9 @@
 use std::pin::pin;
 use std::time::{Duration, Instant};
 
+use archive_it_client::http_ferry::Error;
 use archive_it_client::models::wasapi::WasapiFile;
-use archive_it_client::{DownloadOutcome, Error, WasapiClient};
+use archive_it_client::{DownloadOutcome, WasapiClient};
 use futures::StreamExt;
 
 /// Minimum gap between per-file `Progress` log lines. Keeps tracing output

@@ -139,13 +139,15 @@ small person icon in the upper-right corner of the screen.
 
 ![Change password screen](images/dcp-change-password.png)
 
+Note: SFTPGo login sessions are set for 2 hours.
+
 Upon login you will see three folders already created for you:
 
 - `managed`
 - `public`
 - `request`
 
-You may:
+From this web-based interface, you may:
 
 - Create new buckets by uploading a request file (see [Creating Buckets](./creating-buckets.md))
 - Upload content buckets (creating subfolder structures as needed)

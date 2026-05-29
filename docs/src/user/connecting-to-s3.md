@@ -23,7 +23,7 @@ But there are many others and you are free to use any S3 compatible client that 
 
 After connecting to your S3 account via your preferred method, you will
 see the folders already created for your account using your
-`duracloud-$ID`, including:
+`dcp-$ID`, including:
 
 - `-managed`
 - `-public` (default bucket for files that can be accessed publicly through CloudFront)
@@ -104,7 +104,7 @@ output = json
 Cyberduck documentation for setting up new connections:\
 <https://docs.cyberduck.io/cyberduck/connection/>
 
-### Step-by-step Instructions
+### Step-by-step Instructions for DuraCloud Preserve
 
 1. File → Open Connection\
 2. Change dropdown menu to **Amazon S3**
@@ -150,7 +150,7 @@ Upon login you will see three folders already created for you:
 From this web-based interface, you may:
 
 - Create new buckets by uploading a request file (see [Creating Buckets](./creating-buckets.md))
-- Upload content buckets (creating subfolder structures as needed)
+- Upload content buckets, creating subfolder structures as needed
 - Download content from buckets
 - Download reports and other hosted content from the `managed` bucket
 

@@ -7,7 +7,8 @@ This is a brief overview of the functionality that is explained more thoroughly 
 Users can be standard or power users by assignment to a stack created IAM group.
 
 * Standard users can list and upload files but cannot download or delete them.
-* Power users can do all of the above.
+* Restrited users can list and upload files within designated buckets and cannot download or delete them.
+* Power users can list, upload, download, and delete files.
 
 Only AWS account administrators can access replicated buckets and objects.
 

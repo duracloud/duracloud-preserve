@@ -48,5 +48,5 @@ For full Cyberduck documentation, see https://docs.cyberduck.io/cyberduck/downlo
 To download a single file without zipping, click directly on its filename.
 
 > [!Tip]
-> Some file types (such as `.jpg`, `.txt`, and `.pdf`) can be previewed directly in your browser by clicking the eye icon to the right of the filename.
+> Some file types (such as `.jpg`, `.txt`, and `.pdf`) may be viewable directly in your browser by clicking the eye icon to the right of the filename. If there is no eye icon, the item can only be downloaded.
 

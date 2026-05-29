@@ -4,7 +4,20 @@ There are two ways to make content public.
 
 ## Pre-created public bucket (recommended)
 
-Each stack includes a pre-created `-public` bucket that is served through a CloudFront distribution with a friendly domain. This is the recommended way to make content publicly accessible. Your administrator will provide the public domain URL.
+Each stack includes a pre-created `-public` bucket that is served through a CloudFront distribution with a friendly domain. This is the recommended way to make content publicly accessible. 
+
+Your administrator will provide the public domain URL, but you can also construct what a public link from this bucket will look like based on this pattern:
+
+```text
+https://{$ID}.preserve.duracloud.org/{FOLDER STRUCTURE}{FILENAME}
+```
+
+If you have spaces in any of your folder or filenames, replace those with a `+` sign when forming a URL. The region information is also optional.
+
+So, for example, a .jpg image found in the `test` account's public bucket → photographs → Cats folder structure would look like:
+
+https://test.preserve.duracloud.org/photographs/Cats/callie_and_friend.jpg
+
 
 ### Cyberduck
 
@@ -24,15 +37,15 @@ aws s3 cp myfile.jpg s3://duracloud-$ID-public/myfolder/myfile.jpg
 
 You can also make content publicly available by designating a bucket as `-public` - See [How to Create Buckets](creating-buckets.md).
 
-You can construct what a public link will look like based on this pattern:
+You can construct what a public link will look like in this scenario based on this pattern:
 
-```text
+```bash
 https://{BUCKET_NAME}.s3.{REGION}.amazonaws.com/{PREFIX}/{FILE}
 ```
 
-If you have spaces in any of your folder or filenames, replace those with a `+` sign when forming a URL. The region information is also optional.
+If you have spaces in any of your folder or filenames, replace those with a + sign when forming a URL. The region information is also optional.
 
-So, for example, an image found in the `lyrasis` account's bucket public → test-01 → catpics folder structure would look like:
+So, for example, an image found in the lyrasis account’s bucket public → test-01 → catpics folder structure would look like:
 
 https://duracloud-lyrasis-public.s3.us-west-2.amazonaws.com/test-01/catpics/callie_and_friend.jpg
 

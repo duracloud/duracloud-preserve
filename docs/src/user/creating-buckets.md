@@ -68,7 +68,7 @@ aws s3 cp bucket-list.txt s3://dcp-$ID-request/buckets/bucket-list.txt
 Processing normally takes **0–2 minutes**. For each name in your file, two buckets are created:
 
 - `duracloud-$ID-<name>` — your active bucket
-- `duracloud-$ID-<name>-repl` — a Glacier Deep Archive replication bucket (list-only)
+- `duracloud-$ID-<name>-repl` — a Glacier Deep Archive replication bucket (list-only; **you will not have access to add or download content from this replicated bucket**)
 
 A results file is uploaded to the `feedback` folder in your `-managed` bucket. Check it to confirm all buckets were created successfully, then refresh your client or reconnect to see them.
 

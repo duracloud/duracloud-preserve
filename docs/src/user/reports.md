@@ -69,6 +69,7 @@ Open the `.html` file in your browser to view:
 - **Aggregated totals** — storage usage across all buckets
 - **Per bucket totals** — usage broken down by individual bucket
 - **Per bucket / per prefix totals** — usage by folder within each bucket
+- **Data Transfer Out** - how much data has been transferred out (or downloaded) from your account
 
 ## Accessing reports
 

@@ -28,6 +28,9 @@ use crate::errors::RequestError;
 const CHECKSUM_ALGORITHM: ComputeObjectChecksumAlgorithm =
     ComputeObjectChecksumAlgorithm::Crc64Nvme;
 
+/// S3 Batch failure code when generated manifest produces no entries.
+const EMPTY_MANIFEST_CODE: &str = "InvalidManifestContent";
+
 pub struct BatchConfig<'a> {
     pub client: &'a s3control::Client,
     pub account_id: &'a str,
@@ -118,6 +121,15 @@ pub struct S3BatchJobStatusChange {
     pub status: String,
     pub failure_codes: Vec<String>,
     pub status_change_reason: Vec<String>,
+}
+
+impl S3BatchJobStatusChange {
+    /// True when the job failed only because manifest generation matched no
+    /// objects in the source bucket. This is not an error worth alarming or retrying on.
+    pub fn is_empty_manifest(&self) -> bool {
+        self.status.eq_ignore_ascii_case("failed")
+            && self.failure_codes.iter().any(|c| c == EMPTY_MANIFEST_CODE)
+    }
 }
 
 pub async fn create_checksum_job(

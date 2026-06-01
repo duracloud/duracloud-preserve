@@ -1,0 +1,31 @@
+{
+  "version": "0",
+  "id": "d9802bcf-3bf9-d865-1546-ge97ace36344",
+  "detail-type": "AWS Service Event via CloudTrail",
+  "source": "aws.s3",
+  "account": "123456789012",
+  "time": "2026-01-24T15:26:42Z",
+  "region": "us-east-1",
+  "resources": [],
+  "detail": {
+    "eventVersion": "1.08",
+    "eventSource": "s3.amazonaws.com",
+    "eventName": "JobStatusChanged",
+    "awsRegion": "us-east-1",
+    "sourceIPAddress": "s3.amazonaws.com",
+    "userAgent": "s3.amazonaws.com",
+    "eventID": "b2c3d4e5-6789-01bc-defg-example22222",
+    "readOnly": false,
+    "eventType": "AwsServiceEvent",
+    "managementEvent": true,
+    "recipientAccountId": "123456789012",
+    "serviceEventDetails": {
+      "jobId": "f950c678-6343-55cf-0b1d-51099g25f91d",
+      "jobArn": "arn:aws:s3:us-east-1:123456789012:job/f950c678-6343-55cf-0b1d-51099g25f91d",
+      "status": "Failed",
+      "jobEventId": "62g6bd28eca519412e67de2c9d2f0f0f",
+      "failureCodes": ["InvalidManifestContent"],
+      "statusChangeReason": ["Manifest generation found no keys matching the filter criteria."]
+    }
+  }
+}

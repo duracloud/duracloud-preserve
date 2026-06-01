@@ -21,6 +21,15 @@ pub(crate) async fn function_handler(
     let job = &detail.service_event_details;
     let status = job.status.as_str();
 
+    if job.is_empty_manifest() {
+        tracing::info!(
+            job_id = %job.job_id,
+            status_change_reason = ?job.status_change_reason,
+            "Batch job source bucket is empty; nothing to report",
+        );
+        return Ok(());
+    }
+
     if status.eq_ignore_ascii_case("failed") {
         tracing::error!(
             job_id = %job.job_id,
@@ -90,6 +99,23 @@ mod tests {
         let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, true);
         function_handler(&config, event).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_event_handler_empty_manifest_is_noop() {
+        let json = include_str!("../events/empty-manifest.json");
+        let cw_event: CloudWatchEvent<S3BatchJobDetail> =
+            serde_json::from_str(json).expect("failed to parse json");
+        let detail = cw_event.detail.as_ref().expect("detail required");
+        assert_eq!(detail.service_event_details.status, "Failed");
+        assert!(detail.service_event_details.is_empty_manifest());
+
+        let event = LambdaEvent::new(cw_event, Context::default());
+        let sdk_config = TestClientBuilder::new().ok().build_sdk_config();
+        let config = app_config::Config::for_tests(sdk_config, true);
+        function_handler(&config, event)
+            .await
+            .expect("empty-manifest failure should be treated as a no-op");
     }
 
     #[tokio::test]

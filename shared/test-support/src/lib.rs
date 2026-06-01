@@ -273,6 +273,26 @@ pub fn replay_xml_event(status: u16, body: impl Into<String>) -> ReplayEvent {
     )
 }
 
+/// Build an s3control `DescribeJob` XML response body for tests.
+///
+/// Pass `failure_code` to include a single `FailureReasons` entry -- e.g.
+/// `Some("InvalidManifestContent")` to simulate a job that failed only because
+/// its generated manifest matched no objects.
+pub fn describe_job_xml(job_id: &str, status: &str, failure_code: Option<&str>) -> String {
+    let failure_reasons = failure_code
+        .map(|code| {
+            format!(
+                "<FailureReasons><member><FailureCode>{code}</FailureCode>\
+                 <FailureReason>test failure</FailureReason></member></FailureReasons>"
+            )
+        })
+        .unwrap_or_default();
+
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?><DescribeJobResult><Job><JobId>{job_id}</JobId><Status>{status}</Status>{failure_reasons}</Job></DescribeJobResult>"#
+    )
+}
+
 /// Return current unix timestamp in seconds.
 pub fn unix_timestamp_secs() -> u64 {
     std::time::SystemTime::now()

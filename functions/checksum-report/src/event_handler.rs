@@ -21,16 +21,7 @@ pub(crate) async fn function_handler(
     let job = &detail.service_event_details;
     let status = job.status.as_str();
 
-    if job.is_empty_manifest() {
-        tracing::info!(
-            job_id = %job.job_id,
-            status_change_reason = ?job.status_change_reason,
-            "Batch job source bucket is empty; nothing to report",
-        );
-        return Ok(());
-    }
-
-    if status.eq_ignore_ascii_case("failed") {
+    if status.eq_ignore_ascii_case("failed") && !job.is_empty_manifest() {
         tracing::error!(
             job_id = %job.job_id,
             job_arn = %job.job_arn,
@@ -41,7 +32,7 @@ pub(crate) async fn function_handler(
         return Err(std::io::Error::other(format!("Batch job {} failed", job.job_id)).into());
     }
 
-    tracing::info!(job_id = %job.job_id, "Batch job was completed successfully");
+    tracing::info!(job_id = %job.job_id, status = %status, "Resolving checksum report for batch job");
 
     if config.debug_handler() {
         tracing::info!("Debug handler mode enabled, skipping perform function.");

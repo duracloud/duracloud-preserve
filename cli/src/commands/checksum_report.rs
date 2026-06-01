@@ -23,6 +23,11 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
 
     let args = checksum_report::PerformArgs::new(file);
     let stats = checksum_report::perform(&config, &args).await?;
+
+    if stats.total_objects() == 0 {
+        return Ok(());
+    }
+
     println!("Checksum report complete:");
     println!("\tTotal objects:      {}", stats.total_objects());
     println!("\tMatches:            {}", stats.matches);

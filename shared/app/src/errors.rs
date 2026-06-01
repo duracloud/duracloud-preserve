@@ -6,6 +6,8 @@ use thiserror::Error;
 pub enum BatchStatusError {
     #[error("{0}")]
     Batch(#[from] BatchError),
+    #[error("replication bucket '{0}' is empty but its source bucket has objects")]
+    EmptyReplication(String),
     #[error("Batch job failed: {0}")]
     JobFailed(String),
     #[error("Job matching id not found: {0}")]

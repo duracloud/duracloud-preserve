@@ -29,7 +29,7 @@ const CHECKSUM_ALGORITHM: ComputeObjectChecksumAlgorithm =
     ComputeObjectChecksumAlgorithm::Crc64Nvme;
 
 /// S3 Batch failure code when generated manifest produces no entries.
-const EMPTY_MANIFEST_CODE: &str = "InvalidManifestContent";
+pub const EMPTY_MANIFEST_CODE: &str = "InvalidManifestContent";
 
 pub struct BatchConfig<'a> {
     pub client: &'a s3control::Client,

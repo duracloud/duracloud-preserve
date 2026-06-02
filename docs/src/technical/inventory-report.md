@@ -42,16 +42,16 @@ To stage a full remote test:
 
 When run successfully there should be four generated files:
 
-- `metadata/latest/manifests/stats/$bucket.csv`
+- `metadata/0000-00-00-LATEST/manifests/stats/$bucket.csv`
 - `metadata/YYYY-MM-DD/manifests/stats/$bucket.csv`
-- `reports/latest/manifests/$bucket.csv`
+- `reports/0000-00-00-LATEST/manifests/$bucket.csv`
 - `reports/YYYY-MM-DD/manifests/$bucket.csv`
 
 To access the latest report you can do:
 
 ```bash
 aws s3 cp \
-    s3://digipres-dev1-managed/reports/latest/manifests/digipres-dev1-private.csv \
+    s3://digipres-dev1-managed/reports/0000-00-00-LATEST/manifests/digipres-dev1-private.csv \
     . \
     --profile default
 ```

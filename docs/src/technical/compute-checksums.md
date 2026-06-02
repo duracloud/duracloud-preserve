@@ -61,9 +61,9 @@ make trigger f=compute-checksums s=digipres-dev1 p=default
 
 For each bucket pair processed, a job receipt is uploaded to:
 
-- `metadata/latest/checksums/receipts/{source_job_id}.json`
-- `metadata/latest/checksums/receipts/{repl_job_id}.json`
-- `metadata/latest/checksums/receipts/{source_bucket_name}.json`
+- `metadata/0000-00-00-LATEST/checksums/receipts/{source_job_id}.json`
+- `metadata/0000-00-00-LATEST/checksums/receipts/{repl_job_id}.json`
+- `metadata/0000-00-00-LATEST/checksums/receipts/{source_bucket_name}.json`
 - `metadata/{date}/checksums/receipts/{source_bucket_name}.json`
 
 **Purpose:** The receipt is uploaded multiple times for different discovery paths:

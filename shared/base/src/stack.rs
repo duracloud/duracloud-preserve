@@ -12,7 +12,7 @@ impl std::fmt::Display for DateCtx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use chrono::Utc;
         match self {
-            DateCtx::Latest => write!(f, "latest"),
+            DateCtx::Latest => write!(f, "0000-00-00-LATEST"),
             DateCtx::Today => write!(f, "{}", Utc::now().format("%Y-%m-%d")),
             DateCtx::Yesterday => {
                 write!(
@@ -332,7 +332,7 @@ mod tests {
     fn test_archive_it_inventory_dated() {
         let stack = Stack::new("test-stack").unwrap();
         let mf = stack.archive_it_inventory(Some(DateCtx::Latest));
-        assert_eq!(mf.key(), "archive-it/latest/warcs.csv");
+        assert_eq!(mf.key(), "archive-it/0000-00-00-LATEST/warcs.csv");
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
@@ -348,7 +348,7 @@ mod tests {
     fn test_archive_it_sync_dated() {
         let stack = Stack::new("test-stack").unwrap();
         let mf = stack.archive_it_sync(Some(DateCtx::Latest));
-        assert_eq!(mf.key(), "archive-it/latest/warcs_sync.csv");
+        assert_eq!(mf.key(), "archive-it/0000-00-00-LATEST/warcs_sync.csv");
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
@@ -413,7 +413,7 @@ mod tests {
         let mf = stack.inventory_manifest_path("my-bucket", DateCtx::Latest);
         assert_eq!(
             mf.key(),
-            "manifests/my-bucket/inventory/latestT01-00Z/manifest.json"
+            "manifests/my-bucket/inventory/0000-00-00-LATESTT01-00Z/manifest.json"
         );
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
@@ -438,7 +438,7 @@ mod tests {
         let mf = stack.metadata_checksums_receipts_path("my-bucket", DateCtx::Latest);
         assert_eq!(
             mf.key(),
-            "metadata/latest/checksums/receipts/my-bucket.json"
+            "metadata/0000-00-00-LATEST/checksums/receipts/my-bucket.json"
         );
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
@@ -447,7 +447,10 @@ mod tests {
     fn test_metadata_checksums_stats_path() {
         let stack = Stack::new("test-stack").unwrap();
         let mf = stack.metadata_checksums_stats_path("my-bucket", DateCtx::Latest);
-        assert_eq!(mf.key(), "metadata/latest/checksums/stats/my-bucket.json");
+        assert_eq!(
+            mf.key(),
+            "metadata/0000-00-00-LATEST/checksums/stats/my-bucket.json"
+        );
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
@@ -455,7 +458,10 @@ mod tests {
     fn test_metadata_manifests_stats_path() {
         let stack = Stack::new("test-stack").unwrap();
         let mf = stack.metadata_manifests_stats_path("my-bucket", DateCtx::Latest);
-        assert_eq!(mf.key(), "metadata/latest/manifests/stats/my-bucket.json");
+        assert_eq!(
+            mf.key(),
+            "metadata/0000-00-00-LATEST/manifests/stats/my-bucket.json"
+        );
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
@@ -463,7 +469,10 @@ mod tests {
     fn test_metadata_storage_stats_path() {
         let stack = Stack::new("test-stack").unwrap();
         let mf = stack.metadata_storage_stats_path(DateCtx::Latest);
-        assert_eq!(mf.key(), "metadata/latest/storage/stats/test-stack.json");
+        assert_eq!(
+            mf.key(),
+            "metadata/0000-00-00-LATEST/storage/stats/test-stack.json"
+        );
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
@@ -489,7 +498,10 @@ mod tests {
     fn test_reports_checksums_path() {
         let stack = Stack::new("test-stack").unwrap();
         let mf = stack.reports_checksums_path("my-bucket", DateCtx::Latest);
-        assert_eq!(mf.key(), "reports/latest/checksums/my-bucket.csv");
+        assert_eq!(
+            mf.key(),
+            "reports/0000-00-00-LATEST/checksums/my-bucket.csv"
+        );
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
@@ -497,7 +509,10 @@ mod tests {
     fn test_reports_manifests_path() {
         let stack = Stack::new("test-stack").unwrap();
         let mf = stack.reports_manifests_path("my-bucket", DateCtx::Latest);
-        assert_eq!(mf.key(), "reports/latest/manifests/my-bucket.csv");
+        assert_eq!(
+            mf.key(),
+            "reports/0000-00-00-LATEST/manifests/my-bucket.csv"
+        );
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
 
@@ -505,7 +520,10 @@ mod tests {
     fn test_reports_storage_path() {
         let stack = Stack::new("test-stack").unwrap();
         let mf = stack.reports_storage_path(DateCtx::Latest);
-        assert_eq!(mf.key(), "reports/latest/storage/test-stack.html");
+        assert_eq!(
+            mf.key(),
+            "reports/0000-00-00-LATEST/storage/test-stack.html"
+        );
         assert_eq!(mf.bucket(), "test-stack-managed");
     }
 

@@ -38,8 +38,8 @@ pub async fn put_feedback(config: &Config, key: &str, message: String) {
     }
 }
 
-/// Upload content to dated contextualized paths and to
-/// "latest" (the version) which is updated each time.
+/// Upload content to dated contextualized paths and to the
+/// `0000-00-00-LATEST` sentinel path (the version) which is updated each time.
 pub async fn put_versioned_bytes<E>(
     config: &Config,
     date_ctx: DateCtx,

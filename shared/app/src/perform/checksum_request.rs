@@ -83,7 +83,7 @@ mod tests {
     fn csv_file(config: &Config) -> File {
         File::new(
             config.stack().managed_bucket(),
-            "reports/latest/manifests/test-stack-private.csv",
+            "reports/0000-00-00-LATEST/manifests/test-stack-private.csv",
         )
     }
 
@@ -124,13 +124,19 @@ mod tests {
 
     #[tokio::test]
     async fn test_bucket_from_file() {
-        let file = File::new("managed", "reports/latest/manifests/my-bucket.csv");
+        let file = File::new(
+            "managed",
+            "reports/0000-00-00-LATEST/manifests/my-bucket.csv",
+        );
         assert_eq!(bucket::name_from_file(&file).unwrap(), "my-bucket");
     }
 
     #[tokio::test]
     async fn test_bucket_from_file_invalid() {
-        let file = File::new("managed", "reports/latest/manifests/no-extension");
+        let file = File::new(
+            "managed",
+            "reports/0000-00-00-LATEST/manifests/no-extension",
+        );
         assert!(bucket::name_from_file(&file).is_err());
     }
 

@@ -54,14 +54,14 @@ When successful, four files are generated:
 
 ### Statistics (JSON format)
 
-- `metadata/latest/storage/stats/{stack}.json` — Latest version
+- `metadata/0000-00-00-LATEST/storage/stats/{stack}.json` — Latest version
 - `metadata/YYYY-MM-DD/storage/stats/{stack}.json` — Date-stamped archive
 
 Contains raw storage metrics for programmatic access.
 
 ### Report (HTML format)
 
-- `reports/latest/storage/{stack}.html` — Latest version
+- `reports/0000-00-00-LATEST/storage/{stack}.html` — Latest version
 - `reports/YYYY-MM-DD/storage/{stack}.html` — Date-stamped archive
 
 Interactive HTML report with Chart.js visualizations for viewing in a browser.

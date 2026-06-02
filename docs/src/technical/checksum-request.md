@@ -14,7 +14,7 @@ The trigger file's name (minus the extension) identifies which bucket's inventor
 1. A `.txt` file named `<bucket>.txt` is uploaded to `s3://${stack}-request/checksums/`
 2. The Lambda function is triggered by the upload event
 3. The bucket name is parsed from the trigger filename
-4. The function checks for a matching inventory manifest at `s3://${stack}-managed/reports/latest/manifests/<bucket>.csv`
+4. The function checks for a matching inventory manifest at `s3://${stack}-managed/reports/0000-00-00-LATEST/manifests/<bucket>.csv`
 5. If found, the inventory is processed and the checksum CSV is uploaded to the managed bucket
 6. The trigger file is deleted on success — re-upload to re-trigger
 
@@ -55,14 +55,14 @@ make upload b=digipres-dev1-request d=checksums f=files/digipres-dev1-private.tx
 
 A successful run writes two files to the managed bucket:
 
-- `reports/latest/checksums/<bucket>_checksum-inventory.csv`
+- `reports/0000-00-00-LATEST/checksums/<bucket>_checksum-inventory.csv`
 - `reports/YYYY-MM-DD/checksums/<bucket>_checksum-inventory.csv`
 
 To download the latest report:
 
 ```bash
 aws s3 cp \
-    s3://digipres-dev1-managed/reports/latest/checksums/digipres-dev1-private_checksum-inventory.csv \
+    s3://digipres-dev1-managed/reports/0000-00-00-LATEST/checksums/digipres-dev1-private_checksum-inventory.csv \
     . \
     --profile default
 ```

@@ -22,7 +22,7 @@ Save the file with any name, for example `bucket-list.txt`.
 - **Do not include your stack name** — it is added automatically as a prefix
 - Use only **letters, numbers, and hyphens** (`-`)
 - Names must **not** start or end with a hyphen
-- Names must be short enough that the full bucket name stays under 63 characters — the system prepends `duracloud-$ID` and reserves `-repl` as a suffix
+- Names must be short enough that the full bucket name stays under 63 characters — the system prepends `dcp-$ID` and reserves `-repl` as a suffix
 
 > [!Tip]
 > To make objects publicly accessible, upload directly into the `-public` bucket. Sub-folders can be created within the `-public` bucket to align with your desired asset management methods.
@@ -31,17 +31,17 @@ The following are reserved and cannot be used in names: `duracloud-`, `-logs`, `
 
 ## Step 2: Upload the file
 
-Upload your `.txt` file to the `buckets` folder inside your `duracloud-$ID-request` bucket. If the `buckets` folder does not exist, create it first — the folder **must** be named `buckets` exactly.
+Upload your `.txt` file to the `buckets` folder inside your `dcp-$ID-request` bucket. If the `buckets` folder does not exist, create it first — the folder **must** be named `buckets` exactly.
 
 ### Cyberduck
 
 1. Connect to S3 (see [Connecting to S3](./connecting-to-s3.md)).
-2. Navigate to the `duracloud-$ID-request` bucket.
+2. Navigate to the `dcp-$ID-request` bucket.
 3. If a `buckets` folder does not exist, create one: **Action → New Folder**.
 4. Open the `buckets` folder and drag your `.txt` file in, or click **Upload**.
 
 > [!Tip]
-> If you re-upload the same filename with updated bucket names, Cyberduck may ask you to confirm overwriting. Confirm to proceed.
+> If you re-upload the same filename with updated bucket names, Cyberduck may ask you to confirm overwriting. Confirm to proceed. Existing buckets will not be overwritten or deleted by this action.
 
 ### SFTPGo
 
@@ -60,7 +60,7 @@ Upload your `.txt` file to the `buckets` folder inside your `duracloud-$ID-reque
 ### AWS CLI
 
 ```bash
-aws s3 cp bucket-list.txt s3://duracloud-$ID-request/buckets/bucket-list.txt
+aws s3 cp bucket-list.txt s3://dcp-$ID-request/buckets/bucket-list.txt
 ```
 
 ## What happens next
@@ -68,7 +68,7 @@ aws s3 cp bucket-list.txt s3://duracloud-$ID-request/buckets/bucket-list.txt
 Processing normally takes **0–2 minutes**. For each name in your file, two buckets are created:
 
 - `duracloud-$ID-<name>` — your active bucket
-- `duracloud-$ID-<name>-repl` — a Glacier Deep Archive replication bucket (list-only)
+- `duracloud-$ID-<name>-repl` — a Glacier Deep Archive replication bucket (list-only; **you will not have access to add or download content from this replicated bucket**)
 
 A results file is uploaded to the `feedback` folder in your `-managed` bucket. Check it to confirm all buckets were created successfully, then refresh your client or reconnect to see them.
 
@@ -77,5 +77,5 @@ To create more buckets, update your file with new names and upload it again.
 ## Troubleshooting
 
 - **No buckets were created** — check the `feedback` folder in your `-managed` bucket for error messages.
-- **One name has an error** — none of the buckets in that request will be created. Fix all names and upload the file again.
+- **One name has an error** — none of the buckets in that request will be created. Fix names as necessary and upload the file again.
 

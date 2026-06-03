@@ -66,6 +66,7 @@ resource "aws_cloudfront_distribution" "public" {
   aliases         = local.custom_domain ? [local.fqdn] : []
   enabled         = true
   is_ipv6_enabled = true
+  price_class     = local.cloudfront_price_class
   web_acl_id      = local.cloudfront_web_acl_id
 
   default_cache_behavior {
@@ -78,7 +79,12 @@ resource "aws_cloudfront_distribution" "public" {
     viewer_protocol_policy = "redirect-to-https"
   }
 
-  price_class = local.cloudfront_price_class
+  custom_error_response {
+    error_caching_min_ttl = 60
+    error_code            = 403
+    response_code         = 404
+    response_page_path    = "/404.html"
+  }
 
   restrictions {
     geo_restriction {

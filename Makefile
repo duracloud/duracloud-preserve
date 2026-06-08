@@ -65,7 +65,7 @@ job-status: ## Lookup job status by id (make job-status i=id p=profile)
 .PHONY: job-status-by-receipt
 job-status-by-receipt: ## Lookup job status by checksum receipt (make job-status-by-receipt b=bucket p=profile)
 	@stack="$(b)"; stack="$${stack%-*}"; \
-	    $(MAKE) job i=$$(AWS_PROFILE=$(p) aws s3 cp s3://$${stack}-managed/metadata/latest/checksums/receipts/$(b).json - | jq -r .repl_job_id) p=$(p)
+	    $(MAKE) job-status i=$$(AWS_PROFILE=$(p) aws s3 cp s3://$${stack}-managed/metadata/0000-00-00-LATEST/checksums/receipts/$(b).json - | jq -r .repl_job_id) p=$(p)
 
 .PHONY: publish
 publish: build cli ## Publish lambda release artifacts to dcp-artifacts buckets (make publish p=profile)

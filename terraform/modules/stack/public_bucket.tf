@@ -206,3 +206,24 @@ resource "aws_s3_bucket_logging" "public" {
   target_bucket = aws_s3_bucket.main["managed"].id
   target_prefix = "${local.logging_prefix}/${aws_s3_bucket.public.id}/"
 }
+
+resource "aws_s3_object" "not_found" {
+  bucket = aws_s3_bucket.public.id
+
+  key          = "404.html"
+  content_type = "text/html"
+
+  content = <<-HTML
+    <!doctype html>
+    <html>
+    <head>
+      <title>404</title>
+    </head>
+    <body>
+      <h1>Not Found</h1>
+      <p>The requested file was not found.</p>
+      <p>Please check the URL and try again.</p>
+    </body>
+    </html>
+  HTML
+}

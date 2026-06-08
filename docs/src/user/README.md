@@ -37,7 +37,7 @@ Hosting clients will start with identifying one user who will have power
 user permissions. This user will be able to upload, download, and
 delete. The initial power user will need to provide the Hosting team the
 names of other users for whom they wish to have accounts and indicate
-whether those users should be power users or standard users who can only
-upload files. The Hosting team recommends limiting the number of power
+whether those users should be power, standard, or restricted users who can only
+upload files. (Restricted users can only upload to specific buckets.) The Hosting team recommends limiting the number of power
 users per institution to 1 or 2 individuals because of the power to
 delete.

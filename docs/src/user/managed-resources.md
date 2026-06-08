@@ -4,13 +4,13 @@ When you connect to your S3 account for the first time, you will see a number of
 
 ## Pre-Existing Buckets
 
-- `duracloud-$ID-request` — used to make requests to create new buckets. See: [Creating Buckets](./creating-buckets.md)
-- `duracloud-$ID-managed` — contains generated files such as audit logs, inventory, and reports. **This bucket is read-only.**
-- `duracloud-$ID-public` — default public bucket. Files uploaded here will be publicly accessible via CloudFront.
+- `dcp-$ID-request` — used to make requests to create new buckets. See: [Creating Buckets](./creating-buckets.md)
+- `dcp-$ID-managed` — contains generated files such as audit logs, inventory, and reports. **This bucket is read-only.**
+- `dcp-$ID-public` — default public bucket. Files uploaded here will be publicly accessible via CloudFront.
 
 ## Managed Bucket Structure
 
-Over time, the `duracloud-$ID-managed` bucket will contain the following folders:
+Over time, the `dcp-$ID-managed` bucket will contain the following folders:
 
 - `audit/` — AWS audit logs, organized by bucket
 - `batch/` — outputs from S3 batch operations

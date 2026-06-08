@@ -108,7 +108,7 @@ Cyberduck documentation for setting up new connections:\
 
 1. File → Open Connection\
 2. Change dropdown menu to **Amazon S3**
-    - If you are a Lyrasis Hosting Services client, update Server to:\
+    - If you are a Lyrasis Hosting Services client, you may need to update Server to:\
         `s3.us-west-2.amazonaws.com`\
     - (Lyrasis Hosting currently supports `us-west-2` and `us-east-2`)
 3. Type in provided Access Key ID and Secret Access Key\
@@ -121,7 +121,7 @@ Cyberduck documentation for setting up new connections:\
 > - Click **Go → Enclosing Folder** to navigate up the file path tree
     one level at a time, or click in the filepath dropdown to navigate
     up multiple levels after your connection is set up.
-> - Logs and other items you download will go to your **Downloads** folder by default. You can change this under **Edit → Preferences → Transfers (General tab)**
+> - Logs and other items you download via Cyberduck will go to your **Downloads** folder by default. You can change this under **Edit → Preferences → Transfers (General tab)**
 
 ## SFTPGo Documentation
 

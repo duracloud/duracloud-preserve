@@ -31,7 +31,7 @@ The following are reserved and cannot be used in names: `duracloud-`, `-logs`, `
 
 ## Step 2: Upload the file
 
-Upload your `.txt` file to the `buckets` folder inside your `dcp-$ID-request` bucket. If the `buckets` folder does not exist, create it first — the folder **must** be named `buckets` exactly.
+Upload your `.txt` file to the `buckets` folder inside your `dcp-$ID-request` bucket. If the `buckets` folder does not exist, create it first. The folder **must** be named `buckets` exactly.
 
 ### Cyberduck
 
@@ -68,7 +68,7 @@ aws s3 cp bucket-list.txt s3://dcp-$ID-request/buckets/bucket-list.txt
 Processing normally takes **0–2 minutes**. For each name in your file, two buckets are created:
 
 - `duracloud-$ID-<name>` — your active bucket
-- `duracloud-$ID-<name>-repl` — a Glacier Deep Archive replication bucket (list-only; **you will not have access to add or download content from this replicated bucket**)
+- `duracloud-$ID-<name>-repl` — a Glacier Deep Archive replication bucket (list-only; **you will not have access to add to or download content from this replicated bucket**)
 
 A results file is uploaded to the `feedback` folder in your `-managed` bucket. Check it to confirm all buckets were created successfully, then refresh your client or reconnect to see them.
 
@@ -77,5 +77,5 @@ To create more buckets, update your file with new names and upload it again.
 ## Troubleshooting
 
 - **No buckets were created** — check the `feedback` folder in your `-managed` bucket for error messages.
-- **One name has an error** — none of the buckets in that request will be created. Fix names as necessary and upload the file again.
+- **One name has an error** — none of the buckets in that request will be created. Fix the name(s) as necessary and upload the file again.
 

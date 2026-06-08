@@ -48,8 +48,10 @@ For full Cyberduck documentation, see https://docs.cyberduck.io/cyberduck/transf
 >
 > ![Creating folders in SFTPGo](images/dcp-create-folder.png)
 >
-> Uploading very large files (1–2 GB or more) may time out. For large uploads, use Cyberduck or another S3-compatible tool instead.
+> Uploading very large files (1–2 GB or more) may time out, depending on your browser settings and internet connection. For large uploads, use Cyberduck or another S3-compatible tool instead.
+
+ [!Tip]
+Click on Name, Size, or Last Modified to change the sort of objects from ascending to descending order and vice versa
 
 > [!Tip]
 > We have occasionally seen a generic **"Error uploading files"** message in SFTPGo. Closing the error and trying again has resolved it in all known cases. This may be related to an expired session.
-EOF

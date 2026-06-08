@@ -36,6 +36,10 @@ resource "aws_lambda_function" "main" {
     )
   }
 
+  ephemeral_storage {
+    size = each.value.storage
+  }
+
   logging_config {
     log_format = "JSON"
     log_group  = aws_cloudwatch_log_group.main[each.key].name

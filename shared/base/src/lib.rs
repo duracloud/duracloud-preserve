@@ -66,3 +66,13 @@ pub fn generate_checksum(mut reader: impl BufRead, algorithm: CrcAlgorithm) -> i
     // Base64 encode to match AWS S3 console
     Ok(general_purpose::STANDARD.encode(bytes))
 }
+
+/// Format strings as a comma-separated list of SQL string literals for DuckDB,
+/// single-quoting each value and escaping embedded quotes.
+pub fn safe_join(files: &[impl AsRef<str>]) -> String {
+    files
+        .iter()
+        .map(|f| format!("'{}'", f.as_ref().replace('\'', "''")))
+        .collect::<Vec<_>>()
+        .join(", ")
+}

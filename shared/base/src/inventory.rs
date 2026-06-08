@@ -3,10 +3,7 @@ use std::io::Write;
 
 use duckdb::Connection;
 
-use crate::{
-    errors::ProcessingError,
-    stats::{InventoryStats, PrefixStats},
-};
+use crate::{errors::ProcessingError, safe_join, stats::{InventoryStats, PrefixStats}};
 
 pub fn process(
     parquet_files: &[impl AsRef<str>],
@@ -28,11 +25,7 @@ impl InventoryProcessor {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch("LOAD parquet;")?;
 
-        let files_list = parquet_files
-            .iter()
-            .map(|f| format!("'{}'", f.as_ref().replace('\'', "''")))
-            .collect::<Vec<_>>()
-            .join(", ");
+        let files = safe_join(parquet_files);
 
         conn.execute_batch(&format!(
             r#"
@@ -45,7 +38,7 @@ impl InventoryProcessor {
                 storage_class,
                 replication_status,
                 'https://' || bucket || '.s3.amazonaws.com/' || key as url
-            FROM read_parquet([{files_list}])
+            FROM read_parquet([{files}])
             WHERE NOT key LIKE '%/'
             "#
         ))?;

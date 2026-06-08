@@ -3,7 +3,7 @@ use std::io::Write;
 
 use duckdb::Connection;
 
-use crate::{errors::ProcessingError, stats::VerificationStats};
+use crate::{errors::ProcessingError, safe_join, stats::VerificationStats};
 
 pub fn process(
     source_reports: &[impl AsRef<str>],
@@ -206,11 +206,7 @@ impl ChecksumVerifier {
     }
 
     fn create_table_stmt(name: &str, from: &[impl AsRef<str>]) -> String {
-        let from = from
-            .iter()
-            .map(|f| format!("'{}'", f.as_ref().replace('\'', "''")))
-            .collect::<Vec<_>>()
-            .join(", ");
+        let files = safe_join(from);
 
         format!(
             r#"
@@ -225,7 +221,7 @@ impl ChecksumVerifier {
                 column6 AS result_message,
                 json_extract_string(column6, '$.checksum_base64') AS checksum,
                 json_extract_string(column6, '$.checksumAlgorithm') AS checksum_algorithm
-            FROM read_csv([{from}]);
+            FROM read_csv([{files}]);
             "#
         )
     }

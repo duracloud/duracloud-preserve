@@ -1,0 +1,12 @@
+[build]
+jobs = 4
+
+# DuckDB's bundled build (libduckdb-sys) calls the Windows Restart Manager API
+# (RmStartSession/RmEndSession/RmRegisterResources/RmGetList) in its lock-info
+# code but doesn't emit a link directive for it. Link rstrtmgr explicitly so the
+# MSVC linker can resolve those symbols.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=rstrtmgr.lib"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=rstrtmgr.lib"]

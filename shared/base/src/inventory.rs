@@ -3,7 +3,11 @@ use std::io::Write;
 
 use duckdb::Connection;
 
-use crate::{errors::ProcessingError, safe_join, stats::{InventoryStats, PrefixStats}};
+use crate::{
+    errors::ProcessingError,
+    safe_join,
+    stats::{InventoryStats, PrefixStats},
+};
 
 pub fn process(
     parquet_files: &[impl AsRef<str>],

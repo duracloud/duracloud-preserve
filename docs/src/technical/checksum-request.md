@@ -23,12 +23,13 @@ The trigger file's name (minus the extension) identifies which bucket's inventor
 Run locally against an existing manifest:
 
 ```bash
-make run-checksum-request p=digipres-dev1-private
+mise run checksum-request --bucket digipres-dev1-private --profile default
 ```
 
-| Flag       | Description                                          |
-| ---------- | ---------------------------------------------------- |
-| `--bucket` | Bucket name to process the checksum inventory for (required) |
+| Flag        | Description                                                  |
+| ----------- | ------------------------------------------------------------ |
+| `--bucket`  | Bucket name to process the checksum inventory for (required) |
+| `--profile` | AWS profile                                                  |
 
 > [!IMPORTANT]
 > If no manifest exists for the bucket, the CLI will fail with `Inventory report not found`. Run [`inventory-report`](./inventory-report.md) first.
@@ -38,15 +39,15 @@ make run-checksum-request p=digipres-dev1-private
 Upload a trigger file to the request bucket's `checksums/` prefix:
 
 ```bash
-make upload b=digipres-dev1-request d=checksums f=files/digipres-dev1-private.txt p=default
+mise run upload --bucket digipres-dev1-request --dir checksums --file files/digipres-dev1-private.txt --profile default
 ```
 
-| Flag | Description                                                                             |
-| ---- | --------------------------------------------------------------------------------------- |
-| `b=` | The S3 request bucket (typically `${stack}-request`)                                    |
-| `d=` | The S3 path to upload into — must be `checksums`                                        |
-| `f=` | Path to a local trigger file; its basename (without extension) must be the bucket name  |
-| `p=` | AWS profile                                                                             |
+| Flag        | Description                                                                            |
+| ----------- | -------------------------------------------------------------------------------------- |
+| `--bucket`  | The S3 request bucket (typically `${stack}-request`)                                   |
+| `--dir`     | The S3 path to upload into — must be `checksums`                                       |
+| `--file`    | Path to a local trigger file; its basename (without extension) must be the bucket name |
+| `--profile` | AWS profile                                                                            |
 
 > [!NOTE]
 > The trigger file's contents are not read — only its name matters.

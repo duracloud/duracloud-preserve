@@ -2,8 +2,8 @@
 
 ```bash
 # empties buckets only, resources are not destroyed
-make reset s=digipres-dev1 p=default
+mise run reset --stack digipres-dev1 --profile default
 
 # teardown: empties buckets and deletes everything
-make teardown s=digipres-dev1 p=default
+mise run teardown --stack digipres-dev1 --profile default
 ```

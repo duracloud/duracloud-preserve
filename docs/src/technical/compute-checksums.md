@@ -19,12 +19,12 @@ The Lambda is automatically triggered by a scheduled EventBridge event at regula
 Compute checksums for a single bucket and its replication pair:
 
 ```bash
-make run-compute-checksums b=digipres-dev1-private p=default
+mise run compute-checksums --bucket digipres-dev1-private --profile default
 ```
 
 **Parameters:**
-- `b=` — Standard or public stack bucket to checksum (required)
-- `p=` — AWS profile (required)
+- `--bucket` — Standard or public stack bucket to checksum (required)
+- `--profile` — AWS profile (required)
 
 **Constraints:**
 - Only supports single bucket at a time
@@ -36,13 +36,13 @@ make run-compute-checksums b=digipres-dev1-private p=default
 Compute checksums for all stack buckets in a given stack:
 
 ```bash
-make trigger f=compute-checksums s=digipres-dev1 p=default
+mise run trigger --function compute-checksums --stack digipres-dev1 --profile default
 ```
 
 **Parameters:**
-- `f=` — Function name (compute-checksums)
-- `s=` — Stack name (required)
-- `p=` — AWS profile (required)
+- `--function` — Function name (compute-checksums)
+- `--stack` — Stack name (required)
+- `--profile` — AWS profile (required)
 
 **Behavior:** Triggers jobs for ALL stack buckets in the specified stack.
 

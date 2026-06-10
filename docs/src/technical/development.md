@@ -24,7 +24,7 @@ Shared functionality lives in `shared/app/src/perform/`. This is where the real 
 - Add a `<Feature>Error` variant in `shared/app/src/errors.rs`.
 - If the work is stack-scoped, accept `&Config`. For account-wide work (e.g. cross-stack user sync), accept `&Clients` instead.
 
-Write unit tests alongside the module with `test_support::TestClientBuilder` for mocked SDK responses. Integration tests that hit real AWS go in `shared/app/tests/<feature>.rs` (gated with `#[ignore]` and run via `make test-integration`).
+Write unit tests alongside the module with `test_support::TestClientBuilder` for mocked SDK responses. Integration tests that hit real AWS go in `shared/app/tests/<feature>.rs` (gated with `#[ignore]` and run via `mise run test-integration`).
 
 ## 3. Add a Lambda function
 
@@ -71,7 +71,7 @@ The Lambda needs infrastructure: an IAM policy scoping its permissions, a trigge
 If the Lambda needs any prefixes, filenames, or other fixed values that terraform also needs to reference, add them to `shared/constants/src/lib.rs` and regenerate the terraform locals:
 
 ```bash
-make locals
+mise run locals
 ```
 
 This keeps Rust and Terraform aligned — never hand-edit `terraform/modules/stack/_locals.tf`.
@@ -136,15 +136,15 @@ Add the function to `local.functions` in the project-root `main.tf` so it gets b
 ### 4e. Apply
 
 ```bash
-make deploy s=<stack> p=<profile>
+mise run deploy --stack <stack> --profile <profile>
 ```
 
 ## Testing the new function
 
 - **CLI (local, against real AWS):** `cargo run -p dcp -- <subcommand> [args]`
 - **Lambda (local watch + invoke):** `cargo lambda watch -p <feature>` in one shell, then `cargo lambda invoke -p <feature> --data-file functions/<feature>/events/sample.json` (or `--data-example s3-event` for a built-in fixture).
-- **Lambda (invoked remotely with sample payload):** `make trigger f=<feature> s=<stack> p=<profile>`
+- **Lambda (invoked remotely with sample payload):** `mise run trigger --function <feature> --stack <stack> --profile <profile>`
 - **Unit tests:** `cargo test -p <crate>`
-- **Integration tests:** `make test-integration s=<stack> p=<profile>`
+- **Integration tests:** `mise run test-integration --stack <stack> --profile <profile>`
 
 Each feature should also get a technical doc at `docs/src/technical/<feature>.md` following the format of the others in that directory.

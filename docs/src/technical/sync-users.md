@@ -24,19 +24,18 @@ The SFTPGo connection details (`SFTPGO_HOST`, `SFTPGO_USERNAME`, `SFTPGO_PASSWOR
 
 ## CLI testing
 
-The CLI can sync a single user or all users. SFTPGo credentials are read from the environment.
+The CLI can sync a single user or all users. SFTPGo credentials are read from the
+environment. Defaults for local development are set in `mise.toml`; to target a real
+server, set `SFTPGO_HOST`, `SFTPGO_USERNAME`, and `SFTPGO_PASSWORD` in your shell
+(or in an untracked `mise.local.toml`) before running:
 
 ```bash
-SFTPGO_HOST=https://sftpgo.example.org \
-SFTPGO_USERNAME=admin \
-SFTPGO_PASSWORD=secret \
-make run-sync-users p=default
+mise run sync-users --profile default
 ```
 
 To sync a specific user only:
 
 ```bash
-SFTPGO_HOST=... SFTPGO_USERNAME=... SFTPGO_PASSWORD=... \
 cargo run -p dcp -- sync-users --username=alice
 ```
 
@@ -47,19 +46,16 @@ Unlike other CLI commands, `sync-users` does not take a stack argument — it wo
 Upload the `TRIGGER` file to the managed bucket to invoke the Lambda:
 
 ```bash
-make upload b=digipres-dev1-managed d=sync-users f=TRIGGER p=default
+mise run upload --bucket digipres-dev1-managed --dir sync-users --file TRIGGER --profile default
 ```
 
-- `b=` — the managed bucket name (`${stack}-managed`)
-- `d=` — the S3 directory (must be `sync-users`)
-- `f=` — path to an empty local file named `TRIGGER`
-- `p=` — the AWS profile to use
+- `--bucket` — the managed bucket name (`${stack}-managed`)
+- `--dir` — the S3 directory (must be `sync-users`)
+- `--file` — path to an empty local file named `TRIGGER`
+- `--profile` — the AWS profile to use
 
-Create an empty `TRIGGER` file first if you don't have one:
-
-```bash
-touch TRIGGER
-```
+Create an empty `TRIGGER` file first if you don't have one (`touch TRIGGER`, or
+`New-Item TRIGGER` on Windows).
 
 ## Output
 

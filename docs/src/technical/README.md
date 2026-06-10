@@ -14,8 +14,8 @@ deployment concerns, for those see:
 
 Requirements:
 
+- [mise](https://mise.jdx.dev/) (installs `node` and `rust` from `mise.toml`)
 - [aws cli](#)
-- [rust](#)
 - [cargo-lambda](#)
 - [terraform](#)
 
@@ -23,22 +23,21 @@ You must have access to an AWS account. **Caution: costs may be incurred.**
 
 ## Setup
 
-There are `Makefile` tasks to wrap `cargo` (et al.) commands for convenience:
+There are [mise tasks](https://mise.jdx.dev/tasks/) to wrap `cargo` (et al.) commands for convenience:
 
-These args are used frequently:
+These options are used frequently:
 
-- `f=function` function name i.e. `bucket-request`
-- `p=profile` aws profile name i.e. `default`
-- `s=stack` resource prefix used for identification/partitioning within an aws account
+- `--function` function name i.e. `bucket-request`
+- `--profile` aws profile name i.e. `default`
+- `--stack` resource prefix used for identification/partitioning within an aws account
 
-But note in some contexts a letter may have a different meaning, for example
-`f=file` (check the docs or output of `make` for details).
+Run `mise tasks` to list all tasks and their options.
 
 To get started run this task to create the base infrastructure:
 
 ```bash
-# choose your own value for s=$stack and p=$profile
-make setup s=digipres-dev1 p=default
+# choose your own values for --stack and --profile
+mise run setup --stack digipres-dev1 --profile default
 ```
 
 This task uses Terraform so it must be installed for it to work.
@@ -67,7 +66,7 @@ task. If you want to test a full stack deployment including the Lambda
 functions then there is a `deploy` task for that:
 
 ```bash
-make deploy s=digipres-dev1 p=default
+mise run deploy --stack digipres-dev1 --profile default
 ```
 
 This will build the Lambda packages and upload them to an "artifacts"
@@ -89,7 +88,7 @@ terraform output cloudfront_domain_name
 This will output something like: `d2vy8bpfecxis5.cloudfront.net`.
 
 ```bash
-make upload b=digipres-dev1-public d=example f=files/buckets.txt p=default
+mise run upload --bucket digipres-dev1-public --dir example --file files/buckets.txt --profile default
 ```
 
 Then access the file in the browser, it should work:

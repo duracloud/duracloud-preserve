@@ -1,5 +1,253 @@
 [tools]
+biome = "2"
+node = "24"
 rust = "stable"
 
 [settings]
 idiomatic_version_file_enable_tools = ["terraform"]
+
+[env]
+# Defaults for local dev; values already set in the shell win
+SFTPGO_HOST = '{{ get_env(name="SFTPGO_HOST", default="http://localhost:8080") }}'
+SFTPGO_USERNAME = '{{ get_env(name="SFTPGO_USERNAME", default="admin") }}'
+SFTPGO_PASSWORD = '{{ get_env(name="SFTPGO_PASSWORD", default="admin") }}'
+
+[tasks.bucket]
+description = "Perform action on a bucket (mise run bucket <list|create|empty|delete> --bucket b --profile p)"
+usage = '''
+arg "<action>" help="One of: list, create, empty, delete"
+flag "--bucket <bucket>" default=""
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/bucket.mjs {{ usage.action }} --bucket={{ usage.bucket }} --profile={{ usage.profile }}'
+
+[tasks.bucket-request]
+description = "Run bucket-request cli (mise run bucket-request --file f --stack s --profile p)"
+usage = '''
+flag "--file <file>" default=""
+flag "--stack <stack>" default=""
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/env-run.mjs --profile={{ usage.profile }} -- cargo run -p dcp -- bucket-request --stack={{ usage.stack }} --file={{ usage.file }}'
+
+[tasks.build]
+description = "Build lambda functions with release profile"
+run = [
+  'cargo lambda build --workspace --exclude dcp --release --arm64 --output-format zip',
+  'node scripts/rmrf.mjs target/lambda/dcp',
+]
+
+[tasks.checksum-report]
+description = "Run checksum-report cli (mise run checksum-report --bucket b --profile p)"
+usage = '''
+flag "--bucket <bucket>" default=""
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/env-run.mjs --profile={{ usage.profile }} -- cargo run -p dcp -- checksum-report --bucket={{ usage.bucket }}'
+
+[tasks.checksum-request]
+description = "Run checksum-request cli (mise run checksum-request --bucket b --profile p)"
+usage = '''
+flag "--bucket <bucket>" default=""
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/env-run.mjs --profile={{ usage.profile }} -- cargo run -p dcp -- checksum-request --bucket={{ usage.bucket }}'
+
+[tasks.ci]
+description = "Run the ci checks locally"
+depends = ["test", "lint"]
+run = [
+  'cargo fmt -- --check',
+  'cargo clippy --workspace --all-features -- -D warnings',
+  'cargo audit',
+  'terraform fmt .',
+]
+
+[tasks.cli]
+description = "Build dcp arm64 Docker image tagged latest"
+run = 'docker buildx build --platform linux/arm64 -t duracloud/dcp:latest --load .'
+
+[tasks.compute-checksums]
+description = "Run compute-checksums cli (mise run compute-checksums --bucket b --profile p)"
+usage = '''
+flag "--bucket <bucket>" default=""
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/env-run.mjs --profile={{ usage.profile }} -- cargo run -p dcp -- compute-checksums --bucket={{ usage.bucket }}'
+
+[tasks.deploy]
+description = "Deploy all resources including functions (mise run deploy --stack s --profile p)"
+depends = ["locals"]
+usage = '''
+flag "--stack <stack>" default=""
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/env-run.mjs --profile={{ usage.profile }} --set TF_VAR_stack={{ usage.stack }} --set TF_VAR_deploy=true -- terraform apply'
+
+[tasks.docs]
+description = "Read the docs"
+dir = "docs"
+run = 'mdbook serve --open'
+
+[tasks.docs-pdf]
+description = "Build docs PDF with WeasyPrint (mise run docs-pdf [--output file.pdf])"
+usage = '''
+flag "--output <output>" default=""
+'''
+run = 'node scripts/docs-pdf.mjs --output={{ usage.output }}'
+
+[tasks.event]
+description = "Generate event file from sample (mise run event --function f --stack s)"
+usage = '''
+flag "--function <function>" default=""
+flag "--stack <stack>" default=""
+'''
+run = 'node scripts/event.mjs --function={{ usage.function }} --stack={{ usage.stack }}'
+
+[tasks.help]
+description = "List available tasks"
+run = 'mise tasks'
+
+[tasks.inventory-report]
+description = "Run inventory-report cli (mise run inventory-report --bucket b --profile p)"
+usage = '''
+flag "--bucket <bucket>" default=""
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/env-run.mjs --profile={{ usage.profile }} -- cargo run -p dcp -- inventory-report --bucket={{ usage.bucket }}'
+
+[tasks.invoke]
+description = "Invoke lambda function (mise run invoke --function f --event e)"
+usage = '''
+flag "--function <function>" default=""
+flag "--event <event>" default=""
+'''
+run = 'cargo lambda invoke --remote -p {{ usage.function }} --data-file {{ usage.event }}'
+
+[tasks.job-status]
+description = "Lookup job status by id (mise run job-status --id i --profile p)"
+usage = '''
+flag "--id <id>" default=""
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/job-status.mjs --id={{ usage.id }} --profile={{ usage.profile }}'
+
+[tasks.job-status-by-receipt]
+description = "Lookup job status by checksum receipt (mise run job-status-by-receipt --bucket b --profile p)"
+usage = '''
+flag "--bucket <bucket>" default=""
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/job-status.mjs --bucket={{ usage.bucket }} --profile={{ usage.profile }}'
+
+[tasks.lint]
+description = "Lint and format-check the task scripts with Biome"
+run = 'biome check scripts'
+
+[tasks.lint-fix]
+description = "Apply Biome lint and format fixes to the task scripts"
+run = 'biome check --write scripts'
+
+[tasks.locals]
+description = "Generate _locals.tf from Rust constants"
+run = 'node scripts/gen-locals.mjs'
+
+[tasks.publish]
+description = "Publish lambda release artifacts to dcp-artifacts buckets (mise run publish --profile p)"
+depends = ["build"]
+usage = '''
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/publish.mjs --profile={{ usage.profile }}'
+
+[tasks.push]
+description = "Push dcp Docker image tagged latest"
+depends = ["cli"]
+run = 'docker push duracloud/dcp:latest'
+
+[tasks.release]
+description = "Build and publish lambda artifacts and the dcp image (mise run release --profile p)"
+usage = '''
+flag "--profile <profile>" default=""
+'''
+run = [
+  'mise run publish --profile={{ usage.profile }}',
+  'mise run push',
+]
+
+[tasks.reset]
+description = "Reset (empty) stack buckets (mise run reset --stack s --profile p)"
+usage = '''
+flag "--stack <stack>" default=""
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/env-run.mjs --profile={{ usage.profile }} -- cargo run -p dcp -- reset --stack={{ usage.stack }}'
+
+[tasks.setup]
+description = "Create base infrastructure (mise run setup --stack s --profile p)"
+depends = ["locals"]
+usage = '''
+flag "--stack <stack>" default=""
+flag "--profile <profile>" default=""
+'''
+run = [
+  'node scripts/env-run.mjs --profile={{ usage.profile }} --set TF_VAR_stack={{ usage.stack }} -- terraform init -upgrade',
+  'node scripts/env-run.mjs --profile={{ usage.profile }} --set TF_VAR_stack={{ usage.stack }} -- terraform apply',
+]
+
+[tasks.storage-report]
+description = "Run storage-report cli (mise run storage-report --stack s --profile p)"
+usage = '''
+flag "--stack <stack>" default=""
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/env-run.mjs --profile={{ usage.profile }} -- cargo run -p dcp -- storage-report --stack={{ usage.stack }}'
+
+[tasks.sync-users]
+description = "Run sync-users cli (mise run sync-users --profile p)"
+usage = '''
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/env-run.mjs --profile={{ usage.profile }} -- cargo run -p dcp -- sync-users'
+
+[tasks.teardown]
+description = "Destroy all infrastructure (mise run teardown --stack s --profile p)"
+usage = '''
+flag "--stack <stack>" default=""
+flag "--profile <profile>" default=""
+'''
+run = [
+  'node scripts/env-run.mjs --profile={{ usage.profile }} -- cargo run -p dcp -- reset --stack={{ usage.stack }}',
+  'node scripts/env-run.mjs --profile={{ usage.profile }} --set TF_VAR_stack={{ usage.stack }} --set TF_VAR_deploy=true -- terraform destroy',
+]
+
+[tasks.test]
+description = "Run local tests with no AWS calls"
+run = 'cargo test'
+
+[tasks.test-integration]
+description = "Run integration tests, makes AWS calls (mise run test-integration --stack s --profile p)"
+usage = '''
+flag "--stack <stack>" default=""
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/env-run.mjs --profile={{ usage.profile }} --set TEST_STACK={{ usage.stack }} -- cargo test --test "*" -- --ignored --test-threads=1'
+
+[tasks.trigger]
+description = "Trigger a lambda function remotely (mise run trigger --function f --stack s --profile p)"
+usage = '''
+flag "--function <function>" default=""
+flag "--stack <stack>" default=""
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/trigger.mjs --function={{ usage.function }} --stack={{ usage.stack }} --profile={{ usage.profile }}'
+
+[tasks.upload]
+description = "Upload a file to a bucket (mise run upload --bucket b [--dir d] --file f --profile p)"
+usage = '''
+flag "--bucket <bucket>" default=""
+flag "--dir <dir>" default=""
+flag "--file <file>" default=""
+flag "--profile <profile>" default=""
+'''
+run = 'node scripts/upload.mjs --bucket={{ usage.bucket }} --dir={{ usage.dir }} --file={{ usage.file }} --profile={{ usage.profile }}'

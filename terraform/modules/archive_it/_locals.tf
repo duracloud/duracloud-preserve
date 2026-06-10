@@ -1,5 +1,5 @@
 # Generated from shared/constants/src/lib.rs — do not edit.
-# Run `make locals` to regenerate.
+# Run `mise run locals` to regenerate.
 
 locals {
 

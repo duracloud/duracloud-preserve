@@ -5,7 +5,7 @@
 //!
 //! Prerequisites:
 //!   - Set TEST_STACK env var (defaults to "int-test")
-//!   - Run: make setup s=<stack> p=<profile>
+//!   - Run: mise run setup --stack <stack> --profile <profile>
 
 use app::{bucket as app_bucket, config};
 use aws_sdk_s3::types::TransitionStorageClass;

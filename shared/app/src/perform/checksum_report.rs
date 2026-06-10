@@ -51,19 +51,23 @@ pub async fn perform(
         "Processing checksum report files",
     );
 
-    let (csv, stats) =
-        tokio::task::spawn_blocking(move || checksum::process(&source_paths, &repl_paths))
-            .await
-            .expect("spawn_blocking task panicked")?;
+    let output_csv = temp_dir.path().join("checksum-report.csv");
+    let stats = {
+        let output_csv = output_csv.clone();
+        tokio::task::spawn_blocking(move || {
+            checksum::process(&source_paths, &repl_paths, &output_csv)
+        })
+        .await
+        .expect("spawn_blocking task panicked")?
+    };
 
-    let csv_bytes = Bytes::from(csv);
     let output_name = format!("{}_{}", source_bucket, "checksum-report");
     let stats_bytes = Bytes::from(serde_json::to_vec(&stats)?);
 
-    upload::put_versioned_bytes(
+    upload::put_versioned_file(
         config,
         args.date_ctx,
-        csv_bytes,
+        &output_csv,
         TEXT_CSV,
         |ctx| config.stack().reports_checksums_path(&output_name, ctx),
         ChecksumReportError::Upload,

@@ -7,7 +7,22 @@ use aws_sdk_s3::{
     operation::head_object::{HeadObjectError, HeadObjectOutput},
     primitives::ByteStream,
 };
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use tokio::io::AsyncWriteExt;
+
+/// Server-side copy within S3 (the data does not round-trip through the client).
+pub async fn copy(client: &Client, src: &File, dest: &File) -> Result<(), RequestError> {
+    client
+        .copy_object()
+        .bucket(&dest.bucket)
+        .key(&dest.object)
+        .copy_source(format!("{}/{}", src.bucket, src.object))
+        .send()
+        .await
+        .s3_err("failed to copy file")?;
+
+    Ok(())
+}
 
 /// Delete a file from S3
 pub async fn delete(client: &Client, file: &File) -> Result<(), RequestError> {
@@ -65,11 +80,19 @@ pub async fn download_files_to_temp(
             "Downloading file from S3",
         );
 
-        let bytes = download_bytes(client, file).await?;
         let filename = file.key().rsplit('/').next().unwrap_or(file.key());
         let local_path = temp_dir.path().join(format!("{index:05}-{filename}"));
 
-        tokio::fs::write(&local_path, &bytes).await?;
+        let mut response = download(client, file)
+            .await
+            .s3_err("failed to download file")?;
+        let mut output = tokio::fs::File::create(&local_path).await?;
+        while let Some(chunk) = response.body.next().await {
+            let chunk = chunk.s3_err("failed to read body")?;
+            output.write_all(&chunk).await?;
+        }
+        output.flush().await?;
+
         local_paths.push(local_path);
     }
 
@@ -142,6 +165,20 @@ pub async fn upload(
     Ok(())
 }
 
+/// Upload a local file to S3 by streaming it from disk.
+pub async fn upload_path(
+    client: &Client,
+    file: &File,
+    path: &Path,
+    content_type: &str,
+) -> Result<(), RequestError> {
+    let body = ByteStream::from_path(path)
+        .await
+        .map_err(|e| RequestError::from(std::io::Error::other(e)))?;
+
+    upload(client, file, body, content_type).await
+}
+
 /// Basic type wrapper for an S3 "file" (bucket + key)
 #[derive(Debug, Clone)]
 pub struct File {
@@ -183,10 +220,74 @@ impl From<base::ManagedFile> for File {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_support::TestClientBuilder;
+    use test_support::{TestClientBuilder, recorded_requests};
 
     fn test_file() -> File {
         File::new("test-bucket", "missing.csv")
+    }
+
+    #[tokio::test]
+    async fn test_copy_sends_copy_source_header() {
+        let (client, replay) = TestClientBuilder::new()
+            .success(
+                r#"<CopyObjectResult><ETag>"etag"</ETag></CopyObjectResult>"#,
+                None,
+            )
+            .build_with_replay();
+
+        let src = File::new("src-bucket", "reports/2026-06-09-report.csv");
+        let dest = File::new("dest-bucket", "reports/0000-00-00-LATEST-report.csv");
+        copy(&client, &src, &dest).await.unwrap();
+
+        let requests = recorded_requests(&replay);
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].method, "PUT");
+        assert!(requests[0].uri.contains("dest-bucket"));
+        assert!(
+            requests[0]
+                .uri
+                .contains("reports/0000-00-00-LATEST-report.csv")
+        );
+        assert_eq!(
+            requests[0].copy_source.as_deref(),
+            Some("src-bucket/reports/2026-06-09-report.csv")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_upload_path_streams_file_and_sets_content_type() {
+        let (client, replay) = TestClientBuilder::new().ok().build_with_replay();
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("report.csv");
+        tokio::fs::write(&path, b"bucket,key\nb,k\n").await.unwrap();
+
+        let file = File::new("test-bucket", "report.csv");
+        upload_path(&client, &file, &path, "text/csv")
+            .await
+            .unwrap();
+
+        let requests = recorded_requests(&replay);
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].method, "PUT");
+        assert_eq!(requests[0].content_type.as_deref(), Some("text/csv"));
+    }
+
+    #[tokio::test]
+    async fn test_download_files_to_temp_streams_bytes_to_disk() {
+        let content = "bucket,key,size\ntest,a.txt,1\ntest,b.txt,2\n";
+        let client = TestClientBuilder::new().success(content, None).build();
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let files = [File::new("test-bucket", "manifests/data.csv")];
+        let paths = download_files_to_temp(&client, &files, &temp_dir, "test")
+            .await
+            .unwrap();
+
+        assert_eq!(paths.len(), 1);
+        assert!(paths[0].ends_with("00000-data.csv"));
+        let written = tokio::fs::read_to_string(&paths[0]).await.unwrap();
+        assert_eq!(written, content);
     }
 
     #[tokio::test]

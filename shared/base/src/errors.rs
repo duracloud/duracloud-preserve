@@ -13,9 +13,6 @@ pub enum BucketValidationError {
 #[derive(Debug, Error)]
 pub enum ProcessingError {
     #[cfg(feature = "duckdb")]
-    #[error("CSV error: {0}")]
-    Csv(#[from] csv::Error),
-    #[cfg(feature = "duckdb")]
     #[error("DuckDB error: {0}")]
     DuckDB(#[from] duckdb::Error),
     #[error("IO error: {0}")]

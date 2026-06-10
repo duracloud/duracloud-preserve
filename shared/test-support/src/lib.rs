@@ -210,6 +210,7 @@ pub struct RecordedRequest {
     pub method: String,
     pub uri: String,
     pub content_type: Option<String>,
+    pub copy_source: Option<String>,
     pub body: Vec<u8>,
 }
 
@@ -223,6 +224,10 @@ pub fn recorded_requests(replay: &StaticReplayClient) -> Vec<RecordedRequest> {
             method: request.method().to_string(),
             uri: request.uri().to_string(),
             content_type: request.headers().get(CONTENT_TYPE).map(|v| v.to_string()),
+            copy_source: request
+                .headers()
+                .get("x-amz-copy-source")
+                .map(|v| v.to_string()),
             body: request.body().bytes().unwrap_or_default().to_vec(),
         })
         .collect()

@@ -38,17 +38,20 @@ pub async fn perform(
     let paths = app_inventory::download_parquets(config, &manifest, &temp_dir).await?;
 
     tracing::info!("Processing parquet files: {:?}", paths);
-    let (csv, stats) = tokio::task::spawn_blocking(move || inventory::process(&paths))
-        .await
-        .expect("spawn_blocking task panicked")?;
+    let output_csv = temp_dir.path().join("inventory-report.csv");
+    let stats = {
+        let output_csv = output_csv.clone();
+        tokio::task::spawn_blocking(move || inventory::process(&paths, &output_csv))
+            .await
+            .expect("spawn_blocking task panicked")?
+    };
 
-    let csv_bytes = Bytes::from(csv);
     let stats_bytes = Bytes::from(serde_json::to_vec(&stats)?);
 
-    upload::put_versioned_bytes(
+    upload::put_versioned_file(
         config,
         args.date_ctx,
-        csv_bytes,
+        &output_csv,
         TEXT_CSV,
         |ctx| {
             config
@@ -78,8 +81,6 @@ pub async fn perform(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-
     use aws_smithy_types::body::SdkBody;
 
     use super::*;
@@ -111,6 +112,8 @@ mod tests {
         uri.contains(key) || uri.contains(&encoded_upper) || uri.contains(&encoded_lower)
     }
 
+    const COPY_RESULT_XML: &str = r#"<CopyObjectResult><ETag>"etag"</ETag></CopyObjectResult>"#;
+
     #[tokio::test]
     async fn test_perform_processes_manifest_and_writes_latest_and_dated_outputs() {
         let manifest_key = "inventory-report-tests/input-manifest.json";
@@ -120,14 +123,15 @@ mod tests {
         let parquet_bytes = include_bytes!("../../../../files/example.parquet");
         let manifest = manifest_json(INVENTORY_FORMAT.as_str(), parquet_key, parquet_bytes.len());
 
-        // StaticReplayClient responds in sequence, so key naming here is for readability/safety.
+        // StaticReplayClient responds in sequence: manifest GET, parquet GET,
+        // dated csv PUT, csv copy to LATEST, dated stats PUT, stats copy to LATEST.
         let (sdk_config, replay) = TestClientBuilder::new()
             .success(manifest, None)
             .success(SdkBody::from(parquet_bytes.to_vec()), None)
             .ok()
+            .success(COPY_RESULT_XML, None)
             .ok()
-            .ok()
-            .ok()
+            .success(COPY_RESULT_XML, None)
             .build_sdk_config_with_replay();
 
         let config = app_config::Config::for_tests(sdk_config, false);
@@ -153,59 +157,60 @@ mod tests {
                 .any(|r| r.method == "GET" && uri_has_key(&r.uri, parquet_key))
         );
 
+        // CSV: one streamed PUT to the dated key, one server-side copy to LATEST.
+        let dated_csv_key = config
+            .stack()
+            .reports_manifests_path(source_bucket, DateCtx::Today);
+        let latest_csv_key = config
+            .stack()
+            .reports_manifests_path(source_bucket, DateCtx::Latest);
+
         let csv_puts: Vec<_> = requests
             .iter()
             .filter(|r| r.method == "PUT" && r.content_type.as_deref() == Some(TEXT_CSV))
             .collect();
-        assert_eq!(csv_puts.len(), 2);
+        assert_eq!(csv_puts.len(), 1);
+        assert!(uri_has_key(&csv_puts[0].uri, dated_csv_key.key()));
+        assert!(csv_puts[0].copy_source.is_none());
 
-        let latest_csv_key = config
+        let csv_copies: Vec<_> = requests
+            .iter()
+            .filter(|r| {
+                r.copy_source
+                    .as_deref()
+                    .is_some_and(|src| src.ends_with(dated_csv_key.key()))
+            })
+            .collect();
+        assert_eq!(csv_copies.len(), 1);
+        assert_eq!(csv_copies[0].method, "PUT");
+        assert!(uri_has_key(&csv_copies[0].uri, latest_csv_key.key()));
+
+        // Stats JSON: same PUT + copy pattern; the in-memory body is recorded.
+        let dated_stats_key = config
             .stack()
-            .reports_manifests_path(source_bucket, DateCtx::Latest);
-        assert!(
-            csv_puts
-                .iter()
-                .any(|r| uri_has_key(&r.uri, latest_csv_key.key()))
-        );
-        assert!(
-            csv_puts
-                .iter()
-                .any(|r| !uri_has_key(&r.uri, latest_csv_key.key()))
-        );
-
-        let csv_uris: HashSet<_> = csv_puts.iter().map(|r| r.uri.as_str()).collect();
-        assert_eq!(csv_uris.len(), 2);
-        assert!(csv_puts.iter().all(|r| r.body == csv_puts[0].body));
-
-        let csv = std::str::from_utf8(&csv_puts[0].body).unwrap();
-        assert!(csv.starts_with(
-            "bucket,key,size,last_modified_date,storage_class,replication_status,url\n"
-        ));
-        assert!(csv.contains("documents/my report.pdf"));
+            .metadata_manifests_stats_path(source_bucket, DateCtx::Today);
+        let latest_stats_key = config
+            .stack()
+            .metadata_manifests_stats_path(source_bucket, DateCtx::Latest);
 
         let stats_puts: Vec<_> = requests
             .iter()
             .filter(|r| r.method == "PUT" && r.content_type.as_deref() == Some(APPLICATION_JSON))
             .collect();
-        assert_eq!(stats_puts.len(), 2);
+        assert_eq!(stats_puts.len(), 1);
+        assert!(uri_has_key(&stats_puts[0].uri, dated_stats_key.key()));
+        assert!(stats_puts[0].copy_source.is_none());
 
-        let latest_stats_key = config
-            .stack()
-            .metadata_manifests_stats_path(source_bucket, DateCtx::Latest);
-        assert!(
-            stats_puts
-                .iter()
-                .any(|r| uri_has_key(&r.uri, latest_stats_key.key()))
-        );
-        assert!(
-            stats_puts
-                .iter()
-                .any(|r| !uri_has_key(&r.uri, latest_stats_key.key()))
-        );
-
-        let stats_uris: HashSet<_> = stats_puts.iter().map(|r| r.uri.as_str()).collect();
-        assert_eq!(stats_uris.len(), 2);
-        assert!(stats_puts.iter().all(|r| r.body == stats_puts[0].body));
+        let stats_copies: Vec<_> = requests
+            .iter()
+            .filter(|r| {
+                r.copy_source
+                    .as_deref()
+                    .is_some_and(|src| src.ends_with(dated_stats_key.key()))
+            })
+            .collect();
+        assert_eq!(stats_copies.len(), 1);
+        assert!(uri_has_key(&stats_copies[0].uri, latest_stats_key.key()));
 
         let uploaded_stats_json: serde_json::Value = serde_json::from_slice(&stats_puts[0].body)
             .expect("uploaded stats should be valid json");

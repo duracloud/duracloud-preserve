@@ -6,7 +6,7 @@ jobs = 4
 # code but doesn't emit a link directive for it. Link rstrtmgr explicitly so the
 # MSVC linker can resolve those symbols.
 [target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "link-arg=rstrtmgr.lib"]
+rustflags = ["-C", "link-arg=rstrtmgr.lib", "-C", "link-arg=/STACK:8388608"]
 
 [target.aarch64-pc-windows-msvc]
-rustflags = ["-C", "link-arg=rstrtmgr.lib"]
+rustflags = ["-C", "link-arg=rstrtmgr.lib", "-C", "link-arg=/STACK:8388608"]

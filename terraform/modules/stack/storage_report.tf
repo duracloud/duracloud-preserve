@@ -26,10 +26,14 @@ data "aws_iam_policy_document" "storage_report" {
     resources = ["*"]
   }
 
+  # GetObject on reports is required for the server-side copy of dated to LATEST
   statement {
-    effect    = "Allow"
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.main["managed"].arn}/${local.metadata_prefix}/*"]
+    effect  = "Allow"
+    actions = ["s3:GetObject"]
+    resources = [
+      "${aws_s3_bucket.main["managed"].arn}/${local.reports_prefix}/*",
+      "${aws_s3_bucket.main["managed"].arn}/${local.metadata_prefix}/*",
+    ]
   }
 
   statement {

@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::io::Write;
+use std::path::Path;
 
 use duckdb::Connection;
 
@@ -11,11 +11,11 @@ use crate::{
 
 pub fn process(
     parquet_files: &[impl AsRef<str>],
-) -> Result<(Vec<u8>, InventoryStats), ProcessingError> {
+    output_csv: &Path,
+) -> Result<InventoryStats, ProcessingError> {
     let processor = InventoryProcessor::load(parquet_files)?;
-    let mut csv = Vec::new();
-    let stats = processor.write_csv_and_stats(&mut csv)?;
-    Ok((csv, stats))
+    processor.write_csv(output_csv)?;
+    processor.compute_stats()
 }
 
 /// Handles parquet format inventory files from S3
@@ -33,7 +33,7 @@ impl InventoryProcessor {
 
         conn.execute_batch(&format!(
             r#"
-            CREATE TABLE inventory AS
+            CREATE VIEW inventory AS
             SELECT
                 bucket,
                 url_decode(key) as key,
@@ -50,73 +50,68 @@ impl InventoryProcessor {
         Ok(Self { conn })
     }
 
-    fn write_csv_and_stats(&self, writer: impl Write) -> Result<InventoryStats, ProcessingError> {
+    /// Stream the report straight from DuckDB to a CSV file
+    fn write_csv(&self, output: &Path) -> Result<(), ProcessingError> {
+        if let Some(dir) = output.parent().filter(|d| !d.as_os_str().is_empty()) {
+            self.conn.execute_batch(&format!(
+                "SET temp_directory = {};",
+                safe_join(&[dir.to_string_lossy()])
+            ))?;
+        }
+
+        self.conn.execute_batch(&format!(
+            r#"
+            COPY (
+                SELECT
+                    bucket,
+                    key,
+                    coalesce(size, 0) AS size,
+                    last_modified_date::VARCHAR AS last_modified_date,
+                    storage_class,
+                    replication_status,
+                    url
+                FROM inventory
+            ) TO {} (FORMAT CSV, HEADER)
+            "#,
+            safe_join(&[output.to_string_lossy()])
+        ))?;
+
+        Ok(())
+    }
+
+    /// Tally totals per top-level prefix with a single aggregate query
+    fn compute_stats(&self) -> Result<InventoryStats, ProcessingError> {
         let mut stmt = self.conn.prepare(
-            "SELECT bucket, key, size, last_modified_date::VARCHAR, storage_class, replication_status, url FROM inventory",
+            r#"
+            SELECT
+                CASE WHEN strpos(key, '/') > 0 THEN split_part(key, '/', 1) ELSE '' END AS prefix,
+                count(*)::UBIGINT AS total_files,
+                sum(coalesce(size, 0))::UBIGINT AS total_size
+            FROM inventory
+            GROUP BY prefix
+            "#,
         )?;
         let mut rows = stmt.query([])?;
 
-        let mut csv_writer = csv::Writer::from_writer(writer);
-        csv_writer.write_record([
-            "bucket",
-            "key",
-            "size",
-            "last_modified_date",
-            "storage_class",
-            "replication_status",
-            "url",
-        ])?;
-
         let mut total_files = 0_u64;
         let mut total_size = 0_u64;
-        let mut prefix_totals: BTreeMap<String, (u64, u64)> = BTreeMap::new();
+        let mut by_prefix: BTreeMap<String, PrefixStats> = BTreeMap::new();
 
         while let Some(row) = rows.next()? {
-            let bucket: String = row.get(0)?;
-            let key: String = row.get(1)?;
-            let size: i64 = row.get::<_, Option<i64>>(2)?.unwrap_or(0);
-            let last_modified: String = row.get(3)?;
-            let storage_class: String = row.get(4)?;
-            let replication_status: String = row.get(5)?;
-            let url: String = row.get(6)?;
+            let prefix: String = row.get(0)?;
+            let files: u64 = row.get(1)?;
+            let size: u64 = row.get(2)?;
 
-            csv_writer.write_record([
-                &bucket,
-                &key,
-                &size.to_string(),
-                &last_modified,
-                &storage_class,
-                &replication_status,
-                &url,
-            ])?;
-
-            total_files += 1;
-
-            let size_u64 = u64::try_from(size).unwrap_or(0);
-            total_size += size_u64;
-
-            let prefix = key
-                .split_once('/')
-                .map_or_else(String::new, |(p, _)| p.to_string());
-            let (files, bytes) = prefix_totals.entry(prefix).or_insert((0, 0));
-            *files += 1;
-            *bytes += size_u64;
+            total_files += files;
+            total_size += size;
+            by_prefix.insert(
+                prefix,
+                PrefixStats {
+                    total_files: files,
+                    total_size: size,
+                },
+            );
         }
-
-        csv_writer.flush()?;
-
-        let by_prefix = prefix_totals
-            .into_iter()
-            .map(|(prefix, (total_files, total_size))| {
-                (
-                    prefix,
-                    PrefixStats {
-                        total_files,
-                        total_size,
-                    },
-                )
-            })
-            .collect();
 
         Ok(InventoryStats {
             total_files,
@@ -164,9 +159,26 @@ mod tests {
         InventoryProcessor { conn }
     }
 
+    /// Run `process` against a temp output file, returning the CSV text and stats.
+    fn process_to_temp(parquet_files: &[&str]) -> (String, InventoryStats) {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let output = temp_dir.path().join("inventory-report.csv");
+        let stats = process(parquet_files, &output).unwrap();
+        let csv = std::fs::read_to_string(&output).unwrap();
+        (csv, stats)
+    }
+
+    /// Run `write_csv` against a temp output file, returning the CSV text.
+    fn write_csv_to_temp(processor: &InventoryProcessor) -> String {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let output = temp_dir.path().join("inventory-report.csv");
+        processor.write_csv(&output).unwrap();
+        std::fs::read_to_string(&output).unwrap()
+    }
+
     #[test]
     fn test_full_pipeline() {
-        let (_csv, stats) = process(&["../../files/example.parquet"]).unwrap();
+        let (_csv, stats) = process_to_temp(&["../../files/example.parquet"]);
 
         assert_eq!(stats.total_files, 13);
         assert_eq!(stats.total_size, 2191162);
@@ -196,9 +208,8 @@ mod tests {
 
     #[test]
     fn test_full_pipeline_csv_output() {
-        let (output, _stats) = process(&["../../files/example.parquet"]).unwrap();
+        let (csv, _stats) = process_to_temp(&["../../files/example.parquet"]);
 
-        let csv = String::from_utf8(output).unwrap();
         let lines: Vec<&str> = csv.lines().collect();
 
         // Header + 13 data rows
@@ -277,7 +288,7 @@ mod tests {
     #[test]
     fn test_prefix_stats_empty() {
         let processor = create_test_processor(&[]);
-        let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
+        let stats = processor.compute_stats().unwrap();
         assert!(stats.by_prefix.is_empty());
     }
 
@@ -290,7 +301,7 @@ mod tests {
             ("bucket", "root.txt", 50),
             ("bucket", "another_root.txt", 25),
         ]);
-        let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
+        let stats = processor.compute_stats().unwrap();
         let by_prefix = &stats.by_prefix;
 
         let images = by_prefix.get("images").unwrap();
@@ -308,12 +319,11 @@ mod tests {
 
     #[test]
     fn test_process_returns_matching_csv_and_stats() {
-        let (csv, stats) = process(&["../../files/example.parquet"]).unwrap();
+        let (csv, stats) = process_to_temp(&["../../files/example.parquet"]);
 
         assert_eq!(stats.total_files, 13);
         assert_eq!(stats.total_size, 2_191_162);
 
-        let csv = String::from_utf8(csv).unwrap();
         let lines: Vec<&str> = csv.lines().collect();
         assert_eq!(lines.len(), 14);
         assert_eq!(
@@ -333,7 +343,7 @@ mod tests {
             ("bucket", "b.txt", 200),
             ("bucket", "c.txt", 300),
         ]);
-        let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
+        let stats = processor.compute_stats().unwrap();
         assert_eq!(stats.total_files, 3);
         assert_eq!(stats.total_size, 600);
     }
@@ -341,7 +351,7 @@ mod tests {
     #[test]
     fn test_totals_empty() {
         let processor = create_test_processor(&[]);
-        let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
+        let stats = processor.compute_stats().unwrap();
         assert_eq!(stats.total_files, 0);
         assert_eq!(stats.total_size, 0);
     }
@@ -373,9 +383,15 @@ mod tests {
         )
         .unwrap();
         let processor = InventoryProcessor { conn };
-        let stats = processor.write_csv_and_stats(std::io::sink()).unwrap();
+        let stats = processor.compute_stats().unwrap();
         assert_eq!(stats.total_files, 2);
         assert_eq!(stats.total_size, 0);
+
+        let csv = write_csv_to_temp(&processor);
+        assert!(
+            csv.contains("bucket,a.txt,0,"),
+            "NULL size should render as 0: {csv}"
+        );
     }
 
     #[test]
@@ -423,9 +439,7 @@ mod tests {
     #[test]
     fn test_write_csv_empty() {
         let processor = create_test_processor(&[]);
-        let mut output = Vec::new();
-        processor.write_csv_and_stats(&mut output).unwrap();
-        let csv = String::from_utf8(output).unwrap();
+        let csv = write_csv_to_temp(&processor);
         assert!(
             csv.contains("bucket,key,size,last_modified_date,storage_class,replication_status,url")
         );
@@ -438,9 +452,7 @@ mod tests {
             ("mybucket", "file1.txt", 100),
             ("mybucket", "file2.txt", 200),
         ]);
-        let mut output = Vec::new();
-        processor.write_csv_and_stats(&mut output).unwrap();
-        let csv = String::from_utf8(output).unwrap();
+        let csv = write_csv_to_temp(&processor);
 
         assert!(
             csv.contains("bucket,key,size,last_modified_date,storage_class,replication_status,url")

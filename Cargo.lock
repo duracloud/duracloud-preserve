@@ -120,9 +120,9 @@ dependencies = [
 
 [[package]]
 name = "archive-it-client"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8ba94b38d6549db76489afc5fc5da7da9498c6bc2e7621594b99441d86764d3"
+checksum = "0137ffa9e330fa6cbc571769cb52ab3ba0d159d9c0a52a96827c23878ca3b3b9"
 dependencies = [
  "async-stream",
  "aws-sdk-s3",
@@ -2352,9 +2352,9 @@ dependencies = [
 
 [[package]]
 name = "http-ferry"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "868b7884ababc6b659cbe4a01c68cc7d4a51242756821feb05efbdcb07b8c582"
+checksum = "ab410bb89fcdff317563eb12709ece661a96c7dbefbaf4db00e7e6589bddeb99"
 dependencies = [
  "async-stream",
  "aws-sdk-s3",

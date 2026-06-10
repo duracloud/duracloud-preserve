@@ -1164,7 +1164,6 @@ dependencies = [
  "chrono",
  "constants",
  "crc-fast",
- "csv",
  "duckdb",
  "humansize",
  "rand 0.10.1",

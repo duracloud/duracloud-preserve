@@ -5,7 +5,7 @@
 //!
 //! Prerequisites:
 //!   - Set TEST_STACK env var (defaults to "int-test")
-//!   - Run: make setup s=<stack> p=<profile>
+//!   - Run: mise run setup --stack <stack> --profile <profile>
 
 use app::{config, perform::bucket_request};
 use aws_smithy_types::body::SdkBody;

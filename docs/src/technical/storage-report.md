@@ -26,23 +26,23 @@ The storage report requires S3 inventory data to be available. Before running th
 Generate a storage report for a specific stack:
 
 ```bash
-make run-storage-report s=digipres-dev1 p=default
+mise run storage-report --stack digipres-dev1 --profile default
 ```
 
 **Parameters:**
-- `s=` — Stack name (required)
-- `p=` — AWS profile (required)
+- `--stack` — Stack name (required)
+- `--profile` — AWS profile (required)
 
 ## Remote trigger
 
 ```bash
-make trigger f=storage-report s=digipres-dev1 p=default
+mise run trigger --function storage-report --stack digipres-dev1 --profile default
 ```
 
 **Parameters:**
-- `f=` — Function name (storage-report)
-- `s=` — Stack name (required)
-- `p=` — AWS profile (required)
+- `--function` — Function name (storage-report)
+- `--stack` — Stack name (required)
+- `--profile` — AWS profile (required)
 
 ### Scheduled execution
 

@@ -197,19 +197,19 @@ For testing with deployed Lambda functions, see the documentation for specific o
 - [Storage reports](storage-report.md)
 - [Inventory reports](inventory-report.md)
 
-## Makefile helpers
+## mise task helpers
 
-The project provides Makefile tasks that wrap CLI commands with common parameters:
+The project provides [mise tasks](https://mise.jdx.dev/tasks/) that wrap CLI commands with common parameters:
 
 ```bash
-# Example: Run compute-checksums via Makefile
-make run-compute-checksums b=digipres-dev1-private p=default
+# Example: Run compute-checksums via mise
+mise run compute-checksums --bucket digipres-dev1-private --profile default
 
 # Example: Trigger Lambda function
-make trigger f=storage-report s=digipres-dev1 p=default
+mise run trigger --function storage-report --stack digipres-dev1 --profile default
 
 # Example: Run CLI command directly
 dcp compute-checksums --bucket digipres-dev1-private
 ```
 
-For all available Makefile tasks, run `make help`.
+For all available tasks, run `mise tasks`.

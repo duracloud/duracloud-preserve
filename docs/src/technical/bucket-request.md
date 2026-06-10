@@ -24,15 +24,15 @@ The workflow is:
 
 ## CLI Testing
 
-Use `make run-bucket-request` to process a file locally without uploading to S3:
+Use `mise run bucket-request` to process a file locally without uploading to S3:
 
 ```bash
-make run-bucket-request f=files/buckets-list.txt s=digipres-dev1 p=default
+mise run bucket-request --file files/buckets-list.txt --stack digipres-dev1 --profile default
 ```
 
-- `f=` — path to a local file containing [bucket names](#)
-- `s=` — the stack name (used as a prefix for created buckets)
-- `p=` — the AWS profile to use
+- `--file` — path to a local file containing [bucket names](#)
+- `--stack` — the stack name (used as a prefix for created buckets)
+- `--profile` — the AWS profile to use
 
 You can also create a single bucket by name without a file, using the `cargo` CLI directly.
 > [!IMPORTANT]
@@ -46,16 +46,16 @@ This is useful for one-off bucket creation or quick iteration without maintainin
 
 ## Remote Testing
 
-Use `make upload` to upload a file to S3 and trigger the Lambda function as it would run in production:
+Use `mise run upload` to upload a file to S3 and trigger the Lambda function as it would run in production:
 
 ```bash
-make upload b=digipres-dev1-request d=buckets f=files/buckets.txt p=default
+mise run upload --bucket digipres-dev1-request --dir buckets --file files/buckets.txt --profile default
 ```
 
-- `b=` — the name of the S3 request bucket (typically `${stack}-request`)
-- `d=` — the S3 directory (path) to upload into (must be `buckets`)
-- `f=` — path to the local file containing [bucket names](#)
-- `p=` — the AWS profile to use
+- `--bucket` — the name of the S3 request bucket (typically `${stack}-request`)
+- `--dir` — the S3 directory (path) to upload into (must be `buckets`)
+- `--file` — path to the local file containing [bucket names](#)
+- `--profile` — the AWS profile to use
 
 ## Output
 
@@ -67,9 +67,9 @@ Given the example file `files/buckets.txt`, two buckets should be created (assum
 You can verify the buckets were created using:
 
 ```bash
-make bucket a=list p=default
+mise run bucket list --profile default
 # Filter results by stack name using grep
-make bucket a=list p=default | grep digipres-dev1
+mise run bucket list --profile default | grep digipres-dev1
 ```
 
 ## QA testing

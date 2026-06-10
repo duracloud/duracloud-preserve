@@ -17,20 +17,20 @@ In production, this function is triggered asynchronously by EventBridge when a b
 > [`compute-checksums`](compute-checksums.md) must have already run and completed for the target bucket pair (source + replication) before running this command.
 
 ```bash
-make run-checksum-report b=digipres-dev1-private p=default
+mise run checksum-report --bucket digipres-dev1-private --profile default
 ```
 
-| Flag | Description                                                         |
-| ---- | ------------------------------------------------------------------- |
-| `b=` | A standard or public stack bucket to generate a checksum report for |
-| `p=` | AWS profile                                                         |
+| Flag        | Description                                                          |
+| ----------- | -------------------------------------------------------------------- |
+| `--bucket`  | A standard or public stack bucket to generate a checksum report for |
+| `--profile` | AWS profile                                                          |
 
 ### Remote testing
 
 Remote testing starts the same way as [`compute-checksums`](compute-checksums.md):
 
 ```bash
-make trigger f=compute-checksums s=digipres-dev1 p=default
+mise run trigger --function compute-checksums --stack digipres-dev1 --profile default
 ```
 
 When a compute checksum job completes, it automatically triggers checksum report generation — once per bucket job.
@@ -41,7 +41,7 @@ When a compute checksum job completes, it automatically triggers checksum report
 #### Tracking job status
 
 ```bash
-make job-status-by-receipt b=digipres-dev1-private p=default
+mise run job-status-by-receipt --bucket digipres-dev1-private --profile default
 ```
 
 A status of `"Active"` means the job is still running.

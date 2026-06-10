@@ -19,11 +19,11 @@ This function processes Parquet-formatted S3 inventory data into a single human-
 Run locally against the most recently available S3 inventory for a bucket:
 
 ```bash
-make run-inventory-report b=digipres-dev1-private p=default
+mise run inventory-report --bucket digipres-dev1-private --profile default
 ```
 
-- `b=` — Bucket name to process the inventory report for (required)
-- `p=` — AWS profile to use (required)
+- `--bucket` — Bucket name to process the inventory report for (required)
+- `--profile` — AWS profile to use (required)
 
 ## Remote testing
 

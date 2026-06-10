@@ -12,10 +12,14 @@ data "aws_iam_policy_document" "checksum_request" {
     resources = ["${aws_s3_bucket.main["request"].arn}/${local.checksum_request_prefix}/*"]
   }
 
+  # GetObject on reports is required for the server-side copy of dated to LATEST
   statement {
-    effect    = "Allow"
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.main["managed"].arn}/${local.reports_prefix}/*/manifests/*"]
+    effect  = "Allow"
+    actions = ["s3:GetObject"]
+    resources = [
+      "${aws_s3_bucket.main["managed"].arn}/${local.reports_prefix}/*/manifests/*",
+      "${aws_s3_bucket.main["managed"].arn}/${local.reports_prefix}/*/checksums/*",
+    ]
   }
 
   statement {

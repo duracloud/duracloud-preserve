@@ -7,7 +7,7 @@ This is a brief overview of the functionality that is explained more thoroughly 
 Users can be standard or power users by assignment to a stack created IAM group.
 
 * Standard users can list and upload files but cannot download or delete them.
-* Restrited users can list and upload files within designated buckets and cannot download or delete them.
+* Restricted users can list and upload files within designated buckets but cannot download or delete them.
 * Power users can list, upload, download, and delete files.
 
 Only AWS account administrators can access replicated buckets and objects.
@@ -32,17 +32,13 @@ A command-line interface (`dcp`) is available for advanced users. It provides ac
 
 If creating an AWS account and deploying resources to it is not possible then Lyrasis provides a [hosting and technical support](./lyrasis.md) option to handle the infrastructure for you.
 
-## Inventory
-
-A file manifest is generated for each user-created bucket. The raw AWS inventory data is available in Parquet format and a consolidated, user friendly csv file is also made available that includes the S3 url for each file.
-
 ## Lifecycle transitions
 
 Files are uploaded to the standard storage tier and transition to a selected storage class after a configurable interval, which can be specified for each stack deployment. Old versions of files and aborted multipart uploads are automatically deleted after a configurable period.
 
 ## Manifest reports
 
-A consolidated, human-readable CSV file is generated per bucket, listing all files with metadata including S3 URL, size, storage class, and last modified date.
+A file manifest is generated for each user-created bucket. The raw inventory data is available in Parquet format and a consolidated, human-readable CSV file is generated listing all files with metadata including S3 URL, size, storage class, and last modified date.
 
 ## Public access via CDN (Content Delivery Network)
 

@@ -12,8 +12,6 @@ Your administrator will provide the public domain URL, but you can also construc
 https://{$ID}.preserve.duracloud.org/{FOLDER STRUCTURE}{FILENAME}
 ```
 
-If you have spaces in any of your folder or filenames, replace those with a `+` sign when forming a URL. The region information is also optional.
-
 So, for example, a .jpg image found in the `test` account's public bucket → photographs → Cats folder structure would look like:
 
 https://test.preserve.duracloud.org/photographs/Cats/callie_and_friend.jpg
@@ -47,11 +45,11 @@ If you have spaces in any of your folder or filenames, replace those with a + si
 
 So, for example, an image found in the lyrasis account’s bucket public → test-01 → catpics folder structure would look like:
 
-https://duracloud-lyrasis-public.s3.us-west-2.amazonaws.com/test-01/catpics/callie_and_friend.jpg
+https://dcp-test-public.s3.us-west-2.amazonaws.com/photographs/Cats/callie_and_friend.jpg
 
 OR, without the region information:
 
-https://duracloud-lyrasis-public.s3.amazonaws.com/test-01/catpics/callie_and_friend.jpg
+https://dcp-test-public.s3.amazonaws.com/photographs/Cats/callie_and_friend.jpg
 
 **Note this feature is currently available but may be restricted in the future, as it goes against AWS guidelines.**
 

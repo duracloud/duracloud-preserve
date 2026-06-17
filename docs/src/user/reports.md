@@ -27,7 +27,7 @@ Each report includes rows for each object within a bucket, including folder stru
 
 If there are any errors in the "status" column, contact your hosting provider for more information.
 
-A note about the version_id column: When you overwrite files, both versions are available for a set period, and the old version is restorable in case you accidentally overwrote a file. Lyrasis Hosting clients have 14 days to restore overwitten content.
+A note about the version_id column: When you overwrite files, both versions are available for a set period, and the old version is restorable in case you accidentally overwrote a file.
 
 ### Checksum inventory
 

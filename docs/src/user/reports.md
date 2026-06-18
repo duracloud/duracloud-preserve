@@ -36,9 +36,9 @@ A per-object listing of checksum metadata built from S3 inventory data. Unlike t
 - `reports/0000-00-00-LATEST/checksums/<bucket>_checksum-inventory.csv` — most recent report
 - `reports/YYYY-MM-DD/checksums/<bucket>_checksum-inventory.csv` — date-stamped archive
 
-Each row includes the object key, its CRC64NVMe checksum (when present), and a status:
+Each row includes the object key, its CRC64NVMe or SHA256 checksum (when present), and a status:
 
-- `ok` — checksum metadata retrieved successfully
+- `ok` — checksum metadata retrieved successfully (note: this is not checksum verification)
 - `not_found` — object was not found
 - `missing_checksum` — object exists but has no checksum recorded
 - `error` — other failure
@@ -82,7 +82,8 @@ An interactive HTML report generated weekly showing storage usage across all buc
 
 Open the `.html` file in your browser to view:
 
-The top row of the report includes 
+The top row of the report includes
+
 - **Total Buckets** - how many buckets are associated with your AWS account
 - **Total Files** - across all buckets
 - **Total Size** - how much space all files are taking up
@@ -97,6 +98,7 @@ Additional information includes
 - **Per bucket / per prefix totals** — usage by folder (prefix) within each bucket
 
 ## Accessing reports
+
 These reports are available no matter how you access your AWS account. The HTML storage reports will open in your default browser after you download.
 
 ### Cyberduck
@@ -113,7 +115,6 @@ These reports are available no matter how you access your AWS account. The HTML 
 3. Open the relevant subfolder (`checksums`, `manifests`, or `storage`).
 4. To download a single file, click directly on its filename, or check the box next to it and use **Actions → Download**.
 5. To download multiple files, check the boxes next to them and use the **Actions** menu → **Download**. Selected items will be zipped automatically.
-
 
 ### AWS CLI
 
@@ -140,9 +141,11 @@ List all available reports in a folder:
 ```bash
 aws s3 ls s3://duracloud-$ID-managed/reports/0000-00-00-LATEST/checksums/
 ```
+
 Sync an entire dated archive locally:
 
 ```bash
 aws s3 sync s3://duracloud-$ID-managed/reports/ ./reports/
 ```
+>
 > - Right-click to rename files when downloading to avoid overwriting reports from previous dates.

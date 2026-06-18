@@ -4,7 +4,6 @@ use futures::stream::{self, TryStreamExt};
 
 use crate::{config::Config, errors::ChecksumRequestError};
 
-pub const CHECKSUM_TYPE: &str = "crc64nvme";
 const CONCURRENCY: usize = 64;
 const HEADERS: [&str; 8] = [
     "bucket",
@@ -82,10 +81,14 @@ pub async fn generate_inventory(
                 }
             };
 
-            let (checksum, checksum_algorithm, status) = match head.checksum_crc64_nvme() {
-                Some(c) => (c.to_string(), CHECKSUM_TYPE, STATUS_OK),
-                None => (String::new(), "", STATUS_MISSING_CHECKSUM),
-            };
+            let (checksum, checksum_algorithm, status) =
+                if let Some(checksum) = head.checksum_crc64_nvme() {
+                    (checksum.to_string(), "crc64nvme", STATUS_OK)
+                } else if let Some(checksum) = head.checksum_sha256() {
+                    (checksum.to_string(), "sha256", STATUS_OK)
+                } else {
+                    (String::new(), "", STATUS_MISSING_CHECKSUM)
+                };
 
             let size = head.content_length.unwrap_or(0).to_string();
             let content_type = head.content_type.unwrap_or(String::new());

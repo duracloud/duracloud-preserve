@@ -66,11 +66,10 @@ The fields included in this report:
 |---|---|
 | bucket | Bucket name |
 | key | Filename |
-| xize | Object size in bytes |
+| size | Object size in bytes |
 | last_modified_date | UTC timestamp |
 | storage_class | Options include Standard, Intelligent Tiering, depending on if the object has recently been accessed/downloaded |
 | replication_status | Should state "completed" to indicate object has been added to the `-repl` bucket |
-| url | The S3 URL |
 
 This report does not include rows for folder structures.
 

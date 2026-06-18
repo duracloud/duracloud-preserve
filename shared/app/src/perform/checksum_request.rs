@@ -93,10 +93,10 @@ mod tests {
 
     fn inventory_csv(rows: &[(&str, &str, &str)]) -> String {
         let mut csv =
-            "bucket,key,size,last_modified_date,storage_class,replication_status,url\n".to_string();
+            "bucket,key,size,last_modified_date,storage_class,replication_status\n".to_string();
         for (bucket, key, size) in rows {
             csv.push_str(&format!(
-                "{bucket},{key},{size},2026-02-07T04:13:34Z,GLACIER_IR,COMPLETED,https://{bucket}.s3.amazonaws.com/{key}\n"
+                "{bucket},{key},{size},2026-02-07T04:13:34Z,GLACIER_IR,COMPLETED\n"
             ));
         }
         csv

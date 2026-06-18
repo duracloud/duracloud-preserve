@@ -36,12 +36,11 @@ impl InventoryProcessor {
             CREATE VIEW inventory AS
             SELECT
                 bucket,
-                url_decode(key) as key,
+                key,
                 size,
                 last_modified_date,
                 storage_class,
-                replication_status,
-                'https://' || bucket || '.s3.amazonaws.com/' || key as url
+                replication_status
             FROM read_parquet([{files}])
             WHERE NOT key LIKE '%/'
             "#
@@ -68,8 +67,7 @@ impl InventoryProcessor {
                     coalesce(size, 0) AS size,
                     last_modified_date::VARCHAR AS last_modified_date,
                     storage_class,
-                    replication_status,
-                    url
+                    replication_status
                 FROM inventory
             ) TO {} (FORMAT CSV, HEADER)
             "#,
@@ -135,8 +133,7 @@ mod tests {
                 size BIGINT,
                 last_modified_date TIMESTAMP WITH TIME ZONE,
                 storage_class VARCHAR,
-                replication_status VARCHAR,
-                url VARCHAR
+                replication_status VARCHAR
             )
             "#,
         )
@@ -145,15 +142,14 @@ mod tests {
         let mut stmt = conn
             .prepare(
                 r#"
-                INSERT INTO inventory (bucket, key, size, last_modified_date, storage_class, replication_status, url)
-                VALUES (?, ?, ?, '2025-01-01 00:00:00+00', 'STANDARD', 'COMPLETED', 'https://' || ? || '.s3.amazonaws.com/' || ?)
+                INSERT INTO inventory (bucket, key, size, last_modified_date, storage_class, replication_status)
+                VALUES (?, ?, ?, '2025-01-01 00:00:00+00', 'STANDARD', 'COMPLETED')
                 "#,
             )
             .unwrap();
 
         for (bucket, key, size) in rows {
-            stmt.execute(duckdb::params![bucket, key, size, bucket, key])
-                .unwrap();
+            stmt.execute(duckdb::params![bucket, key, size]).unwrap();
         }
 
         InventoryProcessor { conn }
@@ -217,42 +213,34 @@ mod tests {
 
         assert_eq!(
             lines[0],
-            "bucket,key,size,last_modified_date,storage_class,replication_status,url"
+            "bucket,key,size,last_modified_date,storage_class,replication_status"
         );
-
-        assert!(csv.contains("https://test-stack-private.s3.amazonaws.com/"));
     }
 
     #[test]
-    fn test_load_creates_url_column() {
+    fn test_load_preserves_keys_verbatim() {
         let processor = InventoryProcessor::load(&["../../files/example.parquet"]).unwrap();
-        let mut stmt = processor
+
+        let found: i64 = processor
             .conn
-            .prepare("SELECT bucket, key, url FROM inventory LIMIT 1")
+            .query_row(
+                "SELECT count(*) FROM inventory WHERE key = 'documents/my report.pdf'",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
-        let mut rows = stmt.query([]).unwrap();
-        let row = rows.next().unwrap().unwrap();
+        assert_eq!(found, 1, "literal-space key should be read verbatim");
 
-        let bucket: String = row.get(0).unwrap();
-        let _key: String = row.get(1).unwrap();
-        let url: String = row.get(2).unwrap();
-
-        // URL should use original encoded key, not decoded
-        assert!(url.starts_with(&format!("https://{}.s3.amazonaws.com/", bucket)));
-    }
-
-    #[test]
-    fn test_load_decodes_keys() {
-        let processor = InventoryProcessor::load(&["../../files/example.parquet"]).unwrap();
-        let mut stmt = processor
+        // No percent-encoded variant should leak through.
+        let encoded: i64 = processor
             .conn
-            .prepare("SELECT key FROM inventory WHERE key LIKE '%report%'")
+            .query_row(
+                r"SELECT count(*) FROM inventory WHERE key LIKE '%\%20%' ESCAPE '\'",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
-        let mut rows = stmt.query([]).unwrap();
-        let row = rows.next().unwrap().unwrap();
-        let key: String = row.get(0).unwrap();
-        // The key "documents/my%20report.pdf" should be decoded to "documents/my report.pdf"
-        assert_eq!(key, "documents/my report.pdf");
+        assert_eq!(encoded, 0, "keys should not be percent-encoded");
     }
 
     #[test]
@@ -328,7 +316,7 @@ mod tests {
         assert_eq!(lines.len(), 14);
         assert_eq!(
             lines[0],
-            "bucket,key,size,last_modified_date,storage_class,replication_status,url"
+            "bucket,key,size,last_modified_date,storage_class,replication_status"
         );
 
         let root = stats.by_prefix.get("").expect("root prefix should exist");
@@ -367,18 +355,17 @@ mod tests {
                 size BIGINT,
                 last_modified_date TIMESTAMP WITH TIME ZONE,
                 storage_class VARCHAR,
-                replication_status VARCHAR,
-                url VARCHAR
+                replication_status VARCHAR
             )
             "#,
         )
         .unwrap();
         conn.execute_batch(
             r#"
-            INSERT INTO inventory (bucket, key, size, last_modified_date, storage_class, replication_status, url)
+            INSERT INTO inventory (bucket, key, size, last_modified_date, storage_class, replication_status)
             VALUES
-              ('bucket', 'a.txt', NULL, '2025-01-01 00:00:00+00', 'STANDARD', 'COMPLETED', 'https://bucket.s3.amazonaws.com/a.txt'),
-              ('bucket', 'b.txt', NULL, '2025-01-01 00:00:00+00', 'STANDARD', 'COMPLETED', 'https://bucket.s3.amazonaws.com/b.txt')
+              ('bucket', 'a.txt', NULL, '2025-01-01 00:00:00+00', 'STANDARD', 'COMPLETED'),
+              ('bucket', 'b.txt', NULL, '2025-01-01 00:00:00+00', 'STANDARD', 'COMPLETED')
             "#,
         )
         .unwrap();
@@ -395,53 +382,11 @@ mod tests {
     }
 
     #[test]
-    fn test_url_decode_already_decoded() {
-        let conn = Connection::open_in_memory().unwrap();
-        let result: String = conn
-            .query_row("SELECT url_decode('normal/path/file.txt')", [], |row| {
-                row.get(0)
-            })
-            .unwrap();
-        assert_eq!(result, "normal/path/file.txt");
-    }
-
-    #[test]
-    fn test_url_decode_slash() {
-        let conn = Connection::open_in_memory().unwrap();
-        let result: String = conn
-            .query_row("SELECT url_decode('path%2Fto%2Ffile.txt')", [], |row| {
-                row.get(0)
-            })
-            .unwrap();
-        assert_eq!(result, "path/to/file.txt");
-    }
-
-    #[test]
-    fn test_url_decode_space() {
-        let conn = Connection::open_in_memory().unwrap();
-        let result: String = conn
-            .query_row("SELECT url_decode('my%20file.txt')", [], |row| row.get(0))
-            .unwrap();
-        assert_eq!(result, "my file.txt");
-    }
-
-    #[test]
-    fn test_url_decode_special_chars() {
-        let conn = Connection::open_in_memory().unwrap();
-        let result: String = conn
-            .query_row("SELECT url_decode('file%26name%3Dvalue.txt')", [], |row| {
-                row.get(0)
-            })
-            .unwrap();
-        assert_eq!(result, "file&name=value.txt");
-    }
-
-    #[test]
     fn test_write_csv_empty() {
         let processor = create_test_processor(&[]);
         let csv = write_csv_to_temp(&processor);
         assert!(
-            csv.contains("bucket,key,size,last_modified_date,storage_class,replication_status,url")
+            csv.contains("bucket,key,size,last_modified_date,storage_class,replication_status")
         );
         assert_eq!(csv.lines().count(), 1); // header only
     }
@@ -455,10 +400,9 @@ mod tests {
         let csv = write_csv_to_temp(&processor);
 
         assert!(
-            csv.contains("bucket,key,size,last_modified_date,storage_class,replication_status,url")
+            csv.contains("bucket,key,size,last_modified_date,storage_class,replication_status")
         );
         assert!(csv.contains("mybucket,file1.txt,100,"));
         assert!(csv.contains("mybucket,file2.txt,200,"));
-        assert!(csv.contains("https://mybucket.s3.amazonaws.com/file1.txt"));
     }
 }

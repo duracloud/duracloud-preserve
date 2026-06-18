@@ -4,7 +4,8 @@ use futures::stream::{self, TryStreamExt};
 
 use crate::{config::Config, errors::ChecksumRequestError};
 
-const CONCURRENCY: usize = 64;
+const CONCURRENCY: usize = 256;
+const PROGRESS_INTERVAL: usize = 10_000;
 const HEADERS: [&str; 8] = [
     "bucket",
     "key",
@@ -41,12 +42,13 @@ pub struct InventoryRow {
 pub async fn generate_inventory(
     config: &Config,
     rows: impl Iterator<Item = Result<InventoryRow, ChecksumRequestError>>,
-) -> Result<(Vec<u8>, usize, usize), ChecksumRequestError> {
-    let mut wtr = csv::Writer::from_writer(Vec::new());
+    output_path: &std::path::Path,
+) -> Result<(usize, usize), ChecksumRequestError> {
+    let mut wtr = csv::Writer::from_path(output_path)?;
     wtr.write_record(HEADERS)?;
 
     let client = config.s3();
-    let (wtr, count, skipped) = stream::iter(rows)
+    let (mut wtr, count, skipped) = stream::iter(rows)
         .map_ok(|row| async move {
             let file = File::new(&row.bucket, &row.key);
             let head = match file::head(client, &file).await {
@@ -123,24 +125,26 @@ pub async fn generate_inventory(
                 } else {
                     skipped + 1
                 };
-                Ok((wtr, count + 1, skipped))
+                let count = count + 1;
+                if count % PROGRESS_INTERVAL == 0 {
+                    tracing::info!("Checksum progress: {count} rows processed ({skipped} non-ok)");
+                }
+                Ok((wtr, count, skipped))
             },
         )
         .await?;
 
-    let csv_bytes = wtr
-        .into_inner()
-        .map_err(|e| csv::Error::from(e.into_error()))?;
+    wtr.flush()?;
 
-    Ok((csv_bytes, count, skipped))
+    Ok((count, skipped))
 }
 
 /// Parse an S3 inventory CSV, yielding the `bucket` and `key` columns as `InventoryRow`s.
-pub fn parse_inventory_rows(
-    bytes: &[u8],
-) -> impl Iterator<Item = Result<InventoryRow, ChecksumRequestError>> + '_ {
+pub fn parse_inventory_rows<R: std::io::Read>(
+    reader: R,
+) -> impl Iterator<Item = Result<InventoryRow, ChecksumRequestError>> {
     csv::ReaderBuilder::new()
-        .from_reader(bytes)
+        .from_reader(reader)
         .into_records()
         .map(|result| {
             let record = result?;

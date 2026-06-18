@@ -46,6 +46,8 @@ pub enum ChecksumRequestError {
     CsvParse(#[from] csv::Error),
     #[error("failed to download inventory CSV: {0}")]
     Download(#[source] RequestError),
+    #[error("failed to create temporary file: {0}")]
+    TempFile(#[from] std::io::Error),
     #[error("cannot extract bucket name from inventory file key: {0}")]
     InvalidFileKey(#[from] FileKeyError),
     #[error("inventory report not found: {0}")]

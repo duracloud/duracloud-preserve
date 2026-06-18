@@ -1,6 +1,5 @@
 use awsutils::file::{self, File};
 use base::stack::DateCtx;
-use bytes::Bytes;
 use constants::TEXT_CSV;
 
 use crate::{bucket, checksum, config::Config, errors::ChecksumRequestError, upload};
@@ -32,12 +31,20 @@ pub async fn perform(config: &Config, args: &PerformArgs) -> Result<String, Chec
         return Err(ChecksumRequestError::InventoryNotFound(csv_file.s3_url()));
     }
 
-    let bytes = file::download_bytes(config.s3(), csv_file)
-        .await
-        .map_err(ChecksumRequestError::Download)?;
+    let temp_dir = tempfile::tempdir()?;
 
-    let rows = checksum::parse_inventory_rows(&bytes);
-    let (csv_bytes, count, skipped) = checksum::generate_inventory(config, rows).await?;
+    let paths = file::download_files_to_temp(
+        config.s3(),
+        std::slice::from_ref(csv_file),
+        &temp_dir,
+        "checksum inventory",
+    )
+    .await
+    .map_err(ChecksumRequestError::Download)?;
+
+    let rows = checksum::parse_inventory_rows(std::fs::File::open(&paths[0])?);
+    let output_path = temp_dir.path().join("checksum-inventory.csv");
+    let (count, skipped) = checksum::generate_inventory(config, rows, &output_path).await?;
 
     tracing::info!("Processed {count} inventory rows");
 
@@ -45,13 +52,12 @@ pub async fn perform(config: &Config, args: &PerformArgs) -> Result<String, Chec
         tracing::warn!("{skipped} of {count} objects had non-ok status");
     }
 
-    let csv_bytes = Bytes::from(csv_bytes);
     let output_name = format!("{bucket}_{}", "checksum-inventory");
 
-    upload::put_versioned_bytes(
+    upload::put_versioned_file(
         config,
         args.date_ctx,
-        csv_bytes,
+        &output_path,
         TEXT_CSV,
         |ctx| config.stack().reports_checksums_path(&output_name, ctx),
         ChecksumRequestError::Upload,
@@ -122,6 +128,20 @@ mod tests {
             .collect()
     }
 
+    /// Run `generate_inventory` against the mocked HEAD responses in `config` and
+    /// return the rows it wrote to disk. The streamed PUT body can't be inspected
+    /// via the replay client (file-backed `ByteStream`s report no in-memory bytes),
+    /// so report-content assertions read the generated file directly.
+    async fn generated_rows(config: &Config, inventory: &str) -> Vec<HashMap<String, String>> {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let output_path = temp_dir.path().join("checksum-inventory.csv");
+        let rows = checksum::parse_inventory_rows(inventory.as_bytes());
+        checksum::generate_inventory(config, rows, &output_path)
+            .await
+            .expect("generate_inventory should succeed");
+        parse_output_csv(&std::fs::read(&output_path).unwrap())
+    }
+
     #[tokio::test]
     async fn test_bucket_from_file() {
         let file = File::new(
@@ -177,28 +197,12 @@ mod tests {
     async fn test_error_status_on_non_404_failure() {
         let csv = inventory_csv(&[("test-bucket", "denied.jpg", "9999")]);
 
-        let (sdk_config, replay) = TestClientBuilder::new()
-            .ok()
-            .success(SdkBody::from(csv), None)
-            .s3_error("AccessDenied", "forbidden")
-            .ok()
-            .ok()
-            .build_sdk_config_with_replay();
+        let sdk_config = TestClientBuilder::new()
+            .s3_error("AccessDenied", "forbidden") // HEAD denied.jpg
+            .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
 
-        let args = csv_args(&config);
-        let result = perform(&config, &args).await;
-        assert!(
-            result.is_ok(),
-            "perform should not abort on non-404 HEAD error: {result:?}"
-        );
-
-        let requests = test_support::recorded_requests(&replay);
-        let put = requests
-            .iter()
-            .find(|r| r.method == "PUT")
-            .expect("should have a PUT request");
-        let rows = parse_output_csv(&put.body);
+        let rows = generated_rows(&config, &csv).await;
         let row = rows
             .iter()
             .find(|r| r["key"] == "denied.jpg")
@@ -279,29 +283,14 @@ mod tests {
             ("test-bucket", "no-crc.jpg", "300"),
         ]);
 
-        let (sdk_config, replay) = TestClientBuilder::new()
-            .ok()
-            .success(SdkBody::from(csv), None)
-            .success_with_headers(SdkBody::empty(), &[CHECKSUM_HEADER])
-            .error(404, "NotFound", "not found")
-            .ok() // HEAD 200, no checksum header
-            .ok() // upload latest
-            .ok() // upload dated
-            .build_sdk_config_with_replay();
+        let sdk_config = TestClientBuilder::new()
+            .success_with_headers(SdkBody::empty(), &[CHECKSUM_HEADER]) // HEAD good.jpg
+            .error(404, "NotFound", "not found") // HEAD deleted.jpg
+            .ok() // HEAD no-crc.jpg: 200, no checksum header
+            .build_sdk_config();
         let config = app_config::Config::for_tests(sdk_config, false);
 
-        let args = csv_args(&config);
-        perform(&config, &args)
-            .await
-            .expect("perform should succeed");
-
-        let requests = test_support::recorded_requests(&replay);
-        let put = requests
-            .iter()
-            .find(|r| r.method == "PUT")
-            .expect("should have a PUT request");
-
-        let rows = parse_output_csv(&put.body);
+        let rows = generated_rows(&config, &csv).await;
         assert_eq!(rows.len(), 3, "should have 3 data rows");
 
         // buffer_unordered doesn't preserve order, so check by key

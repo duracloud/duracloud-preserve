@@ -11,4 +11,4 @@ DuraCloud Preserve is open source and freely available for anyone to deploy into
 - Technical support is provided by experienced hosting staff.
 - We provide access to a [web application (SFTPGo)](https://sftpgo.com/) for file uploads.
 
-For pricing information and other details [...](#).
+For pricing information and other details see the [Lyrasis website](https://lyrasis.org/duracloud-preserve/).

@@ -55,48 +55,10 @@ aws sts get-caller-identity
 ```
 
 If you have multiple AWS accounts or environments, set up a named
-profile and configure with your key, secret, and region (`us-west-2`):
+profile and configure with your key, secret, and region (for example, `us-west-2`):
 
 ``` bash
 aws configure --profile dcp
-```
-
-### Setting Region for Lyrasis Hosting
-
-If you are a Lyrasis-hosted client, the AWS region is
-**us-west-2**. You can set this in a few ways:
-
-#### 1. Add `--region` directly to the command
-
-This is the most explicit method and overrides all other settings
-(profiles, config files, etc.):
-
-``` bash
-aws s3 ls --region us-west-2
-```
-
-With a profile:
-
-``` bash
-aws s3 sync ./data s3://{stackname}-bucket --profile dcp --region us-west-2
-```
-
-#### 2. Set the region temporarily in your shell
-
-This applies only to the current terminal session:
-
-``` bash
-export AWS_REGION=us-west-2
-```
-
-Then commands can be run without specifying the region.
-
-#### 3. Set the region inside the profile
-
-``` ini
-[profile dcp]
-region = us-west-2
-output = json
 ```
 
 ## Cyberduck Documentation
@@ -108,9 +70,6 @@ Cyberduck documentation for setting up new connections:\
 
 1. File → Open Connection\
 2. Change dropdown menu to **Amazon S3**
-    - If you are a Lyrasis Hosting Services client, you may need to update Server to:\
-        `s3.us-west-2.amazonaws.com`\
-    - (Lyrasis Hosting currently supports `us-west-2` and `us-east-2`)
 3. Type in provided Access Key ID and Secret Access Key\
 4. Click **Connect**
 
@@ -130,7 +89,7 @@ Navigate to: [DuraCloud Preserve](https://preserve.duracloud.org/web/client/logi
 Use this web-based interface to log in, upload, and download content.
 
 Individual users will be provided credentials by their system
-administrator (such as the Lyrasis Hosting team). The first time you log
+administrator. The first time you log
 in, you will be asked to change your password. You can do this from the
 small person icon in the upper-right corner of the screen.
 

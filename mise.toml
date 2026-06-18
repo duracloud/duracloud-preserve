@@ -2,6 +2,8 @@
 biome = "2"
 node = "24"
 rust = "stable"
+zig = "0.16"
+"cargo:cargo-zigbuild" = "latest"
 
 [settings]
 idiomatic_version_file_enable_tools = ["terraform"]
@@ -65,7 +67,10 @@ run = [
 
 [tasks.cli]
 description = "Build dcp arm64 Docker image tagged latest"
-run = 'docker buildx build --platform linux/arm64 -t duracloud/dcp:latest --load .'
+run = [
+  'cargo zigbuild --release --locked --target aarch64-unknown-linux-gnu -p dcp --bin dcp',
+  'docker buildx build --platform linux/arm64 -t duracloud/dcp:latest --load .',
+]
 
 [tasks.compute-checksums]
 description = "Run compute-checksums cli (mise run compute-checksums --bucket b --profile p)"

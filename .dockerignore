@@ -1,6 +1,7 @@
 .git
 .github
 target
+!target/aarch64-unknown-linux-gnu/release/dcp
 docs/book
 payloads
 terraform/.terraform*

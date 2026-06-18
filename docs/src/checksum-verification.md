@@ -97,7 +97,7 @@ If verification finds that checksums do not match, the following steps identify 
 aws s3api head-object --bucket ${bucket} --key ${key} --checksum-mode ENABLED
 ```
 
-**Step 3 — Download and verify locally.** For a more thorough inspection, download the objects and compute checksums locally using the same algorithm S3 uses (`CRC-64/NVME` by default):
+**Step 3 — Download and verify locally.** For a more thorough inspection, download the objects and compute checksums locally using an algorithm included in the object metadata (S3 uses `CRC-64/NVME` by default but other checksums may be present in addition to or instead of `crc64nvme` depending on how the object was uploaded):
 
 ```bash
 # Retrieve the stored checksum

@@ -28,7 +28,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -37,7 +37,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: mozilla-actions/sccache-action@v0.0.10
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -63,7 +63,7 @@ jobs:
           sudo chmod 600 /swapfile2
           sudo mkswap /swapfile2
           sudo swapon /swapfile2
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: mozilla-actions/sccache-action@v0.0.10
       - uses: dtolnay/rust-toolchain@stable
       - name: Cache cargo registry

@@ -121,6 +121,13 @@ flag "--profile <profile>" default=""
 '''
 run = 'node scripts/env-run.mjs --profile={{ usage.profile }} -- cargo run -p dcp -- inventory-report --bucket={{ usage.bucket }}'
 
+[tasks.install]
+description = "Build the native dcp binary and install it onto PATH (mise run install [--dir d])"
+usage = '''
+flag "--dir <dir>" default=""
+'''
+run = 'node scripts/install.mjs --dir={{ usage.dir }}'
+
 [tasks.invoke]
 description = "Invoke lambda function (mise run invoke --function f --event e)"
 usage = '''

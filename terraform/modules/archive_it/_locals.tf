@@ -48,7 +48,7 @@ locals {
 
   # Bucket lifecycle
   expire_aborted_multipart_days           = 3
-  expire_legacy_duracloud_file_days       = 3
+  expire_legacy_duracloud_file_days       = 7
   expire_noncurrent_version_days          = 14
   lifecycle_legacy_duracloud_file_tag_key = "ObsoleteDuraCloudFile"
   lifecycle_legacy_duracloud_file_tag_val = "true"

@@ -16,9 +16,7 @@ const binName = isWindows ? "dcp.exe" : "dcp";
 
 const dirArg = process.argv.slice(2).find((a) => a.startsWith("--dir="));
 const installDir =
-  dirArg?.slice("--dir=".length) ||
-  process.env.DCP_INSTALL_DIR ||
-  join(homedir(), ".local", "bin");
+  dirArg?.slice("--dir=".length) || process.env.DCP_INSTALL_DIR || join(homedir(), ".local", "bin");
 
 run("cargo", ["build", "--release", "--locked", "-p", "dcp", "--bin", "dcp"]);
 

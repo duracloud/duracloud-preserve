@@ -6,6 +6,10 @@ use clap::{Parser, Subcommand};
 #[command(name = "dcp", version)]
 #[command(about = "DuraCloud Preserve CLI", long_about = None)]
 struct Cli {
+    /// AWS profile to use (overrides AWS_PROFILE)
+    #[arg(long, global = true)]
+    profile: Option<String>,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -46,6 +50,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
+
+    if let Some(profile) = cli.profile {
+        // SAFETY: set at startup before any AWS config is loaded and before
+        // other threads read the environment. --profile overrides AWS_PROFILE.
+        unsafe { std::env::set_var("AWS_PROFILE", profile) }
+    }
 
     match cli.command {
         Commands::ArchiveIt(args) => commands::archive_it::run(args).await?,

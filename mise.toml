@@ -7,6 +7,8 @@ zig = "0.16"
 
 [settings]
 idiomatic_version_file_enable_tools = ["terraform"]
+# cmd /c mangles quoting of templated task args (e.g. file paths with spaces);
+windows_default_inline_shell_args = "pwsh -NoProfile -Command"
 
 [env]
 # Defaults for local dev; values already set in the shell win
@@ -182,10 +184,7 @@ description = "Build and publish lambda artifacts and the dcp image (mise run re
 usage = '''
 flag "--profile <profile>" default=""
 '''
-run = [
-  'mise run publish --profile={{ usage.profile }}',
-  'mise run push',
-]
+run = ['mise run publish --profile={{ usage.profile }}', 'mise run push']
 
 [tasks.reset]
 description = "Reset (empty) stack buckets (mise run reset --stack s --profile p)"
@@ -262,4 +261,4 @@ flag "--dir <dir>" default=""
 flag "--file <file>" default=""
 flag "--profile <profile>" default=""
 '''
-run = 'node scripts/upload.mjs --bucket={{ usage.bucket }} --dir={{ usage.dir }} --file={{ usage.file }} --profile={{ usage.profile }}'
+run = 'node scripts/upload.mjs --bucket={{ usage.bucket }} --dir="{{ usage.dir }}" --file="{{ usage.file }}" --profile={{ usage.profile }}'

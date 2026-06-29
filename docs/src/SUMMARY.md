@@ -20,9 +20,7 @@
 
 # Deployment guide
 
-- [Overview](deploy/README.md)
-- [Test environment](deploy/test.md)
-- [Production environnment](deploy/production.md)
+- [Instructions](deploy/README.md)
 
 # Technical documentation
 
@@ -38,7 +36,6 @@
 - [CLI reference](technical/cli-reference.md)
 - [Cleanup](technical/cleanup.md)
 - [Development](technical/development.md)
-- [Roadmap](technical/roadmap.md)
 
 # Hosting and support
 

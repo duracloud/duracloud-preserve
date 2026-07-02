@@ -89,7 +89,7 @@ locals {
       ]
     })
     "archive-it-sync" = merge(local.settings.sync, local.common, {
-      command = ["ait", "sync", "--dry-run"]
+      command = ["ait", "sync"]
       policy_statements = [
         {
           Effect   = "Allow"

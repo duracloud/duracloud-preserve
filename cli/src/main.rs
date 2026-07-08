@@ -41,6 +41,8 @@ enum Commands {
     StorageReport(commands::storage_report::Args),
     /// Sync IAM users to SFTPGo
     SyncUsers(commands::sync_users::Args),
+    /// List or launch deployed stack tasks on demand
+    Task(commands::task::Args),
     /// Transfer files from source to stack destination bucket
     Transfer(commands::transfer::Args),
 }
@@ -70,6 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Reset(args) => commands::reset::run(args).await?,
         Commands::StorageReport(args) => commands::storage_report::run(args).await?,
         Commands::SyncUsers(args) => commands::sync_users::run(args).await?,
+        Commands::Task(args) => commands::task::run(args).await?,
         Commands::Transfer(args) => commands::transfer::run(args).await?,
     }
 

@@ -42,7 +42,15 @@ aws-sdk-cloudwatch = { version = "1.114.0", default-features = false, features =
   "default-https-client",
   "rt-tokio",
 ] }
+aws-sdk-cloudwatchlogs = { version = "1.141.0", default-features = false, features = [
+  "default-https-client",
+  "rt-tokio",
+] }
 aws-sdk-costexplorer = { version = "1.119.0", default-features = false, features = [
+  "default-https-client",
+  "rt-tokio",
+] }
+aws-sdk-ecs = { version = "1.134.0", default-features = false, features = [
   "default-https-client",
   "rt-tokio",
 ] }
@@ -57,6 +65,10 @@ aws-sdk-s3 = { version = "1.135.0", default-features = false, features = [
   "sigv4a",
 ] }
 aws-sdk-s3control = { version = "1.119.0", default-features = false, features = [
+  "default-https-client",
+  "rt-tokio",
+] }
+aws-sdk-scheduler = { version = "1.102.0", default-features = false, features = [
   "default-https-client",
   "rt-tokio",
 ] }

@@ -11,6 +11,13 @@ idiomatic_version_file_enable_tools = ["terraform"]
 windows_default_inline_shell_args = "pwsh -NoProfile -Command"
 
 [env]
+# duckdb links the prebuilt shared library; libduckdb-sys copies it into
+# target/<profile>/deps, which Windows resolves via PATH (no-op elsewhere:
+# unix binaries find it via rpath)
+_.path = [
+  "{{config_root}}/target/debug/deps",
+  "{{config_root}}/target/release/deps",
+]
 # Defaults for local dev; values already set in the shell win
 SFTPGO_HOST = '{{ get_env(name="SFTPGO_HOST", default="http://localhost:8080") }}'
 SFTPGO_USERNAME = '{{ get_env(name="SFTPGO_USERNAME", default="admin") }}'
@@ -36,8 +43,12 @@ run = 'node scripts/env-run.mjs --profile={{ usage.profile }} -- cargo run -p dc
 
 [tasks.build]
 description = "Build lambda functions with release profile"
+# First pass builds every function (and downloads the prebuilt libduckdb for
+# the target); the duckdb-linking functions are then re-packaged with
+# lib/libduckdb.so included so Lambda finds it at /var/task/lib.
 run = [
   'cargo lambda build --workspace --exclude dcp --release --arm64 --output-format zip',
+  'node scripts/package-duckdb-lambdas.mjs',
   'node scripts/rmrf.mjs target/lambda/dcp',
 ]
 
@@ -71,6 +82,7 @@ run = [
 description = "Build dcp arm64 Docker image tagged latest"
 run = [
   'cargo zigbuild --release --locked --target aarch64-unknown-linux-gnu -p dcp --bin dcp',
+  'node scripts/stage-duckdb-lib.mjs',
   'docker buildx build --platform linux/arm64 -t duracloud/dcp:latest --load .',
 ]
 

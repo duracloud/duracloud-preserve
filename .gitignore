@@ -14,3 +14,5 @@ tmp_*.json
 payloads
 target
 TRIGGER
+# staged prebuilt libduckdb for deploy artifacts (scripts/stage-duckdb-lib.mjs)
+/lib/

@@ -1,6 +1,11 @@
 [build]
 jobs = 4
 
+# Link the official prebuilt libduckdb (downloaded per target triple into
+# target/duckdb-download/) instead of compiling DuckDB's bundled C++ sources.
+[env]
+DUCKDB_DOWNLOAD_LIB = "1"
+
 # DuckDB's bundled build (libduckdb-sys) calls the Windows Restart Manager API
 # (RmStartSession/RmEndSession/RmRegisterResources/RmGetList) in its lock-info
 # code but doesn't emit a link directive for it. Link rstrtmgr explicitly so the

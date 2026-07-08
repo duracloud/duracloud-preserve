@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use archive_it_client::WasapiClient;
 use archive_it_client::models::wasapi::WasapiFile;
+use archive_it_client::{Config, WasapiClient};
 use csv::ReaderBuilder;
 
 use crate::errors::ArchiveItError;
@@ -20,6 +20,8 @@ pub struct SyncStats {
 pub struct PerformArgs {
     pub username: String,
     pub password: String,
+    /// Optional allow-list header sent on every Archive-It request.
+    pub header: Option<(String, String)>,
     /// Local input csv (downloaded from `stack.archive_it_sync(...)`).
     pub sync_in: PathBuf,
     /// S3 bucket sync uploads land in (typically `stack.archive_it_bucket()`).
@@ -33,7 +35,11 @@ pub async fn perform(
     s3: &aws_sdk_s3::Client,
     args: &PerformArgs,
 ) -> Result<SyncStats, ArchiveItError> {
-    let client = WasapiClient::new(args.username.clone(), args.password.clone())?;
+    let client = WasapiClient::with_config(
+        args.username.clone(),
+        args.password.clone(),
+        super::with_header(Config::wasapi(), args.header.as_ref()),
+    )?;
     let total = count_data_rows(&args.sync_in)?;
     let mut rdr = ReaderBuilder::new()
         .has_headers(true)

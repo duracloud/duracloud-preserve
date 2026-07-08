@@ -18,8 +18,21 @@ pub struct Args {
     username: String,
 
     /// Archive-It account password
-    #[arg(long, env = "ARCHIVE_IT_PASSWORD")]
+    #[arg(long, env = "ARCHIVE_IT_PASSWORD", hide_env_values = true)]
     password: String,
+
+    /// Header name sent on every Archive-It request (allow-list token)
+    #[arg(long, env = "ARCHIVE_IT_HEADER_NAME", requires = "header_value")]
+    header_name: Option<String>,
+
+    /// Header value (the token itself)
+    #[arg(
+        long,
+        env = "ARCHIVE_IT_HEADER_VALUE",
+        requires = "header_name",
+        hide_env_values = true
+    )]
+    header_value: Option<String>,
 
     /// S3 key prefix (should match audit's prefix)
     #[arg(long)]
@@ -73,6 +86,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         &sync::PerformArgs {
             username: args.username,
             password: args.password,
+            header: args.header_name.zip(args.header_value),
             sync_in: local_sync,
             bucket: archive_it_bucket,
             key_prefix: args.key_prefix,

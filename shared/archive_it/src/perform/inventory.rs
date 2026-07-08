@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::pin::pin;
 
 use archive_it_client::wasapi::DEFAULT_WEBDATA_PAGE_SIZE;
-use archive_it_client::{PartnerClient, WasapiClient, WebdataQuery};
+use archive_it_client::{Config, PartnerClient, WasapiClient, WebdataQuery};
 use csv::{Terminator, WriterBuilder};
 use futures::TryStreamExt;
 
@@ -22,12 +22,22 @@ pub struct InventoryStats {
 pub struct PerformArgs {
     pub username: String,
     pub password: String,
+    /// Optional allow-list header sent on every Archive-It request.
+    pub header: Option<(String, String)>,
     pub output: PathBuf,
 }
 
 pub async fn perform(args: &PerformArgs) -> Result<InventoryStats, ArchiveItError> {
-    let partner = PartnerClient::new(args.username.clone(), args.password.clone())?;
-    let wasapi = WasapiClient::new(args.username.clone(), args.password.clone())?;
+    let partner = PartnerClient::with_config(
+        args.username.clone(),
+        args.password.clone(),
+        super::with_header(Config::api(), args.header.as_ref()),
+    )?;
+    let wasapi = WasapiClient::with_config(
+        args.username.clone(),
+        args.password.clone(),
+        super::with_header(Config::wasapi(), args.header.as_ref()),
+    )?;
 
     let output = args.output.as_path();
     let header_needed = std::fs::metadata(output)

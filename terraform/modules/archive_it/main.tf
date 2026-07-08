@@ -7,8 +7,10 @@ locals {
   region     = data.aws_region.current.region
 
   # TODO: construct via input vars with defaults?
-  password_arn = "arn:aws:ssm:${local.region}:${local.account_id}:parameter/archive-it/password"
-  username_arn = "arn:aws:ssm:${local.region}:${local.account_id}:parameter/archive-it/username"
+  header_name_arn  = "arn:aws:ssm:${local.region}:${local.account_id}:parameter/archive-it/header-name"
+  header_value_arn = "arn:aws:ssm:${local.region}:${local.account_id}:parameter/archive-it/header-value"
+  password_arn     = "arn:aws:ssm:${local.region}:${local.account_id}:parameter/archive-it/password"
+  username_arn     = "arn:aws:ssm:${local.region}:${local.account_id}:parameter/archive-it/username"
 
   source_bucket_arn  = "arn:aws:s3:::${var.stack}${local.archive_it_suffix}"
   managed_bucket_arn = "arn:aws:s3:::${var.stack}${local.managed_suffix}"
@@ -37,6 +39,8 @@ locals {
       { name = "STACK", value = var.stack },
     ]
     secrets = [
+      { name = "ARCHIVE_IT_HEADER_NAME", valueFrom = local.header_name_arn },
+      { name = "ARCHIVE_IT_HEADER_VALUE", valueFrom = local.header_value_arn },
       { name = "ARCHIVE_IT_PASSWORD", valueFrom = local.password_arn },
       { name = "ARCHIVE_IT_USERNAME", valueFrom = local.username_arn },
     ]

@@ -18,7 +18,7 @@ locals {
   base = {
     cpu      = 256
     mem      = 512
-    image    = "duracloud/dcp:latest"
+    image    = var.image
     schedule = "rate(1 day)"
     enabled  = true
   }

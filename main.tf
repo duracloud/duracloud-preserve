@@ -23,6 +23,7 @@ data "aws_region" "current" {}
 
 variable "archive_it_enabled" { default = false }
 variable "archive_it_expiration" { default = null }
+variable "artifacts_version" { default = "" } # "" = stable channel
 variable "cloudfront_domain" { default = "" }
 variable "cloudfront_enabled" { default = true }
 variable "deploy" { default = false }
@@ -39,38 +40,43 @@ locals {
   stack          = var.stack
   users          = var.users
 
+  # A published artifact version pins both the lambda zips and the dcp
+  # image; empty selects the stable channel (unversioned keys + latest).
+  version_prefix = var.artifacts_version == "" ? "" : "v/${var.artifacts_version}/"
+  dcp_image      = var.artifacts_version == "" ? "duracloud/dcp:latest" : "duracloud/dcp:${var.artifacts_version}"
+
   functions_bucket = "dcp-artifacts-${local.region}"
   functions = {
     bucket-request = {
       bucket = local.functions_bucket
-      file   = "bucket-request/bootstrap.zip"
+      file   = "${local.version_prefix}bucket-request/bootstrap.zip"
       env    = { STORAGE_TIER = "INTELLIGENT_TIERING" }
     }
     checksum-report = {
       bucket = local.functions_bucket
-      file   = "checksum-report/bootstrap.zip"
+      file   = "${local.version_prefix}checksum-report/bootstrap.zip"
     }
     checksum-request = {
       bucket = local.functions_bucket
-      file   = "checksum-request/bootstrap.zip"
+      file   = "${local.version_prefix}checksum-request/bootstrap.zip"
     }
     compute-checksums = {
       bucket   = local.functions_bucket
-      file     = "compute-checksums/bootstrap.zip"
+      file     = "${local.version_prefix}compute-checksums/bootstrap.zip"
       schedule = "cron(0 8 ? * SUN *)"
     }
     inventory-report = {
       bucket = local.functions_bucket
-      file   = "inventory-report/bootstrap.zip"
+      file   = "${local.version_prefix}inventory-report/bootstrap.zip"
     }
     storage-report = {
       bucket   = local.functions_bucket
-      file     = "storage-report/bootstrap.zip"
+      file     = "${local.version_prefix}storage-report/bootstrap.zip"
       schedule = "cron(0 8 ? * * *)"
     }
     sync-users = {
       bucket = local.functions_bucket
-      file   = "sync-users/bootstrap.zip"
+      file   = "${local.version_prefix}sync-users/bootstrap.zip"
     }
   }
 }
@@ -104,6 +110,7 @@ module "archive_it" {
 
   stack      = local.stack
   expiration = var.archive_it_expiration
+  image      = local.dcp_image
 
   config = {
     inventory = { schedule = "cron(0 2 * * ? *)" }

@@ -79,11 +79,11 @@ run = [
 ]
 
 [tasks.cli]
-description = "Build dcp arm64 Docker image tagged latest"
+description = "Build dcp arm64 Docker image tagged with the artifact version and latest"
 run = [
   'cargo zigbuild --release --locked --target aarch64-unknown-linux-gnu -p dcp --bin dcp',
   'node scripts/stage-duckdb-lib.mjs',
-  'docker buildx build --platform linux/arm64 -t duracloud/dcp:latest --load .',
+  'node scripts/docker.mjs build',
 ]
 
 [tasks.compute-checksums]
@@ -95,13 +95,14 @@ flag "--profile <profile>" default=""
 run = 'node scripts/env-run.mjs --profile={{ usage.profile }} -- cargo run -p dcp -- compute-checksums --bucket={{ usage.bucket }}'
 
 [tasks.deploy]
-description = "Deploy all resources including functions (mise run deploy --stack s --profile p)"
+description = "Deploy all resources including functions (mise run deploy --stack s --profile p [--version v])"
 depends = ["locals"]
 usage = '''
 flag "--stack <stack>" default=""
 flag "--profile <profile>" default=""
+flag "--version <version>" default="" help="Pin artifacts to a published version (empty = stable channel)"
 '''
-run = 'node scripts/env-run.mjs --profile={{ usage.profile }} --set TF_VAR_stack={{ usage.stack }} --set TF_VAR_deploy=true -- terraform apply'
+run = 'node scripts/env-run.mjs --profile={{ usage.profile }} --set TF_VAR_stack={{ usage.stack }} --set TF_VAR_deploy=true --set TF_VAR_artifacts_version={{ usage.version }} -- terraform apply'
 
 [tasks.docs]
 description = "Read the docs"
@@ -179,24 +180,31 @@ description = "Generate _locals.tf from Rust constants"
 run = 'node scripts/gen-locals.mjs'
 
 [tasks.publish]
-description = "Publish lambda release artifacts to dcp-artifacts buckets (mise run publish --profile p)"
+description = "Publish versioned lambda artifacts to dcp-artifacts buckets (mise run publish --profile p [--channel stable])"
 depends = ["build"]
 usage = '''
 flag "--profile <profile>" default=""
+flag "--channel <channel>" default="versioned" help="versioned (default) or stable (also updates unversioned keys)"
 '''
-run = 'node scripts/publish.mjs --profile={{ usage.profile }}'
+run = 'node scripts/publish.mjs --profile={{ usage.profile }} --channel={{ usage.channel }}'
 
 [tasks.push]
-description = "Push dcp Docker image tagged latest"
+description = "Push versioned dcp Docker image (mise run push [--channel stable])"
 depends = ["cli"]
-run = 'docker push duracloud/dcp:latest'
+usage = '''
+flag "--channel <channel>" default="versioned" help="versioned (default) or stable (also pushes latest)"
+'''
+run = 'node scripts/docker.mjs push --channel={{ usage.channel }}'
 
 [tasks.release]
-description = "Build and publish lambda artifacts and the dcp image (mise run release --profile p)"
+description = "Build and publish lambda artifacts and the dcp image to both channels (mise run release --profile p)"
 usage = '''
 flag "--profile <profile>" default=""
 '''
-run = ['mise run publish --profile={{ usage.profile }}', 'mise run push']
+run = [
+  'mise run publish --profile={{ usage.profile }} --channel=stable',
+  'mise run push --channel=stable',
+]
 
 [tasks.reset]
 description = "Reset (empty) stack buckets (mise run reset --stack s --profile p)"

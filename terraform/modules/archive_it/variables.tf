@@ -14,6 +14,12 @@ variable "expiration" {
   }
 }
 
+variable "image" {
+  description = "dcp image for all tasks (per-task config.image overrides)"
+  type        = string
+  default     = "duracloud/dcp:latest"
+}
+
 variable "config" {
   description = "Per-task overrides keyed by short name: audit, inventory, sync"
   type = map(object({

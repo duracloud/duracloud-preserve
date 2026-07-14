@@ -36,6 +36,7 @@
 - [CLI reference](technical/cli-reference.md)
 - [Cleanup](technical/cleanup.md)
 - [Development](technical/development.md)
+- [Releases](technical/releases.md)
 
 # Hosting and support
 

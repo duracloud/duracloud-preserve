@@ -147,4 +147,8 @@ mise run deploy --stack <stack> --profile <profile>
 - **Unit tests:** `cargo test -p <crate>`
 - **Integration tests:** `mise run test-integration --stack <stack> --profile <profile>`
 
+## Testing unreleased artifacts
+
+`mise run publish` and `mise run push` publish versioned artifacts (keyed by date + commit hash) without touching the stable channel production stacks deploy from. Deploy a test stack pinned to that version with `mise run deploy --stack <stack> --profile <profile> --version <version>`. See [Releases](releases.md) for the full workflow, including promoting to stable and rolling back.
+
 Each feature should also get a technical doc at `docs/src/technical/<feature>.md` following the format of the others in that directory.

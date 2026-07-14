@@ -141,7 +141,7 @@ pub async fn load(stack: Stack) -> Result<Config, RequestError> {
     if !bucket::exists(&clients.s3, &managed_bucket).await? {
         return Err(RequestError::ConfigError(format!(
             "failed to find managed bucket for stack (does this stack exist?): {}",
-            &managed_bucket
+            managed_bucket
         )));
     }
 

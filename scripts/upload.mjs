@@ -16,7 +16,7 @@ const { values } = parseArgs({
 });
 requireOpts({ bucket: values.bucket, file: values.file }, USAGE);
 
-const key = values.file.replaceAll("\\", "/");
+const key = values.file.replaceAll("\\", "/").replace(/^(\.\/)+/, "");
 const prefix = values.dir ? `/${values.dir}` : "";
 run("aws", ["s3", "cp", values.file, `s3://${values.bucket}${prefix}/${key}`], {
   env: awsEnv(values.profile),

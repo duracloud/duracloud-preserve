@@ -19,6 +19,10 @@ pub struct Args {
     /// Source bucket that files are transferred from (e.g., source-bucket)
     #[arg(short, long)]
     source: String,
+
+    /// Override (i.e. do not) prompt for confirmation
+    #[arg(short, long, default_value_t = false)]
+    force: bool,
 }
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
@@ -48,7 +52,8 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         println!("\tDestination prefix: {prefix}");
     }
 
-    if !base::confirm_action()? {
+    let confirmed = args.force || base::confirm_action()?;
+    if !confirmed {
         println!("Code does not match. Aborting.");
         return Ok(());
     }

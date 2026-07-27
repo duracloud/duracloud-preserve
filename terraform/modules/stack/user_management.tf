@@ -4,7 +4,6 @@ locals {
     power_users = {
       group_name  = "${local.stack}-power-users"
       policy_name = "${local.stack}-power-user-policy"
-      description = "Policy for power users"
       # CRUD on user created buckets
       allow_actions = [
         "s3:ListBucket",
@@ -34,7 +33,6 @@ locals {
     restricted_users = {
       group_name  = "${local.stack}-restricted-users"
       policy_name = "${local.stack}-restricted-users-policy"
-      description = "Policy for restricted users"
       # No bucket/object access by default, addtl permissions must come from user policy
       allow_actions               = []
       managed_bucket_deny_actions = []
@@ -43,7 +41,6 @@ locals {
     standard_users = {
       group_name  = "${local.stack}-standard-users"
       policy_name = "${local.stack}-standard-users-policy"
-      description = "Policy for standard users"
       # Can download and upload to but not delete from user created buckets
       allow_actions = [
         "s3:ListBucket",
@@ -133,17 +130,10 @@ resource "aws_iam_group" "user_groups" {
   path = "/"
 }
 
-resource "aws_iam_policy" "user_groups" {
+resource "aws_iam_group_policy" "user_groups" {
   for_each = local.user_group_policies
 
-  name        = each.value.policy_name
-  description = each.value.description
-  policy      = data.aws_iam_policy_document.user_groups[each.key].json
-}
-
-resource "aws_iam_group_policy_attachment" "user_groups" {
-  for_each = local.user_group_policies
-
-  group      = aws_iam_group.user_groups[each.key].name
-  policy_arn = aws_iam_policy.user_groups[each.key].arn
+  name   = each.value.policy_name
+  group  = aws_iam_group.user_groups[each.key].name
+  policy = data.aws_iam_policy_document.user_groups[each.key].json
 }

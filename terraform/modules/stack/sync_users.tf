@@ -42,13 +42,6 @@ data "aws_iam_policy_document" "sync_users" {
   }
 }
 
-resource "aws_iam_role_policy" "sync_users" {
-  for_each = local.deploy_sync_users
-
-  role   = aws_iam_role.lambda[each.key].name
-  policy = data.aws_iam_policy_document.sync_users[each.key].json
-}
-
 resource "aws_lambda_permission" "sync_users" {
   for_each = local.deploy_sync_users
 

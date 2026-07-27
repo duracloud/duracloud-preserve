@@ -5,6 +5,16 @@ locals {
   handler       = "bootstrap" # irrelevant for binaries
   package_type  = "Zip"
   runtime       = "provided.al2023"
+
+  function_policy_json = merge(
+    { for k, v in data.aws_iam_policy_document.bucket_request : k => v.json },
+    { for k, v in data.aws_iam_policy_document.checksum_report : k => v.json },
+    { for k, v in data.aws_iam_policy_document.checksum_request : k => v.json },
+    { for k, v in data.aws_iam_policy_document.compute_checksums : k => v.json },
+    { for k, v in data.aws_iam_policy_document.inventory_report : k => v.json },
+    { for k, v in data.aws_iam_policy_document.storage_report : k => v.json },
+    { for k, v in data.aws_iam_policy_document.sync_users : k => v.json },
+  )
 }
 
 data "aws_s3_object" "main" {
@@ -72,13 +82,6 @@ resource "aws_iam_role" "lambda" {
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
-resource "aws_iam_role_policy_attachment" "lambda" {
-  for_each = local.functions
-
-  policy_arn = local.basic_role
-  role       = aws_iam_role.lambda[each.key].name
-}
-
 data "aws_iam_policy_document" "config_access" {
   statement {
     effect    = "Allow"
@@ -105,9 +108,32 @@ data "aws_iam_policy_document" "config_access" {
   }
 }
 
-resource "aws_iam_role_policy" "config_access" {
+data "aws_iam_policy_document" "lambda_logs" {
+  for_each = local.functions
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["${aws_cloudwatch_log_group.main[each.key].arn}:*"]
+  }
+}
+
+data "aws_iam_policy_document" "function" {
+  for_each = local.functions
+
+  source_policy_documents = compact([
+    data.aws_iam_policy_document.config_access.json,
+    data.aws_iam_policy_document.lambda_logs[each.key].json,
+    lookup(local.function_policy_json, each.key, ""),
+  ])
+}
+
+resource "aws_iam_role_policy" "function" {
   for_each = local.functions
 
   role   = aws_iam_role.lambda[each.key].name
-  policy = data.aws_iam_policy_document.config_access.json
+  policy = data.aws_iam_policy_document.function[each.key].json
 }

@@ -35,13 +35,6 @@ data "aws_iam_policy_document" "checksum_request" {
   }
 }
 
-resource "aws_iam_role_policy" "checksum_request" {
-  for_each = local.deploy_checksum_request
-
-  role   = aws_iam_role.lambda[each.key].name
-  policy = data.aws_iam_policy_document.checksum_request[each.key].json
-}
-
 resource "aws_lambda_permission" "checksum_request" {
   for_each = local.deploy_checksum_request
 

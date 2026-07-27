@@ -43,24 +43,31 @@ resource "aws_iam_role" "task_execution" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "task_execution" {
-  role       = aws_iam_role.task_execution.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-resource "aws_iam_role_policy" "task_secrets" {
-  count = length(local.task_secret_arns) > 0 ? 1 : 0
-
-  name = "${local.cluster_name}-secrets"
+resource "aws_iam_role_policy" "task_execution" {
+  name = "${local.cluster_name}-execution"
   role = aws_iam_role.task_execution.id
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = "ssm:GetParameters"
-      Resource = local.task_secret_arns
-    }]
+    Statement = concat(
+      [{
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+        ]
+        Resource = "*"
+      }],
+      length(local.task_secret_arns) > 0 ? [{
+        Effect   = "Allow"
+        Action   = "ssm:GetParameters"
+        Resource = local.task_secret_arns
+      }] : [],
+    )
   })
 }
 
@@ -79,10 +86,11 @@ resource "aws_iam_role" "task_scheduler" {
   })
 }
 
+# All tasks share the scheduler role, so their statements share one policy.
 resource "aws_iam_role_policy" "task_scheduler" {
-  for_each = var.tasks
+  count = length(var.tasks) > 0 ? 1 : 0
 
-  name = "${local.stack}-${each.key}-task-scheduler"
+  name = "${local.cluster_name}-scheduler"
   role = aws_iam_role.task_scheduler.id
 
   policy = jsonencode({
@@ -91,15 +99,15 @@ resource "aws_iam_role_policy" "task_scheduler" {
       {
         Effect   = "Allow"
         Action   = "ecs:RunTask"
-        Resource = aws_ecs_task_definition.task[each.key].arn
+        Resource = [for k, _ in var.tasks : aws_ecs_task_definition.task[k].arn]
       },
       {
         Effect = "Allow"
         Action = "iam:PassRole"
-        Resource = [
-          aws_iam_role.task_execution.arn,
-          aws_iam_role.task[each.key].arn,
-        ]
+        Resource = concat(
+          [aws_iam_role.task_execution.arn],
+          [for k, _ in var.tasks : aws_iam_role.task[k].arn],
+        )
       },
     ]
   })
@@ -134,9 +142,10 @@ resource "aws_iam_role_policy" "task" {
   })
 }
 
+# One group for all tasks; streams stay separated by awslogs-stream-prefix.
 resource "aws_cloudwatch_log_group" "task" {
-  for_each          = var.tasks
-  name              = "/aws/ecs/${local.stack}-${each.key}"
+  count             = length(var.tasks) > 0 ? 1 : 0
+  name              = "/aws/ecs/${local.stack}"
   retention_in_days = 7
 }
 
@@ -166,7 +175,7 @@ resource "aws_ecs_task_definition" "task" {
     logConfiguration = {
       logDriver = "awslogs"
       options = {
-        awslogs-group         = aws_cloudwatch_log_group.task[each.key].name
+        awslogs-group         = aws_cloudwatch_log_group.task[0].name
         awslogs-region        = local.region
         awslogs-stream-prefix = each.key
       }

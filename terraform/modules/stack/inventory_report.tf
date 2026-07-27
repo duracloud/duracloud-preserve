@@ -27,13 +27,6 @@ data "aws_iam_policy_document" "inventory_report" {
   }
 }
 
-resource "aws_iam_role_policy" "inventory_report" {
-  for_each = local.deploy_inventory_report
-
-  role   = aws_iam_role.lambda[each.key].name
-  policy = data.aws_iam_policy_document.inventory_report[each.key].json
-}
-
 resource "aws_lambda_permission" "inventory_report" {
   for_each = local.deploy_inventory_report
 

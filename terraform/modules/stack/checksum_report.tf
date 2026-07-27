@@ -38,13 +38,6 @@ data "aws_iam_policy_document" "checksum_report" {
   }
 }
 
-resource "aws_iam_role_policy" "checksum_report" {
-  for_each = local.deploy_checksum_report
-
-  role   = aws_iam_role.lambda[each.key].name
-  policy = data.aws_iam_policy_document.checksum_report[each.key].json
-}
-
 resource "aws_cloudwatch_event_target" "checksum_report" {
   for_each = local.deploy_checksum_report
 

@@ -47,10 +47,3 @@ data "aws_iam_policy_document" "compute_checksums" {
   }
 }
 
-resource "aws_iam_role_policy" "compute_checksums" {
-  for_each = local.deploy_compute_checksums
-
-  role   = aws_iam_role.lambda[each.key].name
-  policy = data.aws_iam_policy_document.compute_checksums[each.key].json
-}
-

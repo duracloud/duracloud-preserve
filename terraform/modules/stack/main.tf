@@ -13,7 +13,6 @@ data "aws_region" "current" {}
 
 locals {
   account_id = data.aws_caller_identity.current.account_id
-  basic_role = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
   region     = data.aws_region.current.region
   stack      = var.stack
 

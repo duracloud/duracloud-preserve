@@ -63,13 +63,6 @@ data "aws_iam_policy_document" "bucket_request" {
   }
 }
 
-resource "aws_iam_role_policy" "bucket_request" {
-  for_each = local.deploy_bucket_request
-
-  role   = aws_iam_role.lambda[each.key].name
-  policy = data.aws_iam_policy_document.bucket_request[each.key].json
-}
-
 resource "aws_lambda_permission" "bucket_request" {
   for_each = local.deploy_bucket_request
 

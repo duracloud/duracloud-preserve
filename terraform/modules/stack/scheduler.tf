@@ -1,11 +1,11 @@
 # EventBridge Scheduler resources for scheduled Lambda functions
 locals {
   scheduled_functions = merge(local.deploy_storage_report, local.deploy_compute_checksums)
+
+  deploy_scheduler = length(local.scheduled_functions) > 0 ? 1 : 0
 }
 
 data "aws_iam_policy_document" "scheduler_assume_role" {
-  for_each = local.scheduled_functions
-
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRole"]
@@ -18,27 +18,25 @@ data "aws_iam_policy_document" "scheduler_assume_role" {
 }
 
 resource "aws_iam_role" "scheduler" {
-  for_each = local.scheduled_functions
+  count = local.deploy_scheduler
 
-  name               = "${local.stack}-${each.key}-scheduler"
-  assume_role_policy = data.aws_iam_policy_document.scheduler_assume_role[each.key].json
+  name               = "${local.stack}-scheduler"
+  assume_role_policy = data.aws_iam_policy_document.scheduler_assume_role.json
 }
 
 data "aws_iam_policy_document" "scheduler" {
-  for_each = local.scheduled_functions
-
   statement {
     effect    = "Allow"
     actions   = ["lambda:InvokeFunction"]
-    resources = [aws_lambda_function.main[each.key].arn]
+    resources = [for k, _ in local.scheduled_functions : aws_lambda_function.main[k].arn]
   }
 }
 
 resource "aws_iam_role_policy" "scheduler" {
-  for_each = local.scheduled_functions
+  count = local.deploy_scheduler
 
-  role   = aws_iam_role.scheduler[each.key].id
-  policy = data.aws_iam_policy_document.scheduler[each.key].json
+  role   = aws_iam_role.scheduler[0].id
+  policy = data.aws_iam_policy_document.scheduler.json
 }
 
 resource "aws_scheduler_schedule" "main" {
@@ -54,7 +52,7 @@ resource "aws_scheduler_schedule" "main" {
 
   target {
     arn      = aws_lambda_function.main[each.key].arn
-    role_arn = aws_iam_role.scheduler[each.key].arn
+    role_arn = aws_iam_role.scheduler[0].arn
   }
 
   depends_on = [aws_iam_role_policy.scheduler]

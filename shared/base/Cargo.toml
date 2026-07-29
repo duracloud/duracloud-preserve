@@ -8,7 +8,7 @@ duckdb = ["dep:duckdb"]
 
 [dependencies]
 askama.workspace = true
-base64 = "0.22.1"
+base64 = "0.23.0"
 chrono.workspace = true
 constants.workspace = true
 crc-fast = "1"

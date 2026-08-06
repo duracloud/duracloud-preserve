@@ -125,7 +125,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         &sdk_config,
         &ecs_client,
         &cluster,
-        &family,
+        stack.as_str(),
         &args.task,
         &task_arn,
         task_id,
@@ -218,14 +218,14 @@ async fn follow(
     sdk_config: &aws_config::SdkConfig,
     ecs_client: &aws_sdk_ecs::Client,
     cluster: &str,
-    family: &str,
+    stack: &str,
     task: &str,
     task_arn: &str,
     task_id: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let logs = aws_sdk_cloudwatchlogs::Client::new(sdk_config);
     // Log group/stream naming from terraform/modules/stack/tasks.tf.
-    let log_group = format!("/aws/ecs/{family}");
+    let log_group = super::log_group_name(stack);
     let log_stream = format!("{task}/{task}/{task_id}");
     let mut token: Option<String> = None;
 

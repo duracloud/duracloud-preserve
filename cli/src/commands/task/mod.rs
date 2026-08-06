@@ -18,6 +18,13 @@ fn family_name(stack: &str, task: &str) -> String {
     format!("{stack}-{task}")
 }
 
+/// Log group shared by all of a stack's tasks; must match
+/// `terraform/modules/stack/tasks.tf`. Streams stay separated by the task's
+/// `awslogs-stream-prefix`.
+fn log_group_name(stack: &str) -> String {
+    format!("/aws/ecs/{stack}")
+}
+
 #[derive(ClapArgs)]
 pub struct Args {
     #[command(subcommand)]

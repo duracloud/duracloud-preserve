@@ -2,6 +2,10 @@ locals {
   billing_threshold    = var.billing_alert_threshold
   emails_to_notify     = var.emails_to_notify
   email_alarms_enabled = length(local.emails_to_notify) > 0
+
+  function_alarm_queries = {
+    for i, name in sort(keys(local.functions)) : "m${i}" => name
+  }
 }
 
 resource "aws_sns_topic" "email_notification" {
@@ -44,21 +48,40 @@ resource "aws_cloudwatch_metric_alarm" "billing_alarm" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "function" {
-  for_each = local.functions
+  count = length(local.functions) > 0 ? 1 : 0
 
-  alarm_name          = "${local.stack}-${each.key}-error-alarm"
-  alarm_description   = "Error encountered while processing function"
+  alarm_name          = "${local.stack}-function-error-alarm"
+  alarm_description   = "Error encountered while processing a function"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = "1"
-  metric_name         = "Errors"
-  namespace           = "AWS/Lambda"
-  period              = "300"
-  statistic           = "Sum"
   threshold           = "1"
   treat_missing_data  = "notBreaching"
 
-  dimensions = {
-    FunctionName = aws_lambda_function.main[each.key].function_name
+  dynamic "metric_query" {
+    for_each = local.function_alarm_queries
+
+    content {
+      id          = metric_query.key
+      return_data = false
+
+      metric {
+        metric_name = "Errors"
+        namespace   = "AWS/Lambda"
+        period      = 300
+        stat        = "Sum"
+
+        dimensions = {
+          FunctionName = aws_lambda_function.main[metric_query.value].function_name
+        }
+      }
+    }
+  }
+
+  metric_query {
+    id          = "errors"
+    expression  = "SUM(METRICS())"
+    label       = "Errors across all functions"
+    return_data = true
   }
 
   alarm_actions = local.email_alarms_enabled ? [aws_sns_topic.email_notification[0].arn] : []

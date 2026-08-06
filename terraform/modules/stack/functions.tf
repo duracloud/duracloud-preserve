@@ -1,6 +1,8 @@
 locals {
   functions = var.deploy_functions ? var.functions : {}
 
+  deploy_function_infra = length(local.functions) > 0 ? 1 : 0
+
   architectures = ["arm64"]
   handler       = "bootstrap" # irrelevant for binaries
   package_type  = "Zip"
@@ -33,7 +35,7 @@ resource "aws_lambda_function" "main" {
   memory_size      = each.value.memory
   timeout          = each.value.timeout
   package_type     = local.package_type
-  role             = aws_iam_role.lambda[each.key].arn
+  role             = aws_iam_role.lambda[0].arn
   runtime          = local.runtime
   s3_bucket        = data.aws_s3_object.main[each.key].bucket
   s3_key           = data.aws_s3_object.main[each.key].key
@@ -52,14 +54,16 @@ resource "aws_lambda_function" "main" {
 
   logging_config {
     log_format = "JSON"
-    log_group  = aws_cloudwatch_log_group.main[each.key].name
+    log_group  = aws_cloudwatch_log_group.main[0].name
   }
+
+  depends_on = [aws_iam_role_policy.function]
 }
 
 resource "aws_cloudwatch_log_group" "main" {
-  for_each = local.functions
+  count = local.deploy_function_infra
 
-  name              = "/aws/lambda/${local.stack}-${each.key}"
+  name              = "/dcp/${local.stack}/lambda"
   retention_in_days = 7
 }
 
@@ -76,9 +80,9 @@ data "aws_iam_policy_document" "lambda_assume_role" {
 }
 
 resource "aws_iam_role" "lambda" {
-  for_each = local.functions
+  count = local.deploy_function_infra
 
-  name               = "${local.stack}-${each.key}"
+  name               = "${local.stack}-functions"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
@@ -109,7 +113,7 @@ data "aws_iam_policy_document" "config_access" {
 }
 
 data "aws_iam_policy_document" "lambda_logs" {
-  for_each = local.functions
+  count = local.deploy_function_infra
 
   statement {
     effect = "Allow"
@@ -117,23 +121,26 @@ data "aws_iam_policy_document" "lambda_logs" {
       "logs:CreateLogStream",
       "logs:PutLogEvents",
     ]
-    resources = ["${aws_cloudwatch_log_group.main[each.key].arn}:*"]
+    resources = ["${aws_cloudwatch_log_group.main[0].arn}:*"]
   }
 }
 
 data "aws_iam_policy_document" "function" {
-  for_each = local.functions
+  count = local.deploy_function_infra
 
-  source_policy_documents = compact([
-    data.aws_iam_policy_document.config_access.json,
-    data.aws_iam_policy_document.lambda_logs[each.key].json,
-    lookup(local.function_policy_json, each.key, ""),
-  ])
+  source_policy_documents = concat(
+    [
+      data.aws_iam_policy_document.config_access.json,
+      data.aws_iam_policy_document.lambda_logs[0].json,
+    ],
+    values(local.function_policy_json),
+  )
 }
 
 resource "aws_iam_role_policy" "function" {
-  for_each = local.functions
+  count = local.deploy_function_infra
 
-  role   = aws_iam_role.lambda[each.key].name
-  policy = data.aws_iam_policy_document.function[each.key].json
+  name   = "${local.stack}-functions"
+  role   = aws_iam_role.lambda[0].name
+  policy = data.aws_iam_policy_document.function[0].json
 }

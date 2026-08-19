@@ -48,6 +48,7 @@ resource "aws_s3_bucket_versioning" "public_repl" {
   }
 }
 
+# c.f. bucket_creator.rs
 resource "aws_s3_bucket_lifecycle_configuration" "public" {
   bucket = aws_s3_bucket.public.id
 
@@ -83,6 +84,22 @@ resource "aws_s3_bucket_lifecycle_configuration" "public" {
     transition {
       days          = local.public_bucket.transition_days
       storage_class = local.public_bucket.storage_class
+    }
+  }
+
+  rule {
+    id     = "ExpireLegacyDuraCloudFiles"
+    status = "Enabled"
+
+    filter {
+      tag {
+        key   = local.lifecycle_legacy_duracloud_file_tag_key
+        value = local.lifecycle_legacy_duracloud_file_tag_val
+      }
+    }
+
+    expiration {
+      days = local.expire_legacy_duracloud_file_days
     }
   }
 }
@@ -122,6 +139,22 @@ resource "aws_s3_bucket_lifecycle_configuration" "public_repl" {
     transition {
       days          = local.public_bucket.repl_transition_days
       storage_class = local.public_bucket.repl_storage_class
+    }
+  }
+
+  rule {
+    id     = "ExpireLegacyDuraCloudFiles"
+    status = "Enabled"
+
+    filter {
+      tag {
+        key   = local.lifecycle_legacy_duracloud_file_tag_key
+        value = local.lifecycle_legacy_duracloud_file_tag_val
+      }
+    }
+
+    expiration {
+      days = local.expire_legacy_duracloud_file_days
     }
   }
 }

@@ -3,7 +3,7 @@
 You can upload files to any bucket you have access to using Cyberduck, SFTPGo, or the AWS CLI. For information on creating buckets, see [Creating Buckets](./creating-buckets.md).
 
 > [!IMPORTANT]
-> After uploading, content is automatically mirrored in the corresponding `-repl` bucket (Glacier Deep Archive). You cannot upload to or manage `-repl` buckets directly — they are managed by the system for backup purposes. If you are using the AWS CLI or a desktop client, you can view filenames in the `-repl` bucket as confirmation that replication occurred, but attempting to download or access files there will result in errors. The `-repl` buckets are not visible to SFTPGo users.
+> After uploading, content is automatically mirrored in the corresponding `-repl` bucket (Glacier Deep Archive). You cannot upload to or manage `-repl` buckets directly — they are managed by the system for backup purposes. If you are using the AWS CLI or a desktop client, you can view filenames in the `-repl` bucket as confirmation that replication occurred, but attempting to download or access files there will result in errors. The `-repl` buckets are not visible to SFTPGo (web client) users.
 
 > [!Tip]
 > This system is designed primarily for the **long-term storage and preservation** of digital assets. Frequent or repeated access to files may lead to increased costs. Use it in accordance with its preservation-focused purpose.
@@ -24,7 +24,7 @@ aws s3 cp myfile.txt s3://duracloud-$ID-mybucket/myfile.txt
 
 Replace `duracloud-$ID-mybucket` with the name of the bucket you are uploading to.
 
-For full AWS CLI documentation, see https://docs.aws.amazon.com/cli/latest/userguide/cli-services-s3-commands.html
+For full AWS CLI documentation, see [AWS documentation] (https://docs.aws.amazon.com/cli/latest/userguide/cli-services-s3-commands.html)
 
 ## Cyberduck
 
@@ -33,7 +33,7 @@ For full AWS CLI documentation, see https://docs.aws.amazon.com/cli/latest/userg
 3. Drag files or folder structures from Finder (macOS) or File Explorer (Windows) directly into the Cyberduck window. Alternatively, click the **Upload** button and browse for files.
 4. Cyberduck will show a transfer log confirming whether the upload was successful. A pop-up will appear if there are any errors or authorization issues.
 
-For full Cyberduck documentation, see https://docs.cyberduck.io/cyberduck/transfer/
+For full Cyberduck documentation, see [Cyberduck documentation] (https://docs.cyberduck.io/cyberduck/transfer/)
 
 ## SFTPGo
 
@@ -54,4 +54,4 @@ For full Cyberduck documentation, see https://docs.cyberduck.io/cyberduck/transf
 Click on Name, Size, or Last Modified to change the sort of objects from ascending to descending order and vice versa
 
 > [!Tip]
-> We have occasionally seen a generic **"Error uploading files"** message in SFTPGo. Closing the error and trying again has resolved it in all known cases. This may be related to an expired session.
+> We have occasionally seen a generic **"Error uploading files"** message in the web client. Closing the error and trying again has resolved it in all known cases. This may be related to an expired session.

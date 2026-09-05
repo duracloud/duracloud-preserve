@@ -84,7 +84,7 @@ Cyberduck documentation for setting up new connections:\
 
 ## SFTPGo Documentation
 
-Navigate to: [DuraCloud Preserve](https://preserve.duracloud.org/web/client/login)
+Navigate to [DuraCloud Preserve](https://preserve.duracloud.org/web/client/login)
 
 Use this web-based interface to log in, upload, and download content.
 
@@ -98,6 +98,9 @@ small person icon in the upper-right corner of the screen.
 
 ![Change password screen](images/dcp-change-password.png)
 
+> [!Tip]
+After changing your DuraCloud Preserve web client login, **save your new password somewhere securely**.
+
 Note: SFTPGo login sessions are set for 2 hours.
 
 Upon login you will see three folders already created for you:
@@ -109,7 +112,7 @@ Upon login you will see three folders already created for you:
 From this web-based interface, you may:
 
 - Create new buckets by uploading a request file (see [Creating Buckets](./creating-buckets.md))
-- Upload content buckets, creating subfolder structures as needed
+- Upload content to buckets, creating subfolder structures as needed
 - Download content from buckets
 - Download reports and other hosted content from the `managed` bucket
 

@@ -2,7 +2,7 @@
 
 Whoever is responsible for deployment will provide access
 credentials to users.  If you are intending to connect directly to S3
-using a GUI or CLI tool then you should receive an **access key** and
+using a desktop graphical user interface (GUI) or command line interface (CLI) tool, then you should receive an **access key** and
 **secret**, which serve as a username and password for interacting with
 S3. **It is important to treat this as sensitively as you would any
 username and password.**
@@ -12,7 +12,7 @@ a **username** (your email address), **password** and the **url** to
 login. It's completely fine to use both approaches if you'd like access
 to both.
 
-You should also receive a **stack name**.
+You should also receive a **stack name**, or the name of the institutional account.
   
 This will typically be in the form `duracloud-$ID` where `$ID` is an
 identifier assigned by those handling the deployment. It may be based on

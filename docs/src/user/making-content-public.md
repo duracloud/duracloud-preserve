@@ -30,7 +30,11 @@ Navigate to the `public` folder and upload your content there (see [Uploading Fi
 aws s3 cp myfile.jpg s3://duracloud-$ID-public/myfolder/myfile.jpg
 ```
 
-### File delivery behavior
+## Suggestions for public content
+
+Upload smaller file sizes and formats (for example, .jpgs instead of .tiffs) to your `-public` bucket as access copies. Store preservation copies elsewhere in DuraCloud Preserve. Smaller file sizes and formats will download and be viewable more quickly for your users and work with a variety of browser and internet speed limits.
+
+## File delivery behavior
 
 The CloudFront domain is intended for publishing files, not for hosting a website. PDF, HLS/video, audio, subtitle, and common raster-image files use a known browser media type and may display or play inline. Other formats are delivered as downloads.
 

@@ -1,6 +1,6 @@
 # Downloading Content
 
-You can download content from any bucket you have access to using Cyberduck, SFTPGo, or the AWS CLI.
+You can download content from any bucket you have access to using Cyberduck, SFTPGo web client, or the AWS CLI.
 
 > [!IMPORTANT]
 > You cannot download content from replication buckets (buckets ending in `-repl`). Those are managed by the system for backup purposes. If you need to recover content from a replication bucket due to accidental deletion or corruption, contact your hosting provider.
@@ -21,7 +21,7 @@ aws s3 cp s3://duracloud-$ID-mybucket/myfile.txt .
 
 Replace `duracloud-$ID-mybucket` with the name of the bucket you are downloading from.
 
-For full AWS CLI documentation, see https://docs.aws.amazon.com/cli/latest/userguide/cli-services-s3-commands.html
+For full AWS CLI documentation, see [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-services-s3-commands.html)
 
 ## Cyberduck
 
@@ -36,9 +36,9 @@ For full AWS CLI documentation, see https://docs.aws.amazon.com/cli/latest/userg
 > [!Tip]
 If you're attempting to download from a bucket to which you don't have download rights, such as a replication bucket, you will get a "Bad request. Request error" message or similar.
 
-For full Cyberduck documentation, see https://docs.cyberduck.io/cyberduck/download/
+For full Cyberduck documentation, see [Cyberduck documentation](https://docs.cyberduck.io/cyberduck/download/)
 
-## SFTPGo
+## SFTPGo web client
 
 1. Log in to the web interface (see [Connecting to S3](./connecting-to-s3.md)).
 2. Navigate to the folder containing the content you want to download.

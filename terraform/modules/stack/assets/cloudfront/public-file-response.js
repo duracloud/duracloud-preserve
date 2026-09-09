@@ -22,6 +22,23 @@ var INLINE_MIME_TYPES = {
 };
 
 var CONTENT_SECURITY_POLICY = "sandbox; default-src 'none'; base-uri 'none'; form-action 'none'";
+var MEDIA_CONTENT_SECURITY_POLICY = "default-src 'none'; media-src 'self'; base-uri 'none'; form-action 'none'";
+var HLS_CONTENT_SECURITY_POLICY = "default-src 'none'; media-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'";
+
+// These files can open as browser-generated media documents. HLS playlists
+// additionally allow same-origin requests for playlists, segments, and keys.
+var MEDIA_EXTENSIONS = {
+  "aac": true,
+  "m4a": true,
+  "m4s": true,
+  "mov": true,
+  "mp3": true,
+  "mp4": true,
+  "ogg": true,
+  "ts": true,
+  "wav": true,
+  "webm": true
+};
 
 function literalExtension(uri) {
   var segment = uri.substring(uri.lastIndexOf("/") + 1);
@@ -59,7 +76,13 @@ function handler(event) {
     return response;
   }
 
-  var mimeType = INLINE_MIME_TYPES[literalExtension(uri)];
+  var extension = literalExtension(uri);
+  var mimeType = INLINE_MIME_TYPES[extension];
+  if (extension === "m3u8") {
+    setHeader(headers, "content-security-policy", HLS_CONTENT_SECURITY_POLICY);
+  } else if (MEDIA_EXTENSIONS[extension] === true) {
+    setHeader(headers, "content-security-policy", MEDIA_CONTENT_SECURITY_POLICY);
+  }
   if (mimeType) {
     setHeader(headers, "content-type", mimeType);
     setHeader(headers, "content-disposition", "inline");

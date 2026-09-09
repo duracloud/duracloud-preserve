@@ -41,6 +41,7 @@ test("forces MIME types for approved inline files", () => {
     "/video/segment.m4s": "video/iso.segment",
     "/video/movie.mp4": "video/mp4",
     "/subtitles/en.vtt": "text/vtt",
+    "/video/encryption.key": "application/octet-stream",
     "/images/poster.JpEg": "image/jpeg",
   };
 
@@ -105,7 +106,7 @@ test("adds browser security headers and preserves unrelated response data", () =
 
   assert.equal(
     header(response, "content-security-policy"),
-    "sandbox; default-src 'none'; base-uri 'none'; form-action 'none'",
+    "default-src 'none'; media-src 'self'; base-uri 'none'; form-action 'none'",
   );
   assert.equal(header(response, "x-content-type-options"), "nosniff");
   assert.equal(header(response, "referrer-policy"), "no-referrer");
@@ -119,4 +120,63 @@ test("handles the controlled error object as plain text", () => {
 
   assert.equal(header(response, "content-type"), "text/plain; charset=utf-8");
   assert.equal(header(response, "content-disposition"), "inline");
+});
+
+test("allows same-origin playback for browser media documents without sandboxing", () => {
+  const extensions = [
+    "aac", "m4a", "m4s", "mov", "mp3", "mp4", "ogg", "ts", "wav", "webm", "MP4",
+  ];
+
+  for (const extension of extensions) {
+    const response = execute(`/media/movie.${extension}`);
+
+    assert.equal(
+      header(response, "content-security-policy"),
+      "default-src 'none'; media-src 'self'; base-uri 'none'; form-action 'none'",
+    );
+    assert.equal(header(response, "content-disposition"), "inline");
+  }
+});
+
+test("allows HLS playlists to load same-origin media and keys", () => {
+  for (const uri of ["/hls/master.M3U8", "/hls/720p/playlist.m3u8"]) {
+    const response = execute(uri, {
+      "content-security-policy": { value: "sandbox; default-src 'none'" },
+    });
+
+    assert.equal(
+      header(response, "content-security-policy"),
+      "default-src 'none'; media-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'",
+    );
+    assert.equal(header(response, "content-type"), "application/vnd.apple.mpegurl");
+    assert.equal(header(response, "content-disposition"), "inline");
+  }
+});
+
+test("retains sandboxing for non-media files, HLS keys, and subtitles", () => {
+  const paths = [
+    "/page.html",
+    "/image.svg",
+    "/worker.js",
+    "/report.pdf",
+    "/image.png",
+    "/encryption.key",
+    "/en.vtt",
+    "/404.txt",
+    "/movie.mp4.html",
+    "/encoded.%6dp4",
+    "/movie.mp4/",
+    "/extensionless",
+  ];
+
+  for (const uri of paths) {
+    const response = execute(uri, {}, {
+      querystring: { filename: { value: "movie.mp4" } },
+    });
+
+    assert.equal(
+      header(response, "content-security-policy"),
+      "sandbox; default-src 'none'; base-uri 'none'; form-action 'none'",
+    );
+  }
 });

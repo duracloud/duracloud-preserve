@@ -16,7 +16,7 @@ variable "acm_cert_arn" {
 }
 
 variable "cloudfront_enabled" {
-  description = "Enable CloudFront distribution for public file access"
+  description = "Enable CloudFront and its public bucket pair for public file access"
   type        = bool
   default     = false
 }

@@ -11,6 +11,8 @@ locals {
 
 # Public bucket pair
 resource "aws_s3_bucket" "public" {
+  for_each = local.deploy_cloudfront
+
   bucket        = "${local.stack}${local.public_suffix}"
   force_destroy = true
 
@@ -22,6 +24,8 @@ resource "aws_s3_bucket" "public" {
 }
 
 resource "aws_s3_bucket" "public_repl" {
+  for_each = local.deploy_cloudfront
+
   bucket        = "${local.stack}${local.public_suffix}${local.replication_suffix}"
   force_destroy = true
 
@@ -33,7 +37,9 @@ resource "aws_s3_bucket" "public_repl" {
 }
 
 resource "aws_s3_bucket_versioning" "public" {
-  bucket = aws_s3_bucket.public.id
+  for_each = local.deploy_cloudfront
+
+  bucket = aws_s3_bucket.public[each.key].id
 
   versioning_configuration {
     status = "Enabled"
@@ -41,7 +47,9 @@ resource "aws_s3_bucket_versioning" "public" {
 }
 
 resource "aws_s3_bucket_versioning" "public_repl" {
-  bucket = aws_s3_bucket.public_repl.id
+  for_each = local.deploy_cloudfront
+
+  bucket = aws_s3_bucket.public_repl[each.key].id
 
   versioning_configuration {
     status = "Enabled"
@@ -50,7 +58,9 @@ resource "aws_s3_bucket_versioning" "public_repl" {
 
 # c.f. bucket_creator.rs
 resource "aws_s3_bucket_lifecycle_configuration" "public" {
-  bucket = aws_s3_bucket.public.id
+  for_each = local.deploy_cloudfront
+
+  bucket = aws_s3_bucket.public[each.key].id
 
   rule {
     id     = "ExpireOldVersions"
@@ -105,7 +115,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "public" {
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "public_repl" {
-  bucket = aws_s3_bucket.public_repl.id
+  for_each = local.deploy_cloudfront
+
+  bucket = aws_s3_bucket.public_repl[each.key].id
 
   rule {
     id     = "ExpireOldVersions"
@@ -160,7 +172,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "public_repl" {
 }
 
 resource "aws_s3_bucket_inventory" "public" {
-  bucket = aws_s3_bucket.public.id
+  for_each = local.deploy_cloudfront
+
+  bucket = aws_s3_bucket.public[each.key].id
   name   = local.inventory_id
 
   included_object_versions = "Current"
@@ -187,12 +201,16 @@ resource "aws_s3_bucket_inventory" "public" {
 }
 
 resource "aws_s3_bucket_notification" "public" {
-  bucket      = aws_s3_bucket.public.id
+  for_each = local.deploy_cloudfront
+
+  bucket      = aws_s3_bucket.public[each.key].id
   eventbridge = true
 }
 
 resource "aws_s3_bucket_replication_configuration" "public" {
-  bucket = aws_s3_bucket.public.id
+  for_each = local.deploy_cloudfront
+
+  bucket = aws_s3_bucket.public[each.key].id
   role   = aws_iam_role.replication.arn
 
   rule {
@@ -205,7 +223,7 @@ resource "aws_s3_bucket_replication_configuration" "public" {
     }
 
     destination {
-      bucket = aws_s3_bucket.public_repl.arn
+      bucket = aws_s3_bucket.public_repl[each.key].arn
     }
 
     delete_marker_replication {
@@ -220,14 +238,18 @@ resource "aws_s3_bucket_replication_configuration" "public" {
 }
 
 resource "aws_s3_bucket_logging" "public" {
-  bucket = aws_s3_bucket.public.id
+  for_each = local.deploy_cloudfront
+
+  bucket = aws_s3_bucket.public[each.key].id
 
   target_bucket = aws_s3_bucket.main["managed"].id
-  target_prefix = "${local.logging_prefix}/${aws_s3_bucket.public.id}/"
+  target_prefix = "${local.logging_prefix}/${aws_s3_bucket.public[each.key].id}/"
 }
 
 resource "aws_s3_object" "not_found" {
-  bucket = aws_s3_bucket.public.id
+  for_each = local.deploy_cloudfront
+
+  bucket = aws_s3_bucket.public[each.key].id
 
   key           = "404.txt"
   cache_control = "no-store"
@@ -238,4 +260,60 @@ resource "aws_s3_object" "not_found" {
 
     The requested file was not found. Please check the URL and try again.
   TEXT
+}
+
+# Preserve existing resources when enabling conditional public bucket creation.
+moved {
+  from = aws_s3_bucket.public
+  to   = aws_s3_bucket.public["public"]
+}
+
+moved {
+  from = aws_s3_bucket.public_repl
+  to   = aws_s3_bucket.public_repl["public"]
+}
+
+moved {
+  from = aws_s3_bucket_versioning.public
+  to   = aws_s3_bucket_versioning.public["public"]
+}
+
+moved {
+  from = aws_s3_bucket_versioning.public_repl
+  to   = aws_s3_bucket_versioning.public_repl["public"]
+}
+
+moved {
+  from = aws_s3_bucket_lifecycle_configuration.public
+  to   = aws_s3_bucket_lifecycle_configuration.public["public"]
+}
+
+moved {
+  from = aws_s3_bucket_lifecycle_configuration.public_repl
+  to   = aws_s3_bucket_lifecycle_configuration.public_repl["public"]
+}
+
+moved {
+  from = aws_s3_bucket_inventory.public
+  to   = aws_s3_bucket_inventory.public["public"]
+}
+
+moved {
+  from = aws_s3_bucket_notification.public
+  to   = aws_s3_bucket_notification.public["public"]
+}
+
+moved {
+  from = aws_s3_bucket_replication_configuration.public
+  to   = aws_s3_bucket_replication_configuration.public["public"]
+}
+
+moved {
+  from = aws_s3_bucket_logging.public
+  to   = aws_s3_bucket_logging.public["public"]
+}
+
+moved {
+  from = aws_s3_object.not_found
+  to   = aws_s3_object.not_found["public"]
 }

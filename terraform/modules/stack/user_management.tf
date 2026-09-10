@@ -83,8 +83,7 @@ locals {
   ]
 
   public_reserved_object_resources = [
-    "${aws_s3_bucket.public.arn}/404.txt",
-    "${aws_s3_bucket.public.arn}/watch/*",
+    "arn:aws:s3:::${local.stack}${local.public_suffix}/404.txt",
   ]
 
   public_reserved_object_deny_actions = [

@@ -19,7 +19,7 @@ data "aws_iam_policy_document" "public_bucket" {
   statement {
     effect    = "Allow"
     actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.public.arn}/*"]
+    resources = ["${aws_s3_bucket.public[each.key].arn}/*"]
 
     principals {
       type        = "Service"
@@ -41,7 +41,7 @@ data "aws_cloudfront_cache_policy" "caching_optimized" {
 resource "aws_s3_bucket_policy" "public" {
   for_each = local.deploy_cloudfront
 
-  bucket = aws_s3_bucket.public.id
+  bucket = aws_s3_bucket.public[each.key].id
   policy = data.aws_iam_policy_document.public_bucket[each.key].json
 }
 
@@ -68,7 +68,7 @@ resource "aws_cloudfront_distribution" "public" {
   for_each = local.deploy_cloudfront
 
   origin {
-    domain_name              = aws_s3_bucket.public.bucket_regional_domain_name
+    domain_name              = aws_s3_bucket.public[each.key].bucket_regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.public[each.key].id
     origin_id                = local.stack
   }

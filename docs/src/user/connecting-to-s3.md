@@ -26,7 +26,7 @@ see the folders already created for your account using your
 `dcp-$ID`, including:
 
 - `-managed`
-- `-public` (default bucket for files that can be accessed publicly through CloudFront)
+- `-public` (created only when CloudFront is enabled; files can be accessed publicly through CloudFront)
 - `-request` (used for making create bucket or checksum inventory requests)
 
 ## AWS CLI Documentation
@@ -103,10 +103,10 @@ After changing your DuraCloud Preserve web client login, **save your new passwor
 
 Note: SFTPGo login sessions are set for 2 hours.
 
-Upon login you will see three folders already created for you:
+Upon login you will see the following pre-created folders, with `public` available only when CloudFront is enabled for your stack:
 
 - `managed`
-- `public`
+- `public` (only when CloudFront is enabled)
 - `request`
 
 From this web-based interface, you may:
@@ -115,6 +115,8 @@ From this web-based interface, you may:
 - Upload content to buckets, creating subfolder structures as needed
 - Download content from buckets
 - Download reports and other hosted content from the `managed` bucket
+
+The following example shows a stack with CloudFront enabled:
 
 ![Provided buckets displayed in SFTPGo web interface showing three bucket folders labeled managed, public and request with upload and download options available](images/dcp-files.png)
 

@@ -42,7 +42,7 @@ A file manifest is generated for each user-created bucket. The raw inventory dat
 
 ## Public access via CDN (Content Delivery Network)
 
-A [CloudFront](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Introduction.html) distribution and bucket is created that can be used to make files publicly available. Simply upload files to it and share the public url using a specified domain.
+When CloudFront is enabled for a stack, a [CloudFront](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Introduction.html) distribution, a `-public` bucket, and a `-public-repl` replication bucket are created. Upload files to the `-public` bucket and share the public URL using the CloudFront domain or a configured custom domain. These resources are not created when CloudFront is disabled.
 
 Other buckets can be created as publicly accessible by naming them with a `-public` suffix. Files uploaded to such buckets will be available using a standard, unauthenticated S3 URL.
 

@@ -4,7 +4,7 @@ There are two ways to make content public.
 
 ## Pre-created public bucket with CloudFront (recommended)
 
-Each stack includes a pre-created `-public` bucket that is served through a CloudFront distribution with a friendly domain. This is the recommended way to make content publicly accessible.
+A stack includes a pre-created `-public` bucket only when its administrator has enabled CloudFront. Files in this bucket are served through a CloudFront distribution, optionally with a friendly domain. This is the recommended way to make content publicly accessible. If your stack does not have this bucket, contact your administrator to enable CloudFront before following the upload instructions below.
 
 Your administrator will provide the public domain URL, but you can also construct what a public link from this bucket will look like based on this pattern:
 
@@ -40,18 +40,11 @@ The CloudFront domain is intended for publishing files, not for hosting a websit
 
 HTML, SVG, JavaScript, CSS, XML, WebAssembly, executables, archives, files without an extension, and unknown file types do not execute in the browser from the preserve domain. The service determines browser behavior from the filename extension and does not rely on content-type metadata supplied during upload.
 
-The following locations are reserved for service use and cannot be uploaded or replaced by client users:
-
-```text
-404.txt
-watch/*
-```
-
-Place public content somewhere else in the bucket.
+The `404.txt` object at the root of the CloudFront bucket is reserved for service use and cannot be uploaded, replaced, or deleted by client users. Place public content somewhere else in the bucket.
 
 ## Creating public buckets (not recommended)
 
-You can also make content publicly available by designating a bucket as `-public` - See [How to Create Buckets](creating-buckets.md).
+You can also make content publicly available by creating a bucket with a name ending in `-public` - See [How to Create Buckets](creating-buckets.md). These user-created buckets use direct S3 public access and do not require CloudFront to be enabled.
 
 You can construct what a public link will look like in this scenario based on this pattern:
 

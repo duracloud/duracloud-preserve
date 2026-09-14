@@ -6,7 +6,7 @@ When you connect to your S3 account for the first time, you will see a number of
 
 - `dcp-$ID-request` — used to make requests to create new buckets. See: [Creating Buckets](./creating-buckets.md)
 - `dcp-$ID-managed` — contains generated files such as audit logs, inventory, and reports. **This bucket is read-only.**
-- `dcp-$ID-public` — default public bucket. Files uploaded here will be publicly accessible via CloudFront.
+- `dcp-$ID-public` — created only when CloudFront is enabled for your stack. Files uploaded here will be publicly accessible via CloudFront. Its replication bucket, `dcp-$ID-public-repl`, is also created only when CloudFront is enabled.
 
 ## Managed Bucket Structure
 

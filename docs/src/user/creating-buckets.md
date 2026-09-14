@@ -25,7 +25,7 @@ Save the file with any name, for example `bucket-list.txt`.
 - Names must be short enough that the full bucket name stays under 63 characters — the system prepends `dcp-$ID` and reserves `-repl` and a few other words as suffixes
 
 > [!Tip]
-> To make objects publicly accessible, upload directly into the `-public` bucket. Sub-folders can be created within the `-public` bucket to align with your desired asset management methods.
+> If CloudFront is enabled for your stack, upload directly into the pre-created `-public` bucket to make objects publicly accessible. Sub-folders can be created within this bucket to align with your desired asset management methods. See [Making Content Public](./making-content-public.md) for details and other public access options.
 
 The following are reserved and cannot be used in names: `duracloud-`, `-dcp`, `-logs`, `-managed`, `-repl`, `-request`
 
@@ -78,4 +78,3 @@ To create more buckets, update your file with new names and upload it again.
 
 - **No buckets were created** — check the `feedback` folder in your `-managed` bucket for error messages.
 - **One name has an error** — none of the buckets in that request will be created. Fix the name(s) as necessary and upload the file again.
-

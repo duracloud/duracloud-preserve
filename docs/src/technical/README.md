@@ -17,7 +17,7 @@ Requirements:
 - [mise](https://mise.jdx.dev/) (installs `node` and `rust` from `mise.toml`)
 - [aws cli](#)
 - [cargo-lambda](#)
-- [terraform](#)
+- [terraform](#) 1.1 or later
 
 You must have access to an AWS account. **Caution: costs may be incurred.**
 
@@ -48,15 +48,24 @@ Of most significance for testing using the above example will create:
 - `digipres-dev1-s3-replication-role` (i.e. `${stack}-s3-replication-role`)
 - `digipres-dev1-request` (i.e. `${stack}-request`)
 - `digipres-dev1-managed` (i.e. `${stack}-managed`)
-- `digipres-dev1-public` (i.e. `${stack}-public`)
-- `digipres-dev1-public-repl` (i.e. `${stack}-public-repl`)
 
 The `managed` bucket will also be assigned a policy that permits it to be
 a target for S3 inventory from buckets using the same stack name (prefix).
 
-The `public` bucket is "special" as it works differently from regular
-user created public buckets owing to a CloudFront distribution that is
-created to provide access to the files, rather than using raw S3 urls.
+When `cloudfront_enabled = true`, Terraform also creates a CloudFront
+distribution and its bucket pair:
+
+- `digipres-dev1-public` (i.e. `${stack}-public`)
+- `digipres-dev1-public-repl` (i.e. `${stack}-public-repl`)
+
+The stack module defaults to `cloudfront_enabled = false`, but the
+repository's development `main.tf`, used by `mise run setup`, defaults to
+`true`. Set `cloudfront_enabled = false` in `terraform.tfvars` to omit the
+distribution and its bucket pair from a development stack. The `public`
+bucket provides access to files through CloudFront. User-created buckets
+with a `-public` suffix provide direct S3 public access independently of
+this setting. See the
+[deployment guide](../deploy/README.md) for configuration and upgrade details.
 
 ## Testing remotely with Lambda
 
@@ -80,6 +89,10 @@ when run through Lambda with these primary differences:
 - The entrypoints are different: see the `cli` vs. `functions` folders
 
 ## Testing public access via CloudFront
+
+Enable `cloudfront_enabled = true` and apply the Terraform configuration
+before following these steps. The CloudFront outputs have a value only
+when CloudFront is enabled.
 
 ```bash
 terraform output cloudfront_domain_name

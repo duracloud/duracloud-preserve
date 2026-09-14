@@ -20,7 +20,7 @@ The workflow is:
 4. For each user, their access/secret keys are retrieved from SSM and the matching SFTPGo account is updated with access to the buckets for each stack they belong to
 5. The `TRIGGER` file is deleted on success
 
-The SFTPGo connection details (`SFTPGO_HOST`, `SFTPGO_USERNAME`, `SFTPGO_PASSWORD`) are provided via Lambda environment variables set at deploy time.
+The Lambda reads SFTPGo connection details from SSM Parameter Store in the deployment account and region. Provide `/sftpgo/host`, `/sftpgo/username`, and `/sftpgo/password`, using a SecureString for the password.
 
 ## CLI testing
 

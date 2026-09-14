@@ -21,7 +21,7 @@
 
 # Deployment guide
 
-- [Instructions](deploy/README.md)
+- [Deploying a production stack](deploy/README.md)
 
 # Technical documentation
 

@@ -11,8 +11,9 @@ variable "users" {
     enabled = optional(bool, true)
     buckets = optional(list(string), [])
     memberships = list(object({
-      stack = string
-      group = string
+      stack        = string
+      group        = string
+      allow_delete = optional(bool, false)
     }))
   }))
   validation {
@@ -22,5 +23,13 @@ variable "users" {
       ])
     ])
     error_message = "Group must be 'power-users', 'restricted-users' or 'standard-users'."
+  }
+  validation {
+    condition = alltrue([
+      for u in var.users : alltrue([
+        for m in u.memberships : !m.allow_delete || m.group == "restricted-users"
+      ])
+    ])
+    error_message = "allow_delete can only be true for 'restricted-users' memberships."
   }
 }

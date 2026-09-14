@@ -17,6 +17,18 @@ locals {
     if length(u.buckets) > 0
   }
 
+  # Delete access is opt-in per restricted membership and limited to assigned
+  # buckets in that stack. Existing explicit denies still protect reserved data.
+  user_delete_object_resources = {
+    for name, buckets in local.user_buckets : name => [
+      for bucket in buckets : "arn:aws:s3:::${bucket}/*"
+      if anytrue([
+        for m in var.users[name].memberships :
+        m.group == "restricted-users" && m.allow_delete && startswith(bucket, "${m.stack}-")
+      ])
+    ]
+  }
+
   user_managed_buckets = {
     for name, buckets in local.user_buckets : name => [
       for bucket in buckets : bucket
@@ -135,6 +147,17 @@ data "aws_iam_policy_document" "s3_access" {
     effect    = "Allow"
     actions   = local.user_object_allow_actions
     resources = [for bucket in each.value : "arn:aws:s3:::${bucket}/*"]
+  }
+
+  dynamic "statement" {
+    for_each = length(local.user_delete_object_resources[each.key]) > 0 ? [local.user_delete_object_resources[each.key]] : []
+
+    content {
+      sid       = "RestrictedBucketDeletes"
+      effect    = "Allow"
+      actions   = ["s3:DeleteObject"]
+      resources = statement.value
+    }
   }
 
   dynamic "statement" {

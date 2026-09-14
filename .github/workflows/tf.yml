@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/tf.yml"
       - "**.tf"
+      - "**.tftest.hcl"
       - "terraform/modules/stack/assets/cloudfront/**"
       - "terraform/modules/stack/tests/**"
   pull_request:
@@ -13,6 +14,7 @@ on:
     paths:
       - ".github/workflows/tf.yml"
       - "**.tf"
+      - "**.tftest.hcl"
       - "terraform/modules/stack/assets/cloudfront/**"
       - "terraform/modules/stack/tests/**"
 
@@ -34,3 +36,6 @@ jobs:
       - run: terraform fmt -check -recursive -diff
       - run: terraform init -backend=false
       - run: terraform validate
+      - run: terraform -chdir=terraform/modules/users init -backend=false
+      - run: terraform -chdir=terraform/modules/users validate
+      - run: terraform -chdir=terraform/modules/users test

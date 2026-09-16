@@ -2,7 +2,7 @@
 // Usage: node scripts/job-status.mjs --id=<job-id> [--profile=<aws-profile>]
 //    or: node scripts/job-status.mjs --bucket=<bucket> [--profile=<aws-profile>]
 import { parseArgs } from "node:util";
-import { awsEnv, capture, fail, run } from "./lib.mjs";
+import { awsEnv, capture, fail, run, stackFromBucket } from "./lib.mjs";
 
 const USAGE =
   "node scripts/job-status.mjs (--id=<job-id> | --bucket=<bucket>) [--profile=<aws-profile>]";
@@ -19,8 +19,7 @@ const env = awsEnv(values.profile);
 let jobId = values.id;
 if (!jobId && values.bucket) {
   const bucket = values.bucket;
-  const dash = bucket.lastIndexOf("-");
-  const stack = dash === -1 ? bucket : bucket.slice(0, dash);
+  const stack = stackFromBucket(bucket);
   const receipt = capture(
     "aws",
     [

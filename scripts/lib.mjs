@@ -67,3 +67,8 @@ export function requireOpts(values, usage) {
     if (!value) fail(`Missing required option --${name}\nUsage: ${usage}`);
   }
 }
+
+// Get the stack name from a bucket name (the first two parts)
+export function stackFromBucket(bucket) {
+  return bucket.split("-").slice(0, 2).join("-");
+}

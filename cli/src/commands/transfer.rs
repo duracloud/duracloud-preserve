@@ -20,7 +20,7 @@ pub struct Args {
     #[arg(short, long)]
     source: String,
 
-    /// Override (i.e. do not) prompt for confirmation
+    /// Override (i.e. do not) prompt for confirmation and bypass stack tag validation
     #[arg(short, long, default_value_t = false)]
     force: bool,
 }
@@ -30,9 +30,16 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let stack = Stack::from_prefixed_name(&destination)?;
     let config = config::load(stack.clone()).await?;
 
-    let stack_buckets = app_bucket::list_for_stack(config.s3(), &stack, None).await?;
-    if !stack_buckets.iter().any(|b| b.name() == destination) {
-        return Err(format!("Destination bucket '{destination}' is not a stack bucket").into());
+    if args.force {
+        // Do a fast check when using the --force flag
+        if !bucket::exists(config.s3(), &destination).await? {
+            return Err("Destination bucket not found".into());
+        }
+    } else {
+        let stack_buckets = app_bucket::list_for_stack(config.s3(), &stack, None).await?;
+        if !stack_buckets.iter().any(|b| b.name() == destination) {
+            return Err(format!("Destination bucket '{destination}' is not a stack bucket").into());
+        }
     }
 
     let source = args.source;

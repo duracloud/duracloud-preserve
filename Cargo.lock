@@ -65,6 +65,7 @@ dependencies = [
  "aws-sdk-s3control",
  "aws-sdk-ssm",
  "aws-sdk-sts",
+ "aws-smithy-http-client",
  "aws-smithy-types",
  "awsutils",
  "base",

@@ -1,5 +1,6 @@
 use aws_config::{Region, SdkConfig, retry::RetryConfig};
 use base::Stack;
+use std::time::Duration;
 
 use awsutils::{
     bucket::{self, RequestError},
@@ -22,6 +23,18 @@ pub struct Clients {
 
 impl Clients {
     pub fn new(sdk_config: &SdkConfig) -> Self {
+        let account_timeout = sdk_config
+            .timeout_config()
+            .map(|config| config.to_builder())
+            .unwrap_or_default()
+            .operation_timeout(Duration::from_secs(15))
+            .build();
+        let account_config = sdk_config
+            .to_builder()
+            .retry_config(RetryConfig::standard().with_max_attempts(5))
+            .timeout_config(account_timeout)
+            .build();
+
         let cost_explorer_config = sdk_config
             .to_builder()
             .region(Region::new(COST_EXPLORER_REGION))
@@ -33,7 +46,7 @@ impl Clients {
             .build();
 
         Self {
-            account: aws_sdk_account::Client::new(sdk_config),
+            account: aws_sdk_account::Client::new(&account_config),
             cost_explorer: aws_sdk_costexplorer::Client::new(&cost_explorer_config),
             iam: aws_sdk_iam::Client::new(sdk_config),
             s3: aws_sdk_s3::Client::new(&s3_config),
@@ -175,7 +188,111 @@ async fn load_with_sdk_config(stack: Stack, sdk_config: SdkConfig) -> Result<Con
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_support::{TestClientBuilder, recorded_requests};
+    use aws_smithy_http_client::test_util::NeverClient;
+    use test_support::{TestClientBuilder, recorded_requests, replay_event_with_content_type};
+
+    fn account_error(status: u16, code: &str) -> aws_smithy_http_client::test_util::ReplayEvent {
+        replay_event_with_content_type(
+            "https://account.us-east-1.amazonaws.com/",
+            status,
+            format!(r#"{{"__type":"{code}","message":"test service error"}}"#),
+            Some("application/x-amz-json-1.1"),
+        )
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_account_lookup_recovers_from_throttling_and_transient_errors() {
+        let (sdk_config, replay) = TestClientBuilder::new()
+            .event(account_error(429, "TooManyRequestsException"))
+            .event(account_error(500, "InternalServerException"))
+            .success(
+                r#"{"AccountName":"Example Owner"}"#,
+                Some("application/x-amz-json-1.1".to_string()),
+            )
+            .build_sdk_config_with_replay();
+        let clients = Clients::new(&sdk_config);
+
+        let owner = aws_config_utils::get_account_name(&clients.account)
+            .await
+            .expect("account lookup should recover from retryable errors");
+
+        assert_eq!(owner, "Example Owner");
+        assert_eq!(recorded_requests(&replay).len(), 3);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_account_lookup_stops_after_five_attempts() {
+        let mut builder = TestClientBuilder::new();
+        for _ in 0..5 {
+            builder = builder.event(account_error(429, "TooManyRequestsException"));
+        }
+        let (sdk_config, replay) = builder.build_sdk_config_with_replay();
+        let clients = Clients::new(&sdk_config);
+
+        let error = clients
+            .account
+            .get_account_information()
+            .send()
+            .await
+            .unwrap_err();
+
+        assert!(
+            error
+                .as_service_error()
+                .unwrap()
+                .is_too_many_requests_exception()
+        );
+        assert_eq!(recorded_requests(&replay).len(), 5);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_account_lookup_does_not_retry_access_denied() {
+        let (sdk_config, replay) = TestClientBuilder::new()
+            .event(account_error(403, "AccessDeniedException"))
+            .build_sdk_config_with_replay();
+        let clients = Clients::new(&sdk_config);
+
+        let error = clients
+            .account
+            .get_account_information()
+            .send()
+            .await
+            .unwrap_err();
+
+        assert!(
+            error
+                .as_service_error()
+                .unwrap()
+                .is_access_denied_exception()
+        );
+        assert_eq!(recorded_requests(&replay).len(), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_account_lookup_times_out_after_fifteen_seconds() {
+        let http_client = NeverClient::new();
+        let sdk_config = TestClientBuilder::new()
+            .build_sdk_config()
+            .to_builder()
+            .http_client(http_client.clone())
+            .build();
+        let clients = Clients::new(&sdk_config);
+        let started = tokio::time::Instant::now();
+
+        let error = clients
+            .account
+            .get_account_information()
+            .send()
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            error,
+            aws_sdk_account::error::SdkError::TimeoutError(_)
+        ));
+        assert_eq!(started.elapsed(), Duration::from_secs(15));
+        assert_eq!(http_client.num_calls(), 1);
+    }
 
     #[tokio::test]
     async fn test_load_does_not_request_account_information() {

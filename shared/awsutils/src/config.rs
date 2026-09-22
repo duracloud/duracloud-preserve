@@ -1,5 +1,9 @@
 use crate::bucket::RequestError;
 use aws_config::{BehaviorVersion, SdkConfig};
+use aws_sdk_account::{
+    error::{DisplayErrorContext, ProvideErrorMetadata, SdkError},
+    operation::RequestId,
+};
 use aws_sdk_s3::types::TransitionStorageClass;
 use constants::{SFTPGO_NAMESPACE, USER_ACCESS_KEY_NAMESPACE, USER_SECRET_KEY_NAMESPACE};
 
@@ -8,12 +12,32 @@ pub async fn load_defaults() -> SdkConfig {
     aws_config::load_defaults(BehaviorVersion::latest()).await
 }
 
+/// Preserve service metadata and the source chain when wrapping SDK lookup failures.
+fn config_error<E>(context: &str, error: &SdkError<E>) -> RequestError
+where
+    E: std::error::Error + ProvideErrorMetadata + Send + Sync + 'static,
+{
+    let code = error.code().unwrap_or("unknown");
+    // Include parsed metadata, with a header fallback for unparsed error responses.
+    let request_id = error
+        .meta()
+        .request_id()
+        .or_else(|| error.request_id())
+        .unwrap_or("unknown");
+
+    RequestError::ConfigError(format!(
+        "{context}: code={code}, request_id={request_id}, details={}",
+        DisplayErrorContext(error)
+    ))
+}
+
 /// Get the AWS account ID via STS.
 pub async fn get_account_id(client: &aws_sdk_sts::Client) -> Result<String, RequestError> {
-    let identity =
-        client.get_caller_identity().send().await.map_err(|e| {
-            RequestError::ConfigError(format!("failed to get caller identity: {}", e))
-        })?;
+    let identity = client
+        .get_caller_identity()
+        .send()
+        .await
+        .map_err(|e| config_error("failed to get caller identity", &e))?;
 
     identity
         .account()
@@ -23,9 +47,11 @@ pub async fn get_account_id(client: &aws_sdk_sts::Client) -> Result<String, Requ
 
 /// Get the AWS account name for the current caller's account.
 pub async fn get_account_name(client: &aws_sdk_account::Client) -> Result<String, RequestError> {
-    let account = client.get_account_information().send().await.map_err(|e| {
-        RequestError::ConfigError(format!("failed to get account information: {}", e))
-    })?;
+    let account = client
+        .get_account_information()
+        .send()
+        .await
+        .map_err(|e| config_error("failed to get account information", &e))?;
 
     account
         .account_name()
@@ -55,9 +81,7 @@ pub async fn get_role_arn(
         .role_name(role_name)
         .send()
         .await
-        .map_err(|e| {
-            RequestError::ConfigError(format!("failed to get role '{}': {}", role_name, e))
-        })?;
+        .map_err(|e| config_error(&format!("failed to get role '{}'", role_name), &e))?;
 
     response
         .role()
@@ -76,9 +100,7 @@ pub async fn get_parameter(
         .name(param_name)
         .send()
         .await
-        .map_err(|e| {
-            RequestError::ConfigError(format!("failed to get parameter '{}': {}", param_name, e))
-        })?;
+        .map_err(|e| config_error(&format!("failed to get parameter '{}'", param_name), &e))?;
 
     response
         .parameter()
@@ -128,7 +150,86 @@ pub fn parse_storage_class(value: &str) -> Option<TransitionStorageClass> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aws_sdk_account::config::http::{HttpRequest, HttpResponse};
+    use aws_smithy_types::body::SdkBody;
     use test_support::{mock_sdk_config, replay_event_with_content_type, replay_xml_event};
+
+    fn error_config(status: u16, body: &str, content_type: &str, request_id: &str) -> SdkConfig {
+        let request = HttpRequest::new(SdkBody::empty());
+        let mut response = HttpResponse::new(status.try_into().unwrap(), SdkBody::from(body));
+        response
+            .headers_mut()
+            .insert("content-type", content_type.to_string());
+        response
+            .headers_mut()
+            .insert("x-amzn-requestid", request_id.to_string());
+        mock_sdk_config((request, response).into()).0
+    }
+
+    #[tokio::test]
+    async fn test_get_account_id_preserves_sts_error_details() {
+        let body = r#"<ErrorResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/">
+            <Error><Type>Sender</Type><Code>AccessDenied</Code>
+                <Message>Caller identity lookup denied</Message></Error>
+            <RequestId>sts-request-id</RequestId>
+        </ErrorResponse>"#;
+        let sdk_config = error_config(403, body, "text/xml", "sts-request-id");
+        let client = aws_sdk_sts::Client::new(&sdk_config);
+
+        let error = get_account_id(&client).await.unwrap_err();
+
+        let RequestError::ConfigError(message) = error else {
+            panic!("expected configuration error");
+        };
+        assert!(message.contains("failed to get caller identity"));
+        assert!(message.contains("code=AccessDenied"));
+        assert!(message.contains("request_id=sts-request-id"));
+        assert!(message.contains("Caller identity lookup denied"));
+    }
+
+    #[tokio::test]
+    async fn test_get_account_name_preserves_throttling_details() {
+        let sdk_config = error_config(
+            429,
+            r#"{"__type":"TooManyRequestsException","message":"Rate exceeded"}"#,
+            "application/x-amz-json-1.1",
+            "account-throttled-request-id",
+        );
+        // Exercise error formatting after the SDK gives up, without retrying the fixture.
+        let client_config = aws_sdk_account::config::Builder::from(&sdk_config)
+            .retry_config(aws_config::retry::RetryConfig::disabled())
+            .build();
+        let client = aws_sdk_account::Client::from_conf(client_config);
+
+        let error = get_account_name(&client).await.unwrap_err();
+
+        let RequestError::ConfigError(message) = error else {
+            panic!("expected configuration error");
+        };
+        assert!(message.contains("failed to get account information"));
+        assert!(message.contains("code=TooManyRequestsException"));
+        assert!(message.contains("request_id=account-throttled-request-id"));
+        assert!(message.contains("Rate exceeded"));
+    }
+
+    #[test]
+    fn test_config_error_preserves_timeout_cause_without_service_metadata() {
+        let error: SdkError<
+            aws_sdk_account::operation::get_account_information::GetAccountInformationError,
+        > = SdkError::timeout_error(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "account operation exceeded its deadline",
+        ));
+
+        let error = config_error("failed to get account information", &error);
+
+        let RequestError::ConfigError(message) = error else {
+            panic!("expected configuration error");
+        };
+        assert!(message.contains("code=unknown"));
+        assert!(message.contains("request_id=unknown"));
+        assert!(message.contains("account operation exceeded its deadline"));
+    }
 
     #[tokio::test]
     async fn test_get_account_id_returns_account_from_sts_identity() {
@@ -174,12 +275,12 @@ mod tests {
     #[tokio::test]
     async fn test_get_account_name_maps_lookup_failures_to_config_error() {
         let body = r#"{"__type":"AccessDeniedException","message":"not authorized"}"#;
-        let (sdk_config, _replay) = mock_sdk_config(replay_event_with_content_type(
-            "https://account.us-east-1.amazonaws.com/",
+        let sdk_config = error_config(
             403,
             body,
-            Some("application/x-amz-json-1.1"),
-        ));
+            "application/x-amz-json-1.1",
+            "account-denied-request-id",
+        );
         let client = aws_sdk_account::Client::new(&sdk_config);
 
         let err = get_account_name(&client)
@@ -189,6 +290,9 @@ mod tests {
         match err {
             RequestError::ConfigError(message) => {
                 assert!(message.contains("failed to get account information"));
+                assert!(message.contains("code=AccessDeniedException"));
+                assert!(message.contains("request_id=account-denied-request-id"));
+                assert!(message.contains("not authorized"));
             }
             other => panic!("unexpected error variant: {other:?}"),
         }
@@ -215,12 +319,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_parameter_maps_ssm_lookup_failures_to_config_error() {
         let body = r#"{"__type":"ParameterNotFound","message":"Parameter not found"}"#;
-        let (sdk_config, _replay) = mock_sdk_config(replay_event_with_content_type(
-            "https://test.s3.amazonaws.com/",
-            400,
-            body,
-            Some("application/x-amz-json-1.1"),
-        ));
+        let sdk_config = error_config(400, body, "application/x-amz-json-1.1", "ssm-request-id");
         let client = aws_sdk_ssm::Client::new(&sdk_config);
 
         let err = get_parameter(&client, "missing-param")
@@ -230,6 +329,9 @@ mod tests {
         match err {
             RequestError::ConfigError(message) => {
                 assert!(message.contains("failed to get parameter 'missing-param'"));
+                assert!(message.contains("code=ParameterNotFound"));
+                assert!(message.contains("request_id=ssm-request-id"));
+                assert!(message.contains("Parameter not found"));
             }
             other => panic!("unexpected error variant: {other:?}"),
         }
@@ -275,7 +377,7 @@ mod tests {
   </Error>
   <RequestId>req-3</RequestId>
 </ErrorResponse>"#;
-        let (sdk_config, _replay) = mock_sdk_config(replay_xml_event(404, body));
+        let sdk_config = error_config(404, body, "text/xml", "req-3");
         let client = aws_sdk_iam::Client::new(&sdk_config);
 
         let err = get_role_arn(&client, "missing-role")
@@ -285,6 +387,9 @@ mod tests {
         match err {
             RequestError::ConfigError(message) => {
                 assert!(message.contains("failed to get role 'missing-role'"));
+                assert!(message.contains("code=NoSuchEntity"));
+                assert!(message.contains("request_id=req-3"));
+                assert!(message.contains("Role missing-role cannot be found."));
             }
             other => panic!("unexpected error variant: {other:?}"),
         }

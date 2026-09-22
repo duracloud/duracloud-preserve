@@ -145,6 +145,8 @@ impl From<awsutils::errors::InventoryError> for InventoryReportError {
 
 #[derive(Debug, Error)]
 pub enum StorageReportError {
+    #[error("failed to retrieve account information for storage report: {0}")]
+    AccountInformation(#[source] RequestError),
     #[error("failed to discover buckets for storage report: {0}")]
     BucketDiscovery(#[source] RequestError),
     #[error("failed to download inventory stats for bucket '{bucket}': {source}")]

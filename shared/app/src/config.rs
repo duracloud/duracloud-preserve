@@ -49,7 +49,6 @@ pub struct Config {
     account_id: String,
     clients: Clients,
     debug_handler: bool,
-    owner: String,
     roles: Roles,
     stack: Stack,
     storage_capacity: u64,
@@ -60,7 +59,6 @@ impl std::fmt::Debug for Config {
         f.debug_struct("Config")
             .field("account_id", &self.account_id)
             .field("debug_handler", &self.debug_handler)
-            .field("owner", &self.owner)
             .field("roles", &self.roles)
             .field("stack", &self.stack)
             .finish_non_exhaustive()
@@ -74,7 +72,6 @@ impl Config {
             account_id: "123456789".to_string(),
             clients: Clients::new(&sdk_config),
             debug_handler,
-            owner: "Test Owner".to_string(),
             roles: Roles {
                 batch: "arn:aws:iam::123456789:role/test-batch-role".to_string(),
                 replication: "arn:aws:iam::123456789:role/test-replication-role".to_string(),
@@ -98,10 +95,6 @@ impl Config {
 
     pub fn debug_handler(&self) -> bool {
         self.debug_handler
-    }
-
-    pub fn owner(&self) -> &str {
-        &self.owner
     }
 
     pub fn replication_role_arn(&self) -> &str {
@@ -135,6 +128,10 @@ pub struct Roles {
 /// Create a Config for the stack.
 pub async fn load(stack: Stack) -> Result<Config, RequestError> {
     let sdk_config = aws_config_utils::load_defaults().await;
+    load_with_sdk_config(stack, sdk_config).await
+}
+
+async fn load_with_sdk_config(stack: Stack, sdk_config: SdkConfig) -> Result<Config, RequestError> {
     let managed_bucket = stack.managed_bucket();
     let clients = Clients::new(&sdk_config);
 
@@ -150,10 +147,9 @@ pub async fn load(stack: Stack) -> Result<Config, RequestError> {
     let storage_capacity_param_name = stack.storage_capacity_param_name();
     let replication_role_name = stack.replication_role_name();
 
-    let (batch_role, replication_role, owner, storage_capacity) = tokio::try_join!(
+    let (batch_role, replication_role, storage_capacity) = tokio::try_join!(
         aws_config_utils::get_role_arn(&clients.iam, &batch_role_name),
         aws_config_utils::get_role_arn(&clients.iam, &replication_role_name),
-        aws_config_utils::get_account_name(&clients.account),
         aws_config_utils::get_parameter(&clients.ssm, &storage_capacity_param_name),
     )?;
 
@@ -170,9 +166,53 @@ pub async fn load(stack: Stack) -> Result<Config, RequestError> {
         account_id,
         clients,
         debug_handler: false,
-        owner,
         roles,
         stack,
         storage_capacity,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_support::{TestClientBuilder, recorded_requests};
+
+    #[tokio::test]
+    async fn test_load_does_not_request_account_information() {
+        let identity = r#"<GetCallerIdentityResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/">
+            <GetCallerIdentityResult><Account>123456789012</Account></GetCallerIdentityResult>
+        </GetCallerIdentityResponse>"#;
+        let role = |name: &str| {
+            format!(
+                r#"<GetRoleResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+                    <GetRoleResult><Role>
+                        <Path>/</Path><RoleName>{name}</RoleName><RoleId>AROATEST</RoleId>
+                        <Arn>arn:aws:iam::123456789012:role/{name}</Arn>
+                        <CreateDate>2024-01-01T00:00:00Z</CreateDate>
+                    </Role></GetRoleResult>
+                </GetRoleResponse>"#
+            )
+        };
+        // HEAD bucket, STS identity, two IAM roles, and SSM capacity only.
+        let (sdk_config, replay) = TestClientBuilder::new()
+            .ok()
+            .success(identity, Some("text/xml".to_string()))
+            .success(role("batch"), Some("text/xml".to_string()))
+            .success(role("replication"), Some("text/xml".to_string()))
+            .success(
+                r#"{"Parameter":{"Value":"1000"}}"#,
+                Some("application/x-amz-json-1.1".to_string()),
+            )
+            .build_sdk_config_with_replay();
+
+        let config = load_with_sdk_config(Stack::new("test-stack").unwrap(), sdk_config)
+            .await
+            .expect("common configuration should load without account information");
+
+        assert_eq!(config.account_id(), "123456789012");
+        assert_eq!(config.storage_capacity(), 1000);
+        let requests = recorded_requests(&replay);
+        assert_eq!(requests.len(), 5);
+        assert!(requests.iter().all(|r| !r.uri.contains("account.")));
+    }
 }

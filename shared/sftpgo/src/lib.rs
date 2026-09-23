@@ -3,6 +3,10 @@ use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
+use std::time::Duration;
+
+/// Overrides the client timeout: the payload grows with the user's virtual folders.
+const UPDATE_USER_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -13,7 +17,34 @@ pub enum Error {
         endpoint: String,
         status: StatusCode,
         body: String,
+        retry_after: Option<Duration>,
     },
+    #[error("folder upsert timed out: {folder}")]
+    FolderTimeout { folder: String },
+}
+
+fn retry_after(response: &reqwest::Response) -> Option<Duration> {
+    parse_retry_after(
+        response
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)?
+            .to_str()
+            .ok()?,
+        Utc::now(),
+    )
+}
+
+fn parse_retry_after(value: &str, now: DateTime<Utc>) -> Option<Duration> {
+    let value = value.trim();
+    if let Ok(seconds) = value.parse::<u64>() {
+        return Some(Duration::from_secs(seconds));
+    }
+    let date = DateTime::parse_from_rfc2822(value).ok()?;
+    Some(
+        (date.with_timezone(&Utc) - now)
+            .to_std()
+            .unwrap_or_default(),
+    )
 }
 
 pub struct SFTPGoClient {
@@ -81,6 +112,7 @@ impl SFTPGoClient {
                 self.config.host, user.username
             ))
             .bearer_auth(&self.token)
+            .timeout(UPDATE_USER_TIMEOUT)
             .json(user)
             .send()
             .await?;
@@ -90,6 +122,7 @@ impl SFTPGoClient {
             return Err(Error::Api {
                 endpoint: format!("update_user {}", user.username),
                 status,
+                retry_after: retry_after(&resp),
                 body: resp.text().await.unwrap_or_default(),
             });
         }
@@ -112,6 +145,7 @@ impl SFTPGoClient {
                 return Err(Error::Api {
                     endpoint: format!("probe folder {}", folder.name),
                     status,
+                    retry_after: retry_after(&probe),
                     body: probe.text().await.unwrap_or_default(),
                 });
             }
@@ -133,6 +167,7 @@ impl SFTPGoClient {
             return Err(Error::Api {
                 endpoint: format!("upsert_folder {}", folder.name),
                 status,
+                retry_after: retry_after(&resp),
                 body: resp.text().await.unwrap_or_default(),
             });
         }
@@ -360,6 +395,28 @@ pub fn virtual_folders(user_key: &str, buckets: &[&str]) -> Vec<VirtualFolder> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn retry_after_accepts_seconds_and_http_dates() {
+        let now = DateTime::parse_from_rfc3339("2026-09-23T22:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        assert_eq!(
+            parse_retry_after("120", now),
+            Some(Duration::from_secs(120))
+        );
+        assert_eq!(
+            parse_retry_after("Wed, 23 Sep 2026 22:00:10 GMT", now),
+            Some(Duration::from_secs(10))
+        );
+        assert_eq!(
+            parse_retry_after("Wed, 23 Sep 2026 21:59:59 GMT", now),
+            Some(Duration::ZERO)
+        );
+        for invalid in ["", "invalid", "-1"] {
+            assert_eq!(parse_retry_after(invalid, now), None);
+        }
+    }
 
     #[test]
     fn base_folders_s3_filesystem_is_populated() {

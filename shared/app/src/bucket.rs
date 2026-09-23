@@ -15,6 +15,7 @@ use base::{
     stats::InventoryStats,
 };
 use constants::*;
+use futures::{StreamExt, stream};
 use tokio::{fs, io};
 
 use awsutils::{
@@ -41,6 +42,8 @@ impl BucketCache {
 }
 
 type TagFilter<'a> = Option<&'a dyn Fn(&[Tag]) -> bool>;
+
+const MAX_BUCKET_TAG_CONCURRENCY: usize = 8;
 
 /// Create and setup an S3 bucket. If setup fails, attempt rollback.
 /// Returns the BucketCreator for follow-up operations (e.g., enable_replication).
@@ -231,16 +234,21 @@ pub async fn list_for_stack(
         .await
         .s3_err("failed to list buckets")?;
 
-    for bucket in response.buckets() {
-        let Some(name) = bucket.name() else {
-            continue;
-        };
+    let names = response
+        .buckets()
+        .iter()
+        .filter_map(|bucket| bucket.name())
+        .filter(|name| name.starts_with(&prefix));
+    // Overlap tag requests while retaining the order returned by ListBuckets.
+    let mut tagged_buckets = stream::iter(names)
+        .map(|name| async move {
+            let tags = client.get_bucket_tagging().bucket(name).send().await;
+            (name, tags)
+        })
+        .buffered(MAX_BUCKET_TAG_CONCURRENCY);
 
-        if !name.starts_with(&prefix) {
-            continue;
-        }
-
-        let Ok(tag_response) = client.get_bucket_tagging().bucket(name).send().await else {
+    while let Some((name, tag_result)) = tagged_buckets.next().await {
+        let Ok(tag_response) = tag_result else {
             continue;
         };
 
@@ -689,6 +697,36 @@ mod tests {
 
         let buckets = list_for_stack(&client, &stack, None).await.unwrap();
         assert!(buckets.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_list_for_stack_preserves_order_across_tag_request_batches() {
+        let stack = Stack::new("test-stack").unwrap();
+        let names: Vec<String> = (0..20)
+            .map(|index| format!("test-stack-bucket-{index}"))
+            .collect();
+        let mut listed_names: Vec<&str> = names.iter().map(String::as_str).collect();
+        listed_names.insert(0, "other-stack-bucket");
+        listed_names.insert(10, "test-stackish-bucket");
+        let tags = bucket_tagging_xml(&[("Stack", "test-stack"), ("BucketType", "standard")]);
+        let mut builder = TestClientBuilder::new().success(list_buckets_xml(&listed_names), None);
+        for _ in &names {
+            builder = builder.success(tags.clone(), None);
+        }
+        let (client, replay) = builder.build_with_replay();
+
+        let buckets = list_for_stack(&client, &stack, None).await.unwrap();
+
+        assert_eq!(
+            buckets.iter().map(Bucket::name).collect::<Vec<_>>(),
+            names.iter().map(String::as_str).collect::<Vec<_>>()
+        );
+        let requests = test_support::recorded_requests(&replay);
+        assert_eq!(requests.len(), 1 + names.len());
+        for (request, name) in requests.iter().skip(1).zip(&names) {
+            assert!(request.uri.contains(name));
+            assert!(request.uri.contains("tagging"));
+        }
     }
 
     #[tokio::test]

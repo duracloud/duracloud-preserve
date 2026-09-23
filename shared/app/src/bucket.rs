@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     path::PathBuf,
 };
 
@@ -322,12 +322,14 @@ pub async fn list_for_stack_by_type(
 /// List buckets accessible to a user across every stack named by their IAM groups.
 ///
 /// Groups that don't parse as stack names are skipped (logged at debug).
+/// Multiple groups for the same stack contribute its buckets only once, in first-seen order.
 /// Only `Internal`, `Public`, and `Standard` buckets are returned.
 pub async fn list_for_user_stacks(
     client: &Client,
     user: &UserInfo,
     cache: &mut BucketCache,
 ) -> Result<Vec<Bucket>, RequestError> {
+    let mut seen = HashSet::new();
     let stacks: Vec<Stack> = user
         .groups
         .iter()
@@ -338,6 +340,7 @@ pub async fn list_for_user_stacks(
                 None
             }
         })
+        .filter(|stack| seen.insert(stack.as_str().to_owned()))
         .collect();
 
     let mut buckets = Vec::new();
@@ -804,12 +807,17 @@ mod tests {
         let alice = UserInfo {
             user_name: "alice".into(),
             email: "alice@example.com".into(),
-            groups: vec!["test-stack-users".into()],
+            groups: vec!["test-stack-users".into(), "test-stack-admins".into()],
         };
         let bob = UserInfo {
             user_name: "bob".into(),
             email: "bob@example.com".into(),
-            groups: vec!["test-stack-users".into(), "other-stack-users".into()],
+            groups: vec![
+                "test-stack-users".into(),
+                "other-stack-users".into(),
+                "test-stack-admins".into(),
+                "other-stack-admins".into(),
+            ],
         };
 
         let first = list_for_user_stacks(&client, &alice, &mut cache)

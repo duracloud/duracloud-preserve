@@ -3,6 +3,10 @@ use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
+use std::time::Duration;
+
+/// Overrides the client timeout: the payload grows with the user's virtual folders.
+const UPDATE_USER_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -13,7 +17,34 @@ pub enum Error {
         endpoint: String,
         status: StatusCode,
         body: String,
+        retry_after: Option<Duration>,
     },
+    #[error("folder upsert timed out: {folder}")]
+    FolderTimeout { folder: String },
+}
+
+fn retry_after(response: &reqwest::Response) -> Option<Duration> {
+    parse_retry_after(
+        response
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)?
+            .to_str()
+            .ok()?,
+        Utc::now(),
+    )
+}
+
+fn parse_retry_after(value: &str, now: DateTime<Utc>) -> Option<Duration> {
+    let value = value.trim();
+    if let Ok(seconds) = value.parse::<u64>() {
+        return Some(Duration::from_secs(seconds));
+    }
+    let date = DateTime::parse_from_rfc2822(value).ok()?;
+    Some(
+        (date.with_timezone(&Utc) - now)
+            .to_std()
+            .unwrap_or_default(),
+    )
 }
 
 pub struct SFTPGoClient {
@@ -81,6 +112,7 @@ impl SFTPGoClient {
                 self.config.host, user.username
             ))
             .bearer_auth(&self.token)
+            .timeout(UPDATE_USER_TIMEOUT)
             .json(user)
             .send()
             .await?;
@@ -90,13 +122,16 @@ impl SFTPGoClient {
             return Err(Error::Api {
                 endpoint: format!("update_user {}", user.username),
                 status,
+                retry_after: retry_after(&resp),
                 body: resp.text().await.unwrap_or_default(),
             });
         }
         Ok(())
     }
 
-    pub async fn upsert_folder(&self, folder: &BaseVirtualFolder) -> Result<(), Error> {
+    /// Create the folder if missing, rewrite it only if a field managed by
+    /// [`base_folders`] differs, and otherwise leave it untouched.
+    pub async fn upsert_folder(&self, folder: &BaseVirtualFolder) -> Result<FolderUpsert, Error> {
         let folder_url = format!("{}/api/v2/folders/{}", self.config.host, folder.name);
         let probe = self
             .client
@@ -105,23 +140,35 @@ impl SFTPGoClient {
             .send()
             .await?;
 
-        let exists = match probe.status() {
-            s if s.is_success() => true,
-            StatusCode::NOT_FOUND => false,
+        let outcome = match probe.status() {
+            s if s.is_success() => {
+                // Transport failures must reach the retry policy, not trigger a write.
+                let body = probe.bytes().await?;
+                match serde_json::from_slice::<BaseVirtualFolder>(&body) {
+                    Ok(existing) => match existing.mismatch(folder) {
+                        Some(field) => FolderUpsert::Updated(field),
+                        None => return Ok(FolderUpsert::Unchanged),
+                    },
+                    // A complete response with an unreadable folder is replaced.
+                    Err(_) => FolderUpsert::Updated("unreadable"),
+                }
+            }
+            StatusCode::NOT_FOUND => FolderUpsert::Created,
             status => {
                 return Err(Error::Api {
                     endpoint: format!("probe folder {}", folder.name),
                     status,
+                    retry_after: retry_after(&probe),
                     body: probe.text().await.unwrap_or_default(),
                 });
             }
         };
 
-        let resp = if exists {
-            self.client.put(&folder_url)
-        } else {
-            self.client
-                .post(format!("{}/api/v2/folders", self.config.host))
+        let resp = match outcome {
+            FolderUpsert::Created => self
+                .client
+                .post(format!("{}/api/v2/folders", self.config.host)),
+            _ => self.client.put(&folder_url),
         }
         .bearer_auth(&self.token)
         .json(folder)
@@ -133,11 +180,21 @@ impl SFTPGoClient {
             return Err(Error::Api {
                 endpoint: format!("upsert_folder {}", folder.name),
                 status,
+                retry_after: retry_after(&resp),
                 body: resp.text().await.unwrap_or_default(),
             });
         }
-        Ok(())
+        Ok(outcome)
     }
+}
+
+/// Result of [`SFTPGoClient::upsert_folder`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FolderUpsert {
+    Created,
+    /// Rewritten because the named field differed from the desired folder.
+    Updated(&'static str),
+    Unchanged,
 }
 
 #[derive(Debug, Deserialize)]
@@ -196,6 +253,7 @@ pub struct VirtualFolder {
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct BaseVirtualFolder {
     pub name: String,
+    #[serde(default)]
     pub mapped_path: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filesystem: Option<FilesystemConfig>,
@@ -205,6 +263,7 @@ pub struct BaseVirtualFolder {
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct FilesystemConfig {
+    #[serde(default)]
     pub provider: i32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub s3config: Option<S3Config>,
@@ -226,9 +285,13 @@ impl FilesystemConfig {
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct S3Config {
+    #[serde(default)]
     pub bucket: String,
+    #[serde(default)]
     pub region: String,
+    #[serde(default)]
     pub access_key: String,
+    #[serde(default)]
     pub access_secret: Secret,
     #[serde(flatten)]
     extra: Map<String, Value>,
@@ -236,6 +299,7 @@ pub struct S3Config {
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Secret {
+    #[serde(default)]
     pub status: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payload: Option<String>,
@@ -296,6 +360,40 @@ pub fn base_folders(
             }
         })
         .collect()
+}
+
+impl BaseVirtualFolder {
+    /// Name the first field set by [`base_folders`] where this stored folder
+    /// differs from `desired`, or `None` if nothing needs rewriting.
+    ///
+    /// SFTPGo hides secret payloads in responses, so the secret is only
+    /// checked for presence. Credential rotation shows up as a new access key.
+    pub fn mismatch(&self, desired: &Self) -> Option<&'static str> {
+        if self.mapped_path != desired.mapped_path {
+            return Some("mapped_path");
+        }
+        let (Some(fs), Some(want_fs)) = (&self.filesystem, &desired.filesystem) else {
+            return (self.filesystem.is_some() != desired.filesystem.is_some())
+                .then_some("filesystem");
+        };
+        if fs.provider != want_fs.provider {
+            return Some("provider");
+        }
+        let (Some(s3), Some(want)) = (&fs.s3config, &want_fs.s3config) else {
+            return (fs.s3config.is_some() != want_fs.s3config.is_some()).then_some("s3config");
+        };
+        if s3.bucket != want.bucket {
+            Some("bucket")
+        } else if s3.region != want.region {
+            Some("region")
+        } else if s3.access_key != want.access_key {
+            Some("access_key")
+        } else if s3.access_secret.status.is_empty() {
+            Some("access_secret")
+        } else {
+            None
+        }
+    }
 }
 
 /// Build the SFTPGo folder name for a `(user_key, bucket)` pair.
@@ -362,6 +460,28 @@ mod tests {
     use super::*;
 
     #[test]
+    fn retry_after_accepts_seconds_and_http_dates() {
+        let now = DateTime::parse_from_rfc3339("2026-09-23T22:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        assert_eq!(
+            parse_retry_after("120", now),
+            Some(Duration::from_secs(120))
+        );
+        assert_eq!(
+            parse_retry_after("Wed, 23 Sep 2026 22:00:10 GMT", now),
+            Some(Duration::from_secs(10))
+        );
+        assert_eq!(
+            parse_retry_after("Wed, 23 Sep 2026 21:59:59 GMT", now),
+            Some(Duration::ZERO)
+        );
+        for invalid in ["", "invalid", "-1"] {
+            assert_eq!(parse_retry_after(invalid, now), None);
+        }
+    }
+
+    #[test]
     fn base_folders_s3_filesystem_is_populated() {
         let folders = base_folders("user1", &["acme-managed"], "us-east-1", "AKIA", "sekret");
         assert_eq!(folders.len(), 1);
@@ -378,6 +498,97 @@ mod tests {
         assert_eq!(s3.access_key, "AKIA");
         assert_eq!(s3.access_secret.status, "Plain");
         assert_eq!(s3.access_secret.payload.as_deref(), Some("sekret"));
+    }
+
+    fn desired_folder(access_key: &str) -> BaseVirtualFolder {
+        base_folders(
+            "user1",
+            &["acme-private"],
+            "us-east-1",
+            access_key,
+            "sekret",
+        )
+        .pop()
+        .unwrap()
+    }
+
+    /// Round-trip through JSON the way SFTPGo returns it: secret payload hidden.
+    fn stored(folder: &BaseVirtualFolder) -> BaseVirtualFolder {
+        let mut value = serde_json::to_value(folder).unwrap();
+        value["filesystem"]["s3config"]["access_secret"] =
+            serde_json::json!({"status": "AES-256-GCM"});
+        serde_json::from_value(value).unwrap()
+    }
+
+    #[test]
+    fn mismatch_is_none_for_stored_copy_with_hidden_secret() {
+        let desired = desired_folder("AKIA");
+        assert_eq!(stored(&desired).mismatch(&desired), None);
+    }
+
+    #[test]
+    fn mismatch_detects_rotated_access_key() {
+        let existing = stored(&desired_folder("AKIA-OLD"));
+        assert_eq!(
+            existing.mismatch(&desired_folder("AKIA-NEW")),
+            Some("access_key")
+        );
+    }
+
+    #[test]
+    fn mismatch_detects_missing_secret() {
+        let desired = desired_folder("AKIA");
+        let mut value = serde_json::to_value(&desired).unwrap();
+        value["filesystem"]["s3config"]
+            .as_object_mut()
+            .unwrap()
+            .remove("access_secret");
+        let existing: BaseVirtualFolder = serde_json::from_value(value).unwrap();
+        assert_eq!(existing.mismatch(&desired), Some("access_secret"));
+    }
+
+    #[test]
+    fn mismatch_detects_changed_location_fields() {
+        let desired = desired_folder("AKIA");
+        let mut existing = stored(&desired);
+        existing
+            .filesystem
+            .as_mut()
+            .unwrap()
+            .s3config
+            .as_mut()
+            .unwrap()
+            .region = "us-west-2".into();
+        assert_eq!(existing.mismatch(&desired), Some("region"));
+
+        let mut existing = stored(&desired);
+        existing
+            .filesystem
+            .as_mut()
+            .unwrap()
+            .s3config
+            .as_mut()
+            .unwrap()
+            .bucket = "other".into();
+        assert_eq!(existing.mismatch(&desired), Some("bucket"));
+
+        let mut existing = stored(&desired);
+        existing.mapped_path = "/elsewhere".into();
+        assert_eq!(existing.mismatch(&desired), Some("mapped_path"));
+    }
+
+    #[test]
+    fn mismatch_detects_folder_without_filesystem() {
+        // SFTPGo omits empty fields; a bare folder must still deserialize.
+        let existing: BaseVirtualFolder = serde_json::from_value(serde_json::json!({
+            "name": "user1-acme-private",
+            "mapped_path": "/tmp/sftpgo-folders/user1-acme-private"
+        }))
+        .unwrap();
+        assert_eq!(
+            existing.mismatch(&desired_folder("AKIA")),
+            Some("filesystem")
+        );
     }
 
     #[test]

@@ -24,6 +24,7 @@ chrono.workspace = true
 constants.workspace = true
 csv.workspace = true
 futures.workspace = true
+rand = "0.10"
 reqwest.workspace = true
 serde_json.workspace = true
 sftpgo.workspace = true
@@ -35,4 +36,4 @@ tracing.workspace = true
 [dev-dependencies]
 aws-smithy-http-client = { workspace = true, features = ["test-util"] }
 test-support.workspace = true
-tokio = { workspace = true, features = ["test-util"] }
+tokio = { workspace = true, features = ["test-util", "net", "io-util"] }

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use ::sftpgo::{
-    BaseVirtualFolder, Error, SFTPGoClient, SFTPGoConfig, base_folders, permissions,
+    BaseVirtualFolder, Error, FolderUpsert, SFTPGoClient, SFTPGoConfig, base_folders, permissions,
     virtual_folders,
 };
 use futures::{StreamExt, TryStreamExt, stream};
@@ -47,7 +47,11 @@ pub async fn sync_user_access(
     stream::iter(base_folders(
         &user_key, buckets, region, access_key, secret_key,
     ))
-    .map(|folder| async move { upsert_folder_with_retry(client, &folder).await })
+    .map(|folder| async move {
+        let outcome = upsert_folder_with_retry(client, &folder).await?;
+        tracing::debug!(folder = %folder.name, ?outcome, "SFTPGo folder synced");
+        Ok::<_, Error>(())
+    })
     .buffer_unordered(MAX_FOLDER_CONCURRENCY)
     .try_collect::<()>()
     .await?;
@@ -64,7 +68,7 @@ pub async fn sync_user_access(
 async fn upsert_folder_with_retry(
     client: &SFTPGoClient,
     folder: &BaseVirtualFolder,
-) -> Result<(), Error> {
+) -> Result<FolderUpsert, Error> {
     let deadline = Instant::now() + FOLDER_RETRY_BUDGET;
     let mut attempt = 1;
     loop {

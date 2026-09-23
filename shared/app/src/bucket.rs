@@ -31,9 +31,12 @@ use crate::{
     errors::{ComputeChecksumsError, FileKeyError, StorageReportError},
 };
 
-/// Per-stack bucket list cache for reuse when processing many users.
+/// Invocation-local cache of account bucket names and discovered stack buckets.
 #[derive(Default)]
-pub struct BucketCache(HashMap<String, Vec<Bucket>>);
+pub struct BucketCache {
+    names: Option<Vec<String>>,
+    stacks: HashMap<String, Vec<Bucket>>,
+}
 
 impl BucketCache {
     pub fn new() -> Self {
@@ -226,18 +229,41 @@ pub async fn list_for_stack(
     filter: TagFilter<'_>,
 ) -> Result<Vec<Bucket>, RequestError> {
     let prefix = format!("{}-", stack.as_str());
-    let mut buckets = Vec::new();
+    let names = list_names(client, Some(&prefix)).await?;
+    list_for_stack_from_names(client, stack, &names, filter).await
+}
 
-    let response = client
+/// Only return a complete listing so failed pages cannot populate the cache.
+async fn list_names(client: &Client, prefix: Option<&str>) -> Result<Vec<String>, RequestError> {
+    let mut pages = client
         .list_buckets()
-        .send()
-        .await
-        .s3_err("failed to list buckets")?;
+        .set_prefix(prefix.map(str::to_owned))
+        .max_buckets(1000)
+        .into_paginator()
+        .send();
+    let mut names = Vec::new();
+    while let Some(page) = pages.next().await {
+        let page = page.s3_err("failed to list buckets")?;
+        names.extend(
+            page.buckets()
+                .iter()
+                .filter_map(|bucket| bucket.name().map(str::to_owned)),
+        );
+    }
+    Ok(names)
+}
 
-    let names = response
-        .buckets()
+async fn list_for_stack_from_names(
+    client: &Client,
+    stack: &Stack,
+    names: &[String],
+    filter: TagFilter<'_>,
+) -> Result<Vec<Bucket>, RequestError> {
+    let prefix = format!("{}-", stack.as_str());
+    let mut buckets = Vec::new();
+    let names = names
         .iter()
-        .filter_map(|bucket| bucket.name())
+        .map(String::as_str)
         .filter(|name| name.starts_with(&prefix));
     // Overlap tag requests while retaining the order returned by ListBuckets.
     let mut tagged_buckets = stream::iter(names)
@@ -316,16 +342,29 @@ pub async fn list_for_user_stacks(
 
     let mut buckets = Vec::new();
     for stack in &stacks {
-        let stack_buckets = match cache.0.get(stack.as_str()) {
+        let stack_buckets = match cache.stacks.get(stack.as_str()) {
             Some(cached) => cached.clone(),
             None => {
-                let fetched = list_for_stack_by_type(
+                let names = if let Some(names) = &cache.names {
+                    names
+                } else {
+                    cache.names.insert(list_names(client, None).await?)
+                };
+                let fetched = list_for_stack_from_names(
                     client,
                     stack,
-                    &[Type::Internal, Type::Public, Type::Standard],
+                    names,
+                    Some(&|tags| {
+                        matches!(
+                            bucket::type_from_tags(tags),
+                            Some(Type::Internal | Type::Public | Type::Standard)
+                        )
+                    }),
                 )
                 .await?;
-                cache.0.insert(stack.as_str().to_string(), fetched.clone());
+                cache
+                    .stacks
+                    .insert(stack.as_str().to_string(), fetched.clone());
                 fetched
             }
         };
@@ -489,6 +528,13 @@ mod tests {
     use test_support::TestClientBuilder;
 
     fn list_buckets_xml(names: &[&str]) -> String {
+        list_buckets_page_xml(names, None)
+    }
+
+    fn list_buckets_page_xml(names: &[&str], next_token: Option<&str>) -> String {
+        let token = next_token
+            .map(|token| format!("<ContinuationToken>{token}</ContinuationToken>"))
+            .unwrap_or_default();
         let buckets = names
             .iter()
             .map(|name| {
@@ -507,6 +553,7 @@ mod tests {
     <DisplayName>owner</DisplayName>
   </Owner>
   <Buckets>{buckets}</Buckets>
+  {token}
 </ListAllMyBucketsResult>"#
         )
     }
@@ -697,6 +744,178 @@ mod tests {
 
         let buckets = list_for_stack(&client, &stack, None).await.unwrap();
         assert!(buckets.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_list_for_stack_paginates_with_prefix() {
+        let stack = Stack::new("test-stack").unwrap();
+        let tags = bucket_tagging_xml(&[("Stack", "test-stack"), ("BucketType", "standard")]);
+        let (client, replay) = TestClientBuilder::new()
+            .success(
+                list_buckets_page_xml(&["test-stack-alpha"], Some("page2")),
+                None,
+            )
+            .success(list_buckets_xml(&["test-stack-bravo"]), None)
+            .success(tags.clone(), None)
+            .success(tags, None)
+            .build_with_replay();
+
+        let buckets = list_for_stack(&client, &stack, None).await.unwrap();
+
+        assert_eq!(
+            buckets.iter().map(Bucket::name).collect::<Vec<_>>(),
+            vec!["test-stack-alpha", "test-stack-bravo"]
+        );
+        let requests = test_support::recorded_requests(&replay);
+        assert_eq!(requests.len(), 4);
+        for request in &requests[..2] {
+            assert!(request.uri.contains("prefix=test-stack-"));
+            assert!(request.uri.contains("max-buckets=1000"));
+        }
+        assert!(!requests[0].uri.contains("continuation-token"));
+        assert!(requests[1].uri.contains("continuation-token=page2"));
+    }
+
+    #[tokio::test]
+    async fn test_list_for_user_stacks_reuses_paginated_listing_across_stacks_and_users() {
+        let (client, replay) = TestClientBuilder::new()
+            .success(
+                list_buckets_page_xml(&["test-stack-alpha", "test-stack-repl"], Some("page2")),
+                None,
+            )
+            .success(
+                list_buckets_xml(&["other-stack-bravo", "unused-stack-data"]),
+                None,
+            )
+            .success(
+                bucket_tagging_xml(&[("Stack", "test-stack"), ("BucketType", "standard")]),
+                None,
+            )
+            .success(
+                bucket_tagging_xml(&[("Stack", "test-stack"), ("BucketType", "replication")]),
+                None,
+            )
+            .success(
+                bucket_tagging_xml(&[("Stack", "other-stack"), ("BucketType", "public")]),
+                None,
+            )
+            .build_with_replay();
+        let mut cache = BucketCache::new();
+        let alice = UserInfo {
+            user_name: "alice".into(),
+            email: "alice@example.com".into(),
+            groups: vec!["test-stack-users".into()],
+        };
+        let bob = UserInfo {
+            user_name: "bob".into(),
+            email: "bob@example.com".into(),
+            groups: vec!["test-stack-users".into(), "other-stack-users".into()],
+        };
+
+        let first = list_for_user_stacks(&client, &alice, &mut cache)
+            .await
+            .unwrap();
+        let second = list_for_user_stacks(&client, &bob, &mut cache)
+            .await
+            .unwrap();
+        let repeated = list_for_user_stacks(&client, &bob, &mut cache)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            first.iter().map(Bucket::name).collect::<Vec<_>>(),
+            vec!["test-stack-alpha"]
+        );
+        let expected = vec!["test-stack-alpha", "other-stack-bravo"];
+        assert_eq!(
+            second.iter().map(Bucket::name).collect::<Vec<_>>(),
+            expected
+        );
+        assert_eq!(
+            repeated.iter().map(Bucket::name).collect::<Vec<_>>(),
+            expected
+        );
+        let requests = test_support::recorded_requests(&replay);
+        assert_eq!(
+            requests.len(),
+            5,
+            "two list pages and three tag requests, shared by all users"
+        );
+        for request in &requests[..2] {
+            assert!(!request.uri.contains("prefix="));
+            assert!(request.uri.contains("max-buckets=1000"));
+        }
+        assert!(requests[1].uri.contains("continuation-token=page2"));
+        assert!(
+            requests
+                .iter()
+                .all(|request| !request.uri.contains("unused-stack"))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_list_for_user_stacks_loads_names_lazily_and_caches_empty_listing() {
+        let (client, replay) = TestClientBuilder::new()
+            .success(list_buckets_xml(&[]), None)
+            .build_with_replay();
+        let mut cache = BucketCache::new();
+        let mut user = UserInfo {
+            user_name: "alice".into(),
+            email: "alice@example.com".into(),
+            groups: vec!["admins".into()],
+        };
+        assert!(
+            list_for_user_stacks(&client, &user, &mut cache)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(test_support::recorded_requests(&replay).is_empty());
+        for group in ["test-stack-users", "other-stack-users", "test-stack-users"] {
+            user.groups = vec![group.into()];
+            assert!(
+                list_for_user_stacks(&client, &user, &mut cache)
+                    .await
+                    .unwrap()
+                    .is_empty()
+            );
+        }
+        assert_eq!(test_support::recorded_requests(&replay).len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_list_for_user_stacks_does_not_cache_partial_listing_on_page_failure() {
+        let tags = bucket_tagging_xml(&[("Stack", "test-stack"), ("BucketType", "standard")]);
+        let (client, replay) = TestClientBuilder::new()
+            .success(
+                list_buckets_page_xml(&["test-stack-alpha"], Some("page2")),
+                None,
+            )
+            .s3_error("AccessDenied", "listing denied")
+            .success(list_buckets_xml(&["test-stack-bravo"]), None)
+            .success(tags, None)
+            .build_with_replay();
+        let mut cache = BucketCache::new();
+        let user = UserInfo {
+            user_name: "alice".into(),
+            email: "alice@example.com".into(),
+            groups: vec!["test-stack-users".into()],
+        };
+        assert!(
+            list_for_user_stacks(&client, &user, &mut cache)
+                .await
+                .is_err()
+        );
+        let buckets = list_for_user_stacks(&client, &user, &mut cache)
+            .await
+            .unwrap();
+        assert_eq!(
+            buckets.iter().map(Bucket::name).collect::<Vec<_>>(),
+            vec!["test-stack-bravo"]
+        );
+        let requests = test_support::recorded_requests(&replay);
+        assert_eq!(requests.len(), 4);
+        assert!(!requests[2].uri.contains("continuation-token"));
     }
 
     #[tokio::test]

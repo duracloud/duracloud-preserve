@@ -58,6 +58,9 @@ locals {
   }
 
   user_bucket_allow_actions = [
+    // TODO: remove GetBucketLocation (ZD: 28287)
+    // https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketLocation.html
+    "s3:GetBucketLocation",
     "s3:ListBucket",
     "s3:ListBucketMultipartUploads",
   ]

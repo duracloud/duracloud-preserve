@@ -12,11 +12,14 @@ pub struct BucketStats {
 }
 
 /// Inventory stats (bucketless payload — stats for any set of inventory rows)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct InventoryStats {
     pub total_files: u64,
     pub total_size: u64,
     pub by_prefix: BTreeMap<String, PrefixStats>,
+    // Older stored reports predate replication failure counts.
+    #[serde(default)]
+    pub replication_errors: u64,
 }
 
 /// File and size counts for a single (top level) prefix
@@ -83,6 +86,7 @@ mod tests {
         assert_eq!(bucket_stats.stats.total_files, 5);
         assert_eq!(bucket_stats.stats.total_size, 500);
         assert!(bucket_stats.stats.by_prefix.is_empty());
+        assert_eq!(bucket_stats.stats.replication_errors, 0);
     }
 
     #[test]
@@ -92,7 +96,7 @@ mod tests {
             stats: InventoryStats {
                 total_files: 5,
                 total_size: 500,
-                by_prefix: BTreeMap::new(),
+                ..Default::default()
             },
         };
 
@@ -115,6 +119,7 @@ mod tests {
                     total_size: 123456,
                 },
             )]),
+            replication_errors: 3,
         };
 
         let json = serde_json::to_string(&stats).unwrap();
@@ -122,6 +127,7 @@ mod tests {
 
         assert_eq!(deserialized.total_files, 42);
         assert_eq!(deserialized.total_size, 123456);
+        assert_eq!(deserialized.replication_errors, 3);
         assert_eq!(deserialized.by_prefix.len(), 1);
         assert!(deserialized.by_prefix.contains_key("data"));
     }

@@ -76,6 +76,19 @@ pub async fn perform(
     )
     .await?;
 
+    if stats.replication_errors > 0 {
+        let report = File::from(
+            config
+                .stack()
+                .reports_manifests_path(&manifest.source_bucket, args.date_ctx),
+        );
+        tracing::error!(
+            replication_errors = stats.replication_errors,
+            report_s3_url = %report.s3_url(),
+            "Inventory contains failed replications; inspect FAILED rows in the CSV report",
+        );
+    }
+
     Ok(stats)
 }
 

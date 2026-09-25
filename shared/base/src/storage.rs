@@ -342,6 +342,7 @@ mod tests {
                     },
                 ),
             ]),
+            ..Default::default()
         };
 
         let stats_b = InventoryStats {
@@ -354,6 +355,7 @@ mod tests {
                     total_size: 40_000_000,
                 },
             )]),
+            ..Default::default()
         };
 
         StorageReport {
@@ -378,12 +380,12 @@ mod tests {
         let stats_a = InventoryStats {
             total_files: 10,
             total_size: 5000,
-            by_prefix: BTreeMap::new(),
+            ..Default::default()
         };
         let stats_b = InventoryStats {
             total_files: 20,
             total_size: 8000,
-            by_prefix: BTreeMap::new(),
+            ..Default::default()
         };
 
         let data = StorageReportData::from_inventory(BTreeMap::from([
@@ -418,6 +420,7 @@ mod tests {
                     },
                 ),
             ]),
+            ..Default::default()
         };
 
         let data =
@@ -443,7 +446,7 @@ mod tests {
                     InventoryStats {
                         total_files: 100,
                         total_size: 1000,
-                        by_prefix: BTreeMap::new(),
+                        ..Default::default()
                     },
                 )
             })
@@ -536,6 +539,7 @@ mod tests {
                             total_size: 1,
                         },
                     )]),
+                    ..Default::default()
                 },
             )])),
         };

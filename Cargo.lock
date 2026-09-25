@@ -2623,8 +2623,10 @@ dependencies = [
  "aws_lambda_events",
  "awsutils",
  "base",
+ "duckdb",
  "lambda_runtime",
  "serde_json",
+ "tempfile",
  "test-support",
  "tokio",
 ]

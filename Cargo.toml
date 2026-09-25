@@ -113,6 +113,14 @@ thiserror = "2.0.18"
 
 # Misc
 bytes = "1.11.0"
+# No `bundled`/`json`/`parquet` features: DUCKDB_DOWNLOAD_LIB=1 (set in
+# .cargo/config.toml) links the official prebuilt libduckdb instead of
+# compiling DuckDB's C++ from source. Everything the SQL uses (read_parquet,
+# read_csv, json_extract_string) is statically included in the official lib —
+# verified: no extension autoload occurs. The binary dynamically links
+# libduckdb, so deploy targets must ship the shared library (see Dockerfile /
+# lambda build / scripts/install.mjs).
+duckdb = "1.10503"
 tempfile = "3"
 tracing = "0.1"
 

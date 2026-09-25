@@ -84,7 +84,8 @@ impl InventoryProcessor {
             SELECT
                 CASE WHEN strpos(key, '/') > 0 THEN split_part(key, '/', 1) ELSE '' END AS prefix,
                 count(*)::UBIGINT AS total_files,
-                sum(coalesce(size, 0))::UBIGINT AS total_size
+                sum(coalesce(size, 0))::UBIGINT AS total_size,
+                count(*) FILTER (WHERE replication_status = 'FAILED')::UBIGINT AS replication_errors
             FROM inventory
             GROUP BY prefix
             "#,
@@ -94,11 +95,13 @@ impl InventoryProcessor {
         let mut total_files = 0_u64;
         let mut total_size = 0_u64;
         let mut by_prefix: BTreeMap<String, PrefixStats> = BTreeMap::new();
+        let mut replication_errors = 0_u64;
 
         while let Some(row) = rows.next()? {
             let prefix: String = row.get(0)?;
             let files: u64 = row.get(1)?;
             let size: u64 = row.get(2)?;
+            let errors: u64 = row.get(3)?;
 
             total_files += files;
             total_size += size;
@@ -109,12 +112,14 @@ impl InventoryProcessor {
                     total_size: size,
                 },
             );
+            replication_errors += errors;
         }
 
         Ok(InventoryStats {
             total_files,
             total_size,
             by_prefix,
+            replication_errors,
         })
     }
 }
@@ -178,6 +183,7 @@ mod tests {
 
         assert_eq!(stats.total_files, 13);
         assert_eq!(stats.total_size, 2191162);
+        assert_eq!(stats.replication_errors, 0);
 
         let by_prefix = &stats.by_prefix;
 
@@ -334,6 +340,36 @@ mod tests {
         let stats = processor.compute_stats().unwrap();
         assert_eq!(stats.total_files, 3);
         assert_eq!(stats.total_size, 600);
+        assert_eq!(stats.replication_errors, 0);
+    }
+
+    #[test]
+    fn test_replication_errors_counts_failures_across_prefixes() {
+        let processor = create_test_processor(&[]);
+        processor
+            .conn
+            .execute_batch(
+                r#"
+                INSERT INTO inventory (bucket, key, size, replication_status) VALUES
+                    ('bucket', 'root.txt', 10, 'FAILED'),
+                    ('bucket', 'images/a.jpg', 20, 'FAILED'),
+                    ('bucket', 'images/b.jpg', 30, 'FAILED'),
+                    ('bucket', 'images/c.jpg', 40, 'COMPLETED'),
+                    ('bucket', 'docs/pending.txt', 50, 'PENDING'),
+                    ('bucket', 'docs/replica.txt', 60, 'REPLICA'),
+                    ('bucket', 'unknown/null.txt', 70, NULL),
+                    ('bucket', 'unknown/empty.txt', 80, '')
+                "#,
+            )
+            .unwrap();
+
+        let stats = processor.compute_stats().unwrap();
+        assert_eq!(stats.replication_errors, 3);
+        assert_eq!(stats.total_files, 8);
+        assert_eq!(stats.total_size, 360);
+        assert_eq!(stats.by_prefix.len(), 4);
+        assert_eq!(stats.by_prefix["images"].total_files, 3);
+        assert_eq!(stats.by_prefix["images"].total_size, 90);
     }
 
     #[test]
@@ -342,6 +378,7 @@ mod tests {
         let stats = processor.compute_stats().unwrap();
         assert_eq!(stats.total_files, 0);
         assert_eq!(stats.total_size, 0);
+        assert_eq!(stats.replication_errors, 0);
     }
 
     #[test]

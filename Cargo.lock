@@ -105,9 +105,9 @@ dependencies = [
 
 [[package]]
 name = "archive-it-client"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dcc878535f5898bbeb63a26456f250a93b49ff9a7539af90d1c6131d476f1e3"
+checksum = "d299656d6e765fbe50a131a476c73eb2dd84fd2a1e79e1683d6a537282d4d4f4"
 dependencies = [
  "async-stream",
  "aws-sdk-s3",
@@ -4044,7 +4044,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.4",
  "windows-sys 0.61.2",

@@ -2,6 +2,9 @@
 locals {
   # Constructed this way rather than via resource arn to break circular dependency
   cloudtrail_arn = "arn:aws:cloudtrail:${local.region}:${local.account_id}:trail/${local.stack}-cloudtrail"
+
+  # Matches DateCtx::Latest in shared/base/src/stack.rs
+  latest_date_ctx = "0000-00-00-LATEST"
 }
 
 data "aws_iam_policy_document" "managed_bucket" {
@@ -120,6 +123,26 @@ data "aws_iam_policy_document" "managed_bucket" {
       test     = "StringEquals"
       variable = "s3:x-amz-acl"
       values   = ["bucket-owner-full-control"]
+    }
+  }
+
+  # Organization account -> read LATEST storage stats and reports
+  dynamic "statement" {
+    for_each = var.org_account_id == null ? [] : [var.org_account_id]
+
+    content {
+      sid     = "AllowOrgAccountReadLatestStorage"
+      effect  = "Allow"
+      actions = ["s3:GetObject"]
+      resources = [
+        "${aws_s3_bucket.main["managed"].arn}/${local.metadata_prefix}/${local.latest_date_ctx}/storage/stats/${local.stack}.json",
+        "${aws_s3_bucket.main["managed"].arn}/${local.reports_prefix}/${local.latest_date_ctx}/storage/${local.stack}.html",
+      ]
+
+      principals {
+        type        = "AWS"
+        identifiers = ["arn:aws:iam::${statement.value}:root"]
+      }
     }
   }
 }

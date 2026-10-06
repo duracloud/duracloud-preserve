@@ -169,6 +169,7 @@ When CloudFront is disabled, its distribution and bucket pair are absent and its
 ### Other integrations and settings
 
 - **Notifications and reporting:** set `emails_to_notify` on the stack module for function error emails and confirm the subscription emails. `storage_capacity` sets a reporting reference in bytes, not an enforced quota. See [Storage report](../technical/storage-report.md) for reporting prerequisites.
+- **Organization account access:** set `org_account_id` on the stack module to let that AWS account download the latest storage stats (`metadata/0000-00-00-LATEST/storage/stats/<stack>.json`) and report (`reports/0000-00-00-LATEST/storage/<stack>.html`) from the managed bucket. Principals in that account also need IAM permission for `s3:GetObject` on those objects.
 - **SFTPGo:** provide an existing server and configure its provider, enable `sftpgo_enabled` on the users module, and add the `sync-users` release package to the functions map. See [sync-users](../technical/sync-users.md) for synchronization details.
 - **Archive-It:** add the `archive_it` module, pass its `tasks` output to the stack module, and select a published `dcp` image. See the [Archive-It module](https://github.com/duracloud/duracloud-preserve/tree/main/terraform/modules/archive_it) for configuration and [Releases](../technical/releases.md) for image publishing.
 

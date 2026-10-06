@@ -15,6 +15,17 @@ variable "acm_cert_arn" {
   default     = null
 }
 
+variable "org_account_id" {
+  description = "Optional AWS organization account id granted read access to the LATEST storage stats and reports"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.org_account_id == null || can(regex("^[0-9]{12}$", var.org_account_id))
+    error_message = "org_account_id must be a 12 digit AWS account id when set."
+  }
+}
+
 variable "cloudfront_enabled" {
   description = "Enable CloudFront and its public bucket pair for public file access"
   type        = bool

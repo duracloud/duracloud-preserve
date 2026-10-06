@@ -78,7 +78,9 @@ run = [
   'cargo fmt -- --check',
   'cargo clippy --workspace --all-features -- -D warnings',
   'cargo audit',
-  'terraform fmt .',
+  'terraform fmt -check -recursive -diff',
+  'terraform init -backend=false',
+  'terraform validate',
 ]
 
 [tasks.cli]
@@ -175,8 +177,11 @@ description = "Lint and format-check the task scripts with Biome"
 run = 'biome check scripts'
 
 [tasks.lint-fix]
-description = "Apply Biome lint and format fixes to the task scripts"
-run = 'biome check --write scripts'
+description = "Apply Biome lint and format fixes to the task scripts and format Terraform"
+run = [
+  'biome check --write scripts',
+  'terraform fmt -recursive',
+]
 
 [tasks.locals]
 description = "Generate _locals.tf from Rust constants"

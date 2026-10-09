@@ -34,12 +34,21 @@ run "bucket_permissions" {
         memberships = [
           { stack = "dcp-client1", group = "restricted-users", allow_delete = true },
           { stack = "dcp-client2", group = "restricted-users", allow_delete = false },
+          { stack = "dcp-client10", group = "restricted-users", allow_delete = false },
         ]
       }
       default_restricted = {
         email       = "default@example.com"
         buckets     = ["dcp-client1-archives"]
         memberships = [{ stack = "dcp-client1", group = "restricted-users" }]
+      }
+      wildcard = {
+        email   = "wildcard@example.com"
+        buckets = ["dcp-client1-wooster-*", "dcp-client2-*"]
+        memberships = [
+          { stack = "dcp-client1", group = "restricted-users", allow_delete = true },
+          { stack = "dcp-client2", group = "restricted-users" },
+        ]
       }
       explicit_false = {
         email       = "false@example.com"
@@ -61,6 +70,25 @@ run "bucket_permissions" {
         memberships = [{ stack = "dcp-client1", group = "restricted-users", allow_delete = true }]
       }
     }
+  }
+
+  assert {
+    condition = alltrue([
+      for action in ["s3:ListBucket", "s3:GetObject", "s3:PutObject", "s3:DeleteObject"] :
+      toset(flatten([
+        for statement in jsondecode(data.aws_iam_policy_document.s3_access["wildcard"].json).Statement : statement.Resource
+        if statement.Effect == "Allow" && contains(flatten([statement.Action]), action)
+        ])) == (
+        action == "s3:ListBucket" ? toset([
+          "arn:aws:s3:::dcp-client1-wooster-*", "arn:aws:s3:::dcp-client2-*",
+          ]) : action == "s3:DeleteObject" ? toset([
+          "arn:aws:s3:::dcp-client1-wooster-*/*",
+          ]) : toset([
+          "arn:aws:s3:::dcp-client1-wooster-*/*", "arn:aws:s3:::dcp-client2-*/*",
+        ])
+      )
+    ])
+    error_message = "Wildcard assignments must preserve bucket and object ARN patterns and grant deletes only in opted-in stacks."
   }
 
   assert {
@@ -87,16 +115,11 @@ run "bucket_permissions" {
   }
 
   assert {
-    condition = toset(flatten([
-      for statement in jsondecode(data.aws_iam_policy_document.s3_access["scoped"].json).Statement : statement.Resource
-      if statement.Effect == "Deny" && contains(flatten([statement.Action]), "s3:DeleteObject")
-      ])) == toset([
-      "arn:aws:s3:::dcp-client1-managed",
-      "arn:aws:s3:::dcp-client1-managed/*",
-      "arn:aws:s3:::dcp-client1-archives-repl",
-      "arn:aws:s3:::dcp-client1-archives-repl/*",
+    condition = alltrue([
+      for statement in jsondecode(data.aws_iam_policy_document.s3_access["scoped"].json).Statement :
+      statement.Effect != "Deny"
     ])
-    error_message = "Managed and replication bucket delete denies must remain in the policy."
+    error_message = "The user policy must not carry managed/repl bucket denies; the group-level Deny (terraform/modules/stack/user_management.tf) is now the only guard for those buckets."
   }
 
   assert {
@@ -136,6 +159,22 @@ run "reject_power_delete_flag" {
       invalid = {
         email       = "invalid@example.com"
         memberships = [{ stack = "dcp-client1", group = "power-users", allow_delete = true }]
+      }
+    }
+  }
+
+  expect_failures = [var.users]
+}
+
+run "reject_bucket_outside_membership_stacks" {
+  command = plan
+
+  variables {
+    users = {
+      invalid = {
+        email       = "invalid@example.com"
+        buckets     = ["dcp-other-archives"]
+        memberships = [{ stack = "dcp-client1", group = "restricted-users" }]
       }
     }
   }

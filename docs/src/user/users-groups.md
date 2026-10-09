@@ -19,5 +19,7 @@ Restricted users have the ability to upload content to specific buckets as ident
 
 Restricted users can see all buckets associated with a DuraCloud Preserve account but won't be able to see or interact with content to which they are not designated. For example, if your account has `-archives` and `-special-collections` buckets, but a restricted user only has access to the `-archives` bucket, they will see that there is a `-special-collections` bucket, but if they try to navigate into the bucket, they will get a permissions error, no matter which option they're using to interact with your DuraCloud Preserve account.
 
+Restricted users cannot download, upload, modify, or delete replication bucket content, no matter which buckets they're assigned, though an assignment can allow them to list object names. The managed bucket is read-only for restricted users when assigned; they can view content there but cannot upload, modify, or delete it.
+
 > [!Tip]
 When setting up your DuraCloud Preserve account, be sure to tell your hosting provider which users should have power, standard, or restricted accounts. If asking for restricted users, also let your provider know to which buckets these users should have access. You'll also need to update your provider when creating new buckets or needing new restricted user accounts.

@@ -18,7 +18,8 @@ locals {
   }
 
   # Delete access is opt-in per restricted membership and limited to assigned
-  # buckets in that stack. Existing explicit denies still protect reserved data.
+  # buckets in that stack. The group-level Deny on managed/repl buckets
+  # (terraform/modules/stack/user_management.tf) still protects reserved data.
   user_delete_object_resources = {
     for name, buckets in local.user_buckets : name => [
       for bucket in buckets : "arn:aws:s3:::${bucket}/*"
@@ -27,34 +28,6 @@ locals {
         m.group == "restricted-users" && m.allow_delete && startswith(bucket, "${m.stack}-")
       ])
     ]
-  }
-
-  user_managed_buckets = {
-    for name, buckets in local.user_buckets : name => [
-      for bucket in buckets : bucket
-      if endswith(bucket, local.managed_suffix)
-    ]
-  }
-
-  user_repl_buckets = {
-    for name, buckets in local.user_buckets : name => [
-      for bucket in buckets : bucket
-      if endswith(bucket, local.replication_suffix)
-    ]
-  }
-
-  user_managed_bucket_resources = {
-    for name, buckets in local.user_managed_buckets : name => concat(
-      [for bucket in buckets : "arn:aws:s3:::${bucket}"],
-      [for bucket in buckets : "arn:aws:s3:::${bucket}/*"]
-    )
-  }
-
-  user_repl_bucket_resources = {
-    for name, buckets in local.user_repl_buckets : name => concat(
-      [for bucket in buckets : "arn:aws:s3:::${bucket}"],
-      [for bucket in buckets : "arn:aws:s3:::${bucket}/*"]
-    )
   }
 
   user_bucket_allow_actions = [
@@ -70,23 +43,6 @@ locals {
     "s3:PutObject",
     "s3:AbortMultipartUpload",
     "s3:ListMultipartUploadParts",
-  ]
-
-  managed_bucket_deny_actions = [
-    "s3:PutObject",
-    "s3:DeleteObject",
-    "s3:AbortMultipartUpload",
-    "s3:ListMultipartUploadParts",
-    "s3:ListBucketMultipartUploads",
-  ]
-
-  repl_bucket_deny_actions = [
-    "s3:GetObject",
-    "s3:PutObject",
-    "s3:DeleteObject",
-    "s3:AbortMultipartUpload",
-    "s3:ListMultipartUploadParts",
-    "s3:ListBucketMultipartUploads",
   ]
 }
 
@@ -159,26 +115,6 @@ data "aws_iam_policy_document" "s3_access" {
       sid       = "RestrictedBucketDeletes"
       effect    = "Allow"
       actions   = ["s3:DeleteObject"]
-      resources = statement.value
-    }
-  }
-
-  dynamic "statement" {
-    for_each = length(local.user_managed_bucket_resources[each.key]) > 0 ? [local.user_managed_bucket_resources[each.key]] : []
-
-    content {
-      effect    = "Deny"
-      actions   = local.managed_bucket_deny_actions
-      resources = statement.value
-    }
-  }
-
-  dynamic "statement" {
-    for_each = length(local.user_repl_bucket_resources[each.key]) > 0 ? [local.user_repl_bucket_resources[each.key]] : []
-
-    content {
-      effect    = "Deny"
-      actions   = local.repl_bucket_deny_actions
       resources = statement.value
     }
   }

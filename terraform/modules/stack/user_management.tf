@@ -33,10 +33,24 @@ locals {
     restricted_users = {
       group_name  = "${local.stack}-restricted-users"
       policy_name = "${local.stack}-restricted-users-policy"
-      # No bucket/object access by default, addtl permissions must come from user policy
-      allow_actions               = []
-      managed_bucket_deny_actions = []
-      repl_bucket_deny_actions    = []
+      # No bucket/object access by default, addtl permissions must come from user policy.
+      # Reserved buckets are always denied so wildcard user grants can't reach them.
+      allow_actions = []
+      managed_bucket_deny_actions = [
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts",
+        "s3:ListBucketMultipartUploads",
+      ]
+      repl_bucket_deny_actions = [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts",
+        "s3:ListBucketMultipartUploads",
+      ]
     }
     standard_users = {
       group_name  = "${local.stack}-standard-users"

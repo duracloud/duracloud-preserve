@@ -32,4 +32,14 @@ variable "users" {
     ])
     error_message = "allow_delete can only be true for 'restricted-users' memberships."
   }
+  validation {
+    condition = alltrue([
+      for u in var.users : alltrue([
+        for bucket in u.buckets : anytrue([
+          for m in u.memberships : startswith(bucket, "${m.stack}-")
+        ])
+      ])
+    ])
+    error_message = "Each bucket must start with the stack prefix ('<stack>-') of one of the user's memberships. The group-level Deny on reserved buckets only covers stacks the user belongs to."
+  }
 }

@@ -19,6 +19,7 @@ Give the client these rules along with the base URL and key ID:
 - Sign a custom policy with SHA-256 (for example `@aws-sdk/cloudfront-signer` with `algorithm: "SHA256"`), scoped to one content directory: `https://<host><base path><dir>/*`. Never sign the whole base path or anything wider than the viewer is authorized for. CloudFront doesn't enforce this.
 - Sign once per playback session and reuse the `Policy`, `Signature`, `Key-Pair-Id`, and `Hash-Algorithm` parameters on every URL in the directory.
 - The policy must name the hostname the browser requests.
+- Server-side requests (for example fetching playlists to rewrite) must send a `User-Agent` header. If the distribution has a web ACL, managed rules commonly block requests without one, and the block arrives as a 404 like any other denial.
 - Players must not trigger CORS preflights (no custom headers, no credentials). A preflight `OPTIONS` request can't carry a signature and is denied.
 - Failed requests can't be read by browser JavaScript. An expired or invalid signature, a missing object, or any other error response arrives without CORS headers, so a cross-origin player sees a network or CORS error with no readable status (in hls.js, a network error with no response code). Treat any failed playlist or segment request on a signed URL the same way: re-authorize once and retry with a fresh signature, then show an error. Don't rely on telling 403 and 404 apart.
 - Signed URLs stay valid until they expire, even after the viewer logs out. Removing the key revokes them.

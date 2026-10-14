@@ -12,13 +12,26 @@ const functionPath = path.join(
   "public-file-response.js",
 );
 const source = fs.readFileSync(functionPath, "utf8");
-const context = {};
 
-vm.runInNewContext(`${source}\nthis.testHandler = handler;`, context);
+// Terraform prepends the CORS configuration (public_signed.tf)
+function load(corsOriginsByPath) {
+  const context = {};
+  vm.runInNewContext(
+    `var CORS_ORIGINS_BY_PATH = ${JSON.stringify(corsOriginsByPath)};\n${source}\nthis.testHandler = handler;`,
+    context,
+  );
+  return context.testHandler;
+}
 
-function execute(uri, headers = {}, request = {}) {
+const handler = load({});
+const corsHandler = load({
+  "/open-hls/": ["http://localhost:8080", "http://localhost:8081"],
+  "/restricted/": ["http://localhost:8080"],
+});
+
+function run(fn, uri, headers = {}, request = {}) {
   const event = {
-    request: { uri, ...request },
+    request: { uri, headers: {}, ...request },
     response: {
       statusCode: 200,
       headers: JSON.parse(JSON.stringify(headers)),
@@ -26,7 +39,24 @@ function execute(uri, headers = {}, request = {}) {
     },
   };
 
-  return context.testHandler(event);
+  return fn(event);
+}
+
+function execute(uri, headers = {}, request = {}) {
+  return run(handler, uri, headers, request);
+}
+
+function executeCors(uri, origin, headers = {}) {
+  const request = origin === undefined ? {} : { headers: { origin: { value: origin } } };
+  return run(corsHandler, uri, headers, request);
+}
+
+function hasHeader(response, name) {
+  return Object.prototype.hasOwnProperty.call(response.headers, name);
+}
+
+function corsHeaderNames(response) {
+  return Object.keys(response.headers).filter((name) => name.startsWith("access-control-"));
 }
 
 function header(response, name) {
@@ -115,23 +145,162 @@ test("adds browser security headers and preserves unrelated response data", () =
   assert.deepEqual(response.cookies, { session: { value: "unchanged" } });
 });
 
-test("leaves CORS headers from the response headers policy unchanged", () => {
-  const cors = {
-    "access-control-allow-origin": { value: "https://client.edu" },
-    "access-control-expose-headers": { value: "Accept-Ranges,Content-Range,ETag" },
-    vary: { value: "Origin" },
-  };
+test("allows listed origins on each CORS path", () => {
+  const cases = [
+    ["/open-hls/a/a-playlist.m3u8", "http://localhost:8080"],
+    ["/open-hls/a/a-a160k_v4.ts", "http://localhost:8081"],
+    ["/restricted/space/a/a-playlist.m3u8", "http://localhost:8080"],
+  ];
 
-  for (const uri of ["/restricted/hls/a/a-playlist.m3u8", "/restricted/hls/a/a-a160k_v4.ts"]) {
-    const response = execute(uri, cors);
+  for (const [uri, origin] of cases) {
+    const response = executeCors(uri, origin, { etag: { value: "original-etag" } });
 
-    assert.equal(header(response, "access-control-allow-origin"), "https://client.edu");
-    assert.equal(
-      header(response, "access-control-expose-headers"),
-      "Accept-Ranges,Content-Range,ETag",
-    );
+    assert.equal(header(response, "access-control-allow-origin"), origin);
+    assert.equal(header(response, "access-control-expose-headers"), "Accept-Ranges,Content-Range,ETag");
+    assert.equal(header(response, "vary"), "Origin");
+    assert.equal(header(response, "etag"), "original-etag");
+    assert.deepEqual(corsHeaderNames(response).sort(), [
+      "access-control-allow-origin",
+      "access-control-expose-headers",
+    ]);
+  }
+});
+
+test("gives each path only its own origins", () => {
+  const response = executeCors("/restricted/space/a/a-playlist.m3u8", "http://localhost:8081");
+
+  assert.deepEqual(corsHeaderNames(response), []);
+  assert.equal(header(response, "vary"), "Origin");
+});
+
+test("grants nothing to other, missing, or near-miss origins", () => {
+  const origins = [
+    "https://evil.example",
+    "http://localhost:8082",
+    "http://127.0.0.1:8080",
+    "http://localhost:8080/",
+    "HTTP://LOCALHOST:8080",
+    "null",
+    "",
+    undefined,
+  ];
+
+  for (const origin of origins) {
+    const response = executeCors("/open-hls/a/a-playlist.m3u8", origin);
+
+    assert.deepEqual(corsHeaderNames(response), [], `origin ${origin}`);
     assert.equal(header(response, "vary"), "Origin");
   }
+});
+
+test("adds no CORS or Vary outside the listed paths", () => {
+  const uris = [
+    "/404.txt",
+    "/open-hls",
+    "/other/open-hls/a.m3u8",
+    "/OPEN-HLS/a.m3u8",
+    "/restricted-x/a.m3u8",
+  ];
+
+  for (const uri of uris) {
+    const response = executeCors(uri, "http://localhost:8080");
+
+    assert.deepEqual(corsHeaderNames(response), [], uri);
+    assert.equal(hasHeader(response, "vary"), false, uri);
+  }
+
+  const noConfig = execute("/open-hls/a.m3u8", {}, {
+    headers: { origin: { value: "http://localhost:8080" } },
+  });
+  assert.deepEqual(corsHeaderNames(noConfig), []);
+  assert.equal(hasHeader(noConfig, "vary"), false);
+});
+
+test("removes inherited CORS headers everywhere", () => {
+  const inherited = {
+    "access-control-allow-origin": { value: "*" },
+    "access-control-allow-credentials": { value: "true" },
+    "access-control-allow-methods": { value: "GET, PUT, DELETE" },
+    "access-control-allow-headers": { value: "*" },
+    "access-control-expose-headers": { value: "x-amz-meta-secret" },
+    "access-control-max-age": { value: "86400" },
+  };
+
+  for (const origin of ["https://evil.example", undefined]) {
+    const response = executeCors("/open-hls/a.m3u8", origin, inherited);
+    assert.deepEqual(corsHeaderNames(response), []);
+  }
+
+  const outside = executeCors("/photos/cat.jpg", "https://evil.example", inherited);
+  assert.deepEqual(corsHeaderNames(outside), []);
+
+  const allowed = executeCors("/open-hls/a.m3u8", "http://localhost:8080", inherited);
+  assert.deepEqual(corsHeaderNames(allowed).sort(), [
+    "access-control-allow-origin",
+    "access-control-expose-headers",
+  ]);
+  assert.equal(header(allowed, "access-control-allow-origin"), "http://localhost:8080");
+  assert.equal(header(allowed, "access-control-expose-headers"), "Accept-Ranges,Content-Range,ETag");
+});
+
+test("preserves existing Vary values when adding Origin", () => {
+  const cases = [
+    ["Accept-Encoding", "Accept-Encoding, Origin"],
+    ["Accept-Encoding, origin", "Accept-Encoding, origin"],
+    ["Origin", "Origin"],
+    ["*", "*"],
+    ["", "Origin"],
+  ];
+
+  for (const origin of ["http://localhost:8080", "https://evil.example", undefined]) {
+    for (const [existing, expected] of cases) {
+      const response = executeCors("/open-hls/a.ts", origin, { vary: { value: existing } });
+      assert.equal(header(response, "vary"), expected, `${origin} / ${existing}`);
+    }
+  }
+});
+
+test("keeps permissions specific to each request for the same cached object", () => {
+  // CloudFront caches the origin response and runs the function per viewer,
+  // so every request starts from the same headers, including on cache hits.
+  const cached = {
+    etag: { value: "same-object" },
+    "x-cache": { value: "Hit from cloudfront" },
+  };
+  const sequence = [
+    ["http://localhost:8080", "http://localhost:8080"],
+    ["http://localhost:8081", "http://localhost:8081"],
+    ["https://evil.example", undefined],
+    [undefined, undefined],
+    ["http://localhost:8080", "http://localhost:8080"],
+  ];
+
+  for (const [origin, allowed] of sequence) {
+    const response = executeCors("/open-hls/a/a-a160k_v4.ts", origin, cached);
+
+    assert.equal(response.headers["access-control-allow-origin"]?.value, allowed);
+    assert.equal(header(response, "vary"), "Origin");
+    assert.equal(header(response, "etag"), "same-object");
+  }
+
+  // Even if a previous viewer's grant were somehow present, it doesn't carry over
+  const leaked = executeCors("/open-hls/a/a-a160k_v4.ts", "https://evil.example", {
+    ...cached,
+    "access-control-allow-origin": { value: "http://localhost:8080" },
+    vary: { value: "Origin" },
+  });
+  assert.deepEqual(corsHeaderNames(leaked), []);
+  assert.equal(header(leaked, "vary"), "Origin");
+});
+
+test("applies CORS alongside content type and security headers", () => {
+  const response = executeCors("/restricted/space/a/a-playlist.m3u8", "http://localhost:8080", {
+    "content-type": { value: "text/html" },
+  });
+
+  assert.equal(header(response, "content-type"), "application/vnd.apple.mpegurl");
+  assert.equal(header(response, "x-content-type-options"), "nosniff");
+  assert.equal(header(response, "access-control-allow-origin"), "http://localhost:8080");
 });
 
 test("handles the controlled error object as plain text", () => {

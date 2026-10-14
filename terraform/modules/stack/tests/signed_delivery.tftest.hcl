@@ -1,5 +1,6 @@
 # Plan only, with no AWS API calls. Signed URL access and per-path CORS on the
-# public CloudFront distribution (public_signed.tf, public.tf).
+# public CloudFront distribution (public_signed.tf, public.tf). The CORS logic
+# itself is tested in public-file-response.test.js.
 provider "aws" {
   region                      = "us-west-2"
   access_key                  = "testing"
@@ -44,31 +45,6 @@ override_resource {
   }
 }
 
-# A distinct ID per path, so a behavior wired to another path's policy fails
-override_resource {
-  target          = aws_cloudfront_response_headers_policy.cors["/open-hls/"]
-  override_during = plan
-  values = {
-    id = "RHP-OPEN-HLS"
-  }
-}
-
-override_resource {
-  target          = aws_cloudfront_response_headers_policy.cors["/restricted/"]
-  override_during = plan
-  values = {
-    id = "RHP-RESTRICTED"
-  }
-}
-
-override_resource {
-  target          = aws_cloudfront_response_headers_policy.cors["/media/hls/"]
-  override_during = plan
-  values = {
-    id = "RHP-MEDIA-HLS"
-  }
-}
-
 override_resource {
   target          = aws_cloudfront_distribution.public
   override_during = plan
@@ -94,12 +70,13 @@ run "disabled_by_default" {
   }
 
   assert {
-    condition = (
-      length(aws_cloudfront_public_key.signed) == 0 &&
-      length(aws_cloudfront_key_group.signed) == 0 &&
-      length(aws_cloudfront_response_headers_policy.cors) == 0
-    )
-    error_message = "No keys, key group, or CORS policies are created by default."
+    condition     = length(aws_cloudfront_public_key.signed) == 0 && length(aws_cloudfront_key_group.signed) == 0
+    error_message = "No keys or key group are created by default."
+  }
+
+  assert {
+    condition     = jsonencode(jsondecode(trimsuffix(trimprefix(split("\n", aws_cloudfront_function.public_file_response["public"].code)[0], "var CORS_ORIGINS_BY_PATH = "), ";"))) == "{}"
+    error_message = "The response function has no CORS paths by default."
   }
 
   assert {
@@ -158,14 +135,17 @@ run "signed_with_per_path_cors" {
     cloudfront_signed_enabled     = true
     cloudfront_signed_public_keys = { test_1 = var.test_pem }
     cloudfront_cors_allowed_origins_by_path = {
-      "/open-hls/"   = ["http://localhost:8080", "http://localhost:8081"]
+      "/open-hls/"   = ["http://localhost:8081", "http://localhost:8080"]
       "/restricted/" = ["http://localhost:8080"]
     }
   }
 
   assert {
-    condition     = length(aws_cloudfront_distribution.public["public"].ordered_cache_behavior) == 2
-    error_message = "One signed behavior and one unsigned CORS behavior."
+    condition = (
+      length(aws_cloudfront_distribution.public["public"].ordered_cache_behavior) == 1 &&
+      aws_cloudfront_distribution.public["public"].ordered_cache_behavior[0].path_pattern == "/restricted/*"
+    )
+    error_message = "Only the signed path gets an ordered behavior; CORS paths don't need one."
   }
 
   assert {
@@ -175,44 +155,24 @@ run "signed_with_per_path_cors" {
       b.cache_policy_id == aws_cloudfront_distribution.public["public"].default_cache_behavior[0].cache_policy_id &&
       b.compress &&
       b.viewer_protocol_policy == "redirect-to-https" &&
-      b.response_headers_policy_id == "RHP-RESTRICTED" &&
+      (b.response_headers_policy_id == null || b.response_headers_policy_id == "") &&
       length(b.function_association) == 1 &&
       one([for f in b.function_association : f.event_type]) == "viewer-response"
-      if b.path_pattern == "/restricted/*"
-    ]) && length([for b in aws_cloudfront_distribution.public["public"].ordered_cache_behavior : b if b.path_pattern == "/restricted/*"]) == 1
-    error_message = "/restricted/* requires the key group and has caching_optimized, the response function, and its CORS policy."
-  }
-
-  assert {
-    condition = alltrue([
-      for b in aws_cloudfront_distribution.public["public"].ordered_cache_behavior :
-      try(length(b.trusted_key_groups), 0) == 0 &&
-      b.response_headers_policy_id == "RHP-OPEN-HLS" &&
-      length(b.function_association) == 1
-      if b.path_pattern == "/open-hls/*"
-    ]) && length([for b in aws_cloudfront_distribution.public["public"].ordered_cache_behavior : b if b.path_pattern == "/open-hls/*"]) == 1
-    error_message = "/open-hls/* is unsigned, with its CORS policy and the response function."
-  }
-
-  assert {
-    condition = (
-      aws_cloudfront_response_headers_policy.cors["/open-hls/"].cors_config[0].access_control_allow_origins[0].items == toset(["http://localhost:8080", "http://localhost:8081"]) &&
-      aws_cloudfront_response_headers_policy.cors["/restricted/"].cors_config[0].access_control_allow_origins[0].items == toset(["http://localhost:8080"])
-    )
-    error_message = "Each CORS policy contains only its own path's origins."
-  }
-
-  assert {
-    condition = alltrue([
-      for p in aws_cloudfront_response_headers_policy.cors : (
-        p.cors_config[0].access_control_allow_methods[0].items == toset(["GET", "HEAD"]) &&
-        p.cors_config[0].access_control_expose_headers[0].items == toset(["Accept-Ranges", "Content-Range", "ETag"]) &&
-        !p.cors_config[0].access_control_allow_credentials &&
-        p.cors_config[0].origin_override &&
-        length(p.name) <= 128
-      )
     ])
-    error_message = "CORS policies allow GET/HEAD without credentials, expose range headers, and override the origin."
+    error_message = "/restricted/* requires the key group and has caching_optimized and the response function, with no response headers policy."
+  }
+
+  assert {
+    condition = jsonencode(jsondecode(trimsuffix(trimprefix(split("\n", aws_cloudfront_function.public_file_response["public"].code)[0], "var CORS_ORIGINS_BY_PATH = "), ";"))) == jsonencode({
+      "/open-hls/"   = ["http://localhost:8080", "http://localhost:8081"]
+      "/restricted/" = ["http://localhost:8080"]
+    })
+    error_message = "The response function gets each path's own origins."
+  }
+
+  assert {
+    condition     = endswith(aws_cloudfront_function.public_file_response["public"].code, file("${path.module}/assets/cloudfront/public-file-response.js"))
+    error_message = "The response function is the CORS configuration followed by the unchanged function source."
   }
 
   assert {
@@ -220,7 +180,7 @@ run "signed_with_per_path_cors" {
       aws_cloudfront_distribution.public["public"].default_cache_behavior[0].response_headers_policy_id == null ||
       aws_cloudfront_distribution.public["public"].default_cache_behavior[0].response_headers_policy_id == ""
     )
-    error_message = "The default behavior still has no CORS."
+    error_message = "The default behavior has no response headers policy."
   }
 
   assert {
@@ -247,11 +207,8 @@ run "signed_without_cors" {
   }
 
   assert {
-    condition = (
-      aws_cloudfront_distribution.public["public"].ordered_cache_behavior[0].response_headers_policy_id == null ||
-      aws_cloudfront_distribution.public["public"].ordered_cache_behavior[0].response_headers_policy_id == ""
-    )
-    error_message = "With no CORS entry for the signed path, the signed behavior has no response headers policy."
+    condition     = jsonencode(jsondecode(trimsuffix(trimprefix(split("\n", aws_cloudfront_function.public_file_response["public"].code)[0], "var CORS_ORIGINS_BY_PATH = "), ";"))) == "{}"
+    error_message = "With no CORS entries, the response function has no CORS paths."
   }
 
   assert {
@@ -270,18 +227,18 @@ run "cors_open_path_only" {
   }
 
   assert {
-    condition = (
-      length(aws_cloudfront_distribution.public["public"].ordered_cache_behavior) == 1 &&
-      aws_cloudfront_distribution.public["public"].ordered_cache_behavior[0].path_pattern == "/open-hls/*" &&
-      try(length(aws_cloudfront_distribution.public["public"].ordered_cache_behavior[0].trusted_key_groups), 0) == 0 &&
-      aws_cloudfront_distribution.public["public"].ordered_cache_behavior[0].response_headers_policy_id == "RHP-OPEN-HLS"
-    )
-    error_message = "One unsigned /open-hls/* behavior with its CORS policy."
+    condition     = length(aws_cloudfront_distribution.public["public"].ordered_cache_behavior) == 0
+    error_message = "An unsigned CORS path needs no ordered behavior."
   }
 
   assert {
-    condition     = length(aws_cloudfront_response_headers_policy.cors) == 1 && length(aws_cloudfront_key_group.signed) == 0
-    error_message = "Only the listed path gets a CORS policy, and no key group is created."
+    condition     = jsonencode(jsondecode(trimsuffix(trimprefix(split("\n", aws_cloudfront_function.public_file_response["public"].code)[0], "var CORS_ORIGINS_BY_PATH = "), ";"))) == jsonencode({ "/open-hls/" = ["https://client.edu"] })
+    error_message = "Only the listed path gets CORS."
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_key_group.signed) == 0
+    error_message = "No key group is created."
   }
 }
 
@@ -302,16 +259,47 @@ run "custom_base_path" {
   assert {
     condition = (
       length(aws_cloudfront_distribution.public["public"].ordered_cache_behavior) == 1 &&
-      aws_cloudfront_distribution.public["public"].ordered_cache_behavior[0].path_pattern == "/media/hls/*" &&
-      aws_cloudfront_distribution.public["public"].ordered_cache_behavior[0].response_headers_policy_id == "RHP-MEDIA-HLS"
+      aws_cloudfront_distribution.public["public"].ordered_cache_behavior[0].path_pattern == "/media/hls/*"
     )
     error_message = "The signed behavior follows the custom base path."
+  }
+
+  assert {
+    condition     = jsonencode(jsondecode(trimsuffix(trimprefix(split("\n", aws_cloudfront_function.public_file_response["public"].code)[0], "var CORS_ORIGINS_BY_PATH = "), ";"))) == jsonencode({ "/media/hls/" = ["https://client.edu"] })
+    error_message = "CORS for the signed path follows the custom base path."
   }
 
   assert {
     condition     = output.cloudfront_signed_base_url == "https://test.preserve.duracloud.org/media/hls/"
     error_message = "The base URL follows the custom base path."
   }
+}
+
+run "function_size_near_limit" {
+  command = plan
+
+  variables {
+    cloudfront_cors_allowed_origins_by_path = {
+      "/open-hls/" = [for i in range(60) : "https://player-${i}.example.edu"]
+    }
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_function.public_file_response["public"].code) <= 10240
+    error_message = "A realistic CORS configuration fits within the function size limit."
+  }
+}
+
+run "reject_function_over_size_limit" {
+  command = plan
+
+  variables {
+    cloudfront_cors_allowed_origins_by_path = {
+      "/open-hls/" = [for i in range(300) : "https://player-${i}.example.edu"]
+    }
+  }
+
+  expect_failures = [aws_cloudfront_function.public_file_response]
 }
 
 # Rejections

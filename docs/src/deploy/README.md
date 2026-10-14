@@ -207,6 +207,7 @@ output "cloudfront_signed_key_ids" {
 - Before enabling, list the public bucket under the base path. Anything already there stops being public once signing is enabled.
 - Paths are literal prefixes with a leading and trailing `/` (letters, digits, `-`, `_`). CORS paths can't be nested inside each other or inside the signed path. A CORS entry equal to the signed path supplies the signed behavior's CORS and requires signing to be enabled.
 - Origins are exact `https://host[:port]` values. `http://localhost:<port>` is accepted for local testing.
+- CORS is applied by the distribution's response function rather than a response headers policy, so both features work on pay-as-you-go and on every flat-rate pricing plan, including Free. The origins are embedded in the function, which CloudFront limits to 10 KB; planning fails if the configuration is too large.
 - Give the client `cloudfront_signed_base_url` and the `Key-Pair-Id` for its key from `cloudfront_signed_key_ids`.
 
 **Disabling signed delivery or changing `cloudfront_signed_base_path` makes everything under the old prefix public** through the default behavior. Move or delete that content first, and invalidate cached copies. Never do this to work around a signing problem.

@@ -13,6 +13,8 @@ A stack's CloudFront distribution can require [signed URLs](https://docs.aws.ama
 
 ## Client contract
 
+For how a client puts these rules together (HLS, playlist rewriting, players, and expiry), see [Client implementation](signed-delivery-client.md).
+
 Give the client these rules along with the base URL and key ID:
 
 - Generate an RSA 2048 key pair, keep the private key, and send only the public PEM.

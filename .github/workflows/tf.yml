@@ -36,6 +36,9 @@ jobs:
       - run: terraform fmt -check -recursive -diff
       - run: terraform init -backend=false
       - run: terraform validate
+      - run: terraform -chdir=terraform/modules/stack init -backend=false
+      - run: terraform -chdir=terraform/modules/stack validate
+      - run: terraform -chdir=terraform/modules/stack test
       - run: terraform -chdir=terraform/modules/users init -backend=false
       - run: terraform -chdir=terraform/modules/users validate
       - run: terraform -chdir=terraform/modules/users test

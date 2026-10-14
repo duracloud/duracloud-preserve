@@ -94,6 +94,50 @@ resource "aws_cloudfront_distribution" "public" {
     }
   }
 
+  # Signed URL access (see public_signed.tf). CORS paths are never nested in
+  # this or each other, so behavior order doesn't matter.
+  dynamic "ordered_cache_behavior" {
+    for_each = local.signed_enabled ? [local.signed_path] : []
+    content {
+      path_pattern     = "${ordered_cache_behavior.value}*"
+      allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+      cached_methods   = ["GET", "HEAD", "OPTIONS"]
+      target_origin_id = local.stack
+
+      cache_policy_id            = data.aws_cloudfront_cache_policy.caching_optimized.id
+      compress                   = true
+      response_headers_policy_id = try(aws_cloudfront_response_headers_policy.cors[ordered_cache_behavior.value].id, null)
+      trusted_key_groups         = [aws_cloudfront_key_group.signed[each.key].id]
+      viewer_protocol_policy     = "redirect-to-https"
+
+      function_association {
+        event_type   = "viewer-response"
+        function_arn = aws_cloudfront_function.public_file_response[each.key].arn
+      }
+    }
+  }
+
+  # Unsigned paths with CORS, otherwise the same as the default behavior
+  dynamic "ordered_cache_behavior" {
+    for_each = local.cors_public_paths
+    content {
+      path_pattern     = "${ordered_cache_behavior.key}*"
+      allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+      cached_methods   = ["GET", "HEAD", "OPTIONS"]
+      target_origin_id = local.stack
+
+      cache_policy_id            = data.aws_cloudfront_cache_policy.caching_optimized.id
+      compress                   = true
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.cors[ordered_cache_behavior.key].id
+      viewer_protocol_policy     = "redirect-to-https"
+
+      function_association {
+        event_type   = "viewer-response"
+        function_arn = aws_cloudfront_function.public_file_response[each.key].arn
+      }
+    }
+  }
+
   custom_error_response {
     error_caching_min_ttl = 60
     error_code            = 403

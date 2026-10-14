@@ -31,3 +31,15 @@ output "cloudfront_domain_name" {
 output "cloudfront_hosted_zone_id" {
   value = try(aws_cloudfront_distribution.public["public"].hosted_zone_id, null)
 }
+
+output "cloudfront_signed_base_url" {
+  description = "Base URL for signed URL access (null when signed access is disabled)"
+  value = local.signed_enabled ? "https://${
+    local.custom_domain ? local.fqdn : aws_cloudfront_distribution.public["public"].domain_name
+  }${local.signed_path}" : null
+}
+
+output "cloudfront_signed_key_ids" {
+  description = "CloudFront public key IDs (Key-Pair-Id) by signer name"
+  value       = { for name, key in aws_cloudfront_public_key.signed : name => key.id }
+}

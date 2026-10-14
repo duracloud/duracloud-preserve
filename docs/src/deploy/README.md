@@ -166,6 +166,53 @@ To use a custom domain, also pass `cloudfront_domain` and `acm_cert_arn` to the 
 
 When CloudFront is disabled, its distribution and bucket pair are absent and its outputs are `null`. The stack module defaults to disabled; this repository's development `main.tf` defaults to enabled. User-created buckets ending in `-public` use direct S3 public access independently of this setting. See [Making Content Public](../user/making-content-public.md).
 
+### Signed delivery and CORS
+
+With CloudFront enabled, one path prefix in the public bucket can require [CloudFront signed URLs](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-signed-urls.html), so a client application decides who can view that content. CORS can also be enabled per path prefix for browser players on the client's website. Both are off by default.
+
+```hcl
+module "stack" {
+  # ...
+  cloudfront_enabled = true
+
+  # Trusted signer public keys (name => PEM), up to 5. The client keeps the private key.
+  cloudfront_signed_public_keys = {
+    client_2026_10 = <<-EOT
+      -----BEGIN PUBLIC KEY-----
+      ...
+      -----END PUBLIC KEY-----
+    EOT
+  }
+
+  cloudfront_signed_enabled   = true
+  cloudfront_signed_base_path = "/restricted/" # default
+
+  # Exact origins per path; paths not listed get no CORS headers
+  cloudfront_cors_allowed_origins_by_path = {
+    "/open-hls/"   = ["https://client.edu"]
+    "/restricted/" = ["https://client.edu"]
+  }
+}
+
+output "cloudfront_signed_base_url" {
+  value = module.stack.cloudfront_signed_base_url
+}
+
+output "cloudfront_signed_key_ids" {
+  value = module.stack.cloudfront_signed_key_ids
+}
+```
+
+- Everything can be applied at once. If content is already being served under the base path, register the keys in an earlier apply instead, so the client has its key ID and can sign before the path stops being public. If `cloudfront_web_acl_id` is set, the web ACL must let the client's viewers through.
+- Before enabling, list the public bucket under the base path. Anything already there stops being public once signing is enabled.
+- Paths are literal prefixes with a leading and trailing `/` (letters, digits, `-`, `_`). CORS paths can't be nested inside each other or inside the signed path. A CORS entry equal to the signed path supplies the signed behavior's CORS and requires signing to be enabled.
+- Origins are exact `https://host[:port]` values. `http://localhost:<port>` is accepted for local testing.
+- Give the client `cloudfront_signed_base_url` and the `Key-Pair-Id` for its key from `cloudfront_signed_key_ids`.
+
+**Disabling signed delivery or changing `cloudfront_signed_base_path` makes everything under the old prefix public** through the default behavior. Move or delete that content first, and invalidate cached copies. Never do this to work around a signing problem.
+
+See [Signed delivery](../technical/signed-delivery.md) for onboarding, key rotation, and compromise response.
+
 ### Other integrations and settings
 
 - **Notifications and reporting:** set `emails_to_notify` on the stack module for function error emails and confirm the subscription emails. `storage_capacity` sets a reporting reference in bytes, not an enforced quota. See [Storage report](../technical/storage-report.md) for reporting prerequisites.

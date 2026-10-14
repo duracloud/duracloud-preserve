@@ -24,8 +24,12 @@ data "aws_region" "current" {}
 variable "archive_it_enabled" { default = false }
 variable "archive_it_expiration" { default = null }
 variable "artifacts_version" { default = "" } # "" = stable channel
+variable "cloudfront_cors_allowed_origins_by_path" { default = {} }
 variable "cloudfront_domain" { default = "" }
 variable "cloudfront_enabled" { default = true }
+variable "cloudfront_signed_base_path" { default = "/restricted/" }
+variable "cloudfront_signed_enabled" { default = false }
+variable "cloudfront_signed_public_keys" { default = {} }
 variable "deploy" { default = false }
 variable "emails_to_notify" { default = [] }
 variable "sftpgo_enabled" { default = false }
@@ -84,15 +88,22 @@ locals {
 module "stack" {
   source = "./terraform/modules/stack"
 
-  cloudfront_domain  = var.cloudfront_domain
-  cloudfront_enabled = var.cloudfront_enabled
-  deploy_functions   = var.deploy
-  emails_to_notify   = var.emails_to_notify
-  functions          = local.functions
-  stack              = local.stack
-  storage_capacity   = pow(10, 12) # 1TB
-  tasks              = merge(module.archive_it[*].tasks...)
+  cloudfront_cors_allowed_origins_by_path = var.cloudfront_cors_allowed_origins_by_path
+  cloudfront_domain                       = var.cloudfront_domain
+  cloudfront_enabled                      = var.cloudfront_enabled
+  cloudfront_signed_base_path             = var.cloudfront_signed_base_path
+  cloudfront_signed_enabled               = var.cloudfront_signed_enabled
+  cloudfront_signed_public_keys           = var.cloudfront_signed_public_keys
+  deploy_functions                        = var.deploy
+  emails_to_notify                        = var.emails_to_notify
+  functions                               = local.functions
+  stack                                   = local.stack
+  storage_capacity                        = pow(10, 12) # 1TB
+  tasks                                   = merge(module.archive_it[*].tasks...)
 }
+
+output "cloudfront_signed_base_url" { value = module.stack.cloudfront_signed_base_url }
+output "cloudfront_signed_key_ids" { value = module.stack.cloudfront_signed_key_ids }
 
 module "users" {
   source = "./terraform/modules/users"

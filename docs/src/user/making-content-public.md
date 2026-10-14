@@ -40,6 +40,8 @@ The CloudFront domain is intended for publishing files, not for hosting a websit
 
 HTML, SVG, JavaScript, CSS, XML, WebAssembly, executables, archives, files without an extension, and unknown file types do not execute in the browser from the preserve domain. The service determines browser behavior from the filename extension and does not rely on content-type metadata supplied during upload.
 
+If your administrator has enabled signed delivery, files under one folder of the public bucket (usually `restricted/`) are only served through signed URLs that your own application creates, for example for campus-only video. They are not publicly accessible, even though they are in the public bucket. Ask your administrator which folder this is before uploading there.
+
 The `404.txt` object at the root of the CloudFront bucket is reserved for service use and cannot be uploaded, replaced, or deleted by client users. Place public content somewhere else in the bucket.
 
 ## Creating public buckets (not recommended)

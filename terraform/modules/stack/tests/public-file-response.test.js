@@ -115,6 +115,25 @@ test("adds browser security headers and preserves unrelated response data", () =
   assert.deepEqual(response.cookies, { session: { value: "unchanged" } });
 });
 
+test("leaves CORS headers from the response headers policy unchanged", () => {
+  const cors = {
+    "access-control-allow-origin": { value: "https://client.edu" },
+    "access-control-expose-headers": { value: "Accept-Ranges,Content-Range,ETag" },
+    vary: { value: "Origin" },
+  };
+
+  for (const uri of ["/restricted/hls/a/a-playlist.m3u8", "/restricted/hls/a/a-a160k_v4.ts"]) {
+    const response = execute(uri, cors);
+
+    assert.equal(header(response, "access-control-allow-origin"), "https://client.edu");
+    assert.equal(
+      header(response, "access-control-expose-headers"),
+      "Accept-Ranges,Content-Range,ETag",
+    );
+    assert.equal(header(response, "vary"), "Origin");
+  }
+});
+
 test("handles the controlled error object as plain text", () => {
   const response = execute("/404.txt");
 

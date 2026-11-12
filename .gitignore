@@ -17,3 +17,6 @@ target
 TRIGGER
 # staged prebuilt libduckdb for deploy artifacts (scripts/stage-duckdb-lib.mjs)
 /lib/
+# CloudFront signed delivery test harness: keys, assets, outputs
+scripts/cf-signed-test/.work/
+scripts/cf-signed-test/node_modules/

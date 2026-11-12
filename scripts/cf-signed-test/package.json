@@ -1,0 +1,9 @@
+{
+  "name": "cf-signed-test",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end test harness for CloudFront signed delivery. Run the scripts with node (see README.md)",
+  "dependencies": {
+    "@aws-sdk/cloudfront-signer": "3.1149.0"
+  }
+}

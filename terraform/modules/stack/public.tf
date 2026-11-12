@@ -61,7 +61,14 @@ resource "aws_cloudfront_function" "public_file_response" {
   comment = "Make user-uploaded files safe for browser delivery"
   runtime = "cloudfront-js-2.0"
   publish = true
-  code    = file("${path.module}/assets/cloudfront/public-file-response.js")
+  code    = local.public_file_response_code
+
+  lifecycle {
+    precondition {
+      condition     = length(local.public_file_response_code) <= 10240
+      error_message = "The public file response function, including cloudfront_cors_allowed_origins_by_path, exceeds CloudFront's 10 KB function size limit. Reduce the CORS paths or origins."
+    }
+  }
 }
 
 resource "aws_cloudfront_distribution" "public" {
@@ -91,6 +98,28 @@ resource "aws_cloudfront_distribution" "public" {
     function_association {
       event_type   = "viewer-response"
       function_arn = aws_cloudfront_function.public_file_response[each.key].arn
+    }
+  }
+
+  # Signed URL access (see public_signed.tf). CORS for every path, this one
+  # included, is applied by the response function.
+  dynamic "ordered_cache_behavior" {
+    for_each = local.signed_enabled ? [local.signed_path] : []
+    content {
+      path_pattern     = "${ordered_cache_behavior.value}*"
+      allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+      cached_methods   = ["GET", "HEAD", "OPTIONS"]
+      target_origin_id = local.stack
+
+      cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
+      compress               = true
+      trusted_key_groups     = [aws_cloudfront_key_group.signed[each.key].id]
+      viewer_protocol_policy = "redirect-to-https"
+
+      function_association {
+        event_type   = "viewer-response"
+        function_arn = aws_cloudfront_function.public_file_response[each.key].arn
+      }
     }
   }
 

@@ -1,3 +1,7 @@
+// CORS_ORIGINS_BY_PATH (path prefix => allowed origins) is prepended by
+// Terraform from cloudfront_cors_allowed_origins_by_path (public.tf).
+var CORS_EXPOSE_HEADERS = "Accept-Ranges,Content-Range,ETag";
+
 var INLINE_MIME_TYPES = {
   "aac": "audio/aac",
   "avif": "image/avif",
@@ -60,6 +64,53 @@ function setHeader(headers, name, value) {
   headers[name] = { value: value };
 }
 
+function corsOrigins(uri) {
+  for (var path in CORS_ORIGINS_BY_PATH) {
+    if (uri.indexOf(path) === 0) {
+      return CORS_ORIGINS_BY_PATH[path];
+    }
+  }
+
+  return null;
+}
+
+function addVaryOrigin(headers) {
+  var vary = headers["vary"] ? headers["vary"].value : "";
+  var tokens = vary.split(",");
+
+  for (var i = 0; i < tokens.length; i++) {
+    var token = tokens[i].trim().toLowerCase();
+    if (token === "origin" || token === "*") {
+      return;
+    }
+  }
+
+  setHeader(headers, "vary", vary.trim() === "" ? "Origin" : vary + ", Origin");
+}
+
+// CORS permissions come only from the configured paths, never from upstream.
+// Paths with CORS always vary on Origin, whether or not this request is allowed.
+function applyCors(request, headers, uri) {
+  for (var name in headers) {
+    if (name.indexOf("access-control-") === 0) {
+      delete headers[name];
+    }
+  }
+
+  var origins = corsOrigins(uri);
+  if (origins === null) {
+    return;
+  }
+
+  addVaryOrigin(headers);
+
+  var origin = request.headers && request.headers["origin"] ? request.headers["origin"].value : "";
+  if (origins.indexOf(origin) !== -1) {
+    setHeader(headers, "access-control-allow-origin", origin);
+    setHeader(headers, "access-control-expose-headers", CORS_EXPOSE_HEADERS);
+  }
+}
+
 function handler(event) {
   var request = event.request;
   var response = event.response;
@@ -69,6 +120,7 @@ function handler(event) {
   setHeader(headers, "content-security-policy", CONTENT_SECURITY_POLICY);
   setHeader(headers, "x-content-type-options", "nosniff");
   setHeader(headers, "referrer-policy", "no-referrer");
+  applyCors(request, headers, uri);
 
   if (uri === "/404.txt") {
     setHeader(headers, "content-type", "text/plain; charset=utf-8");

@@ -35,6 +35,8 @@
   - [storage-report](technical/storage-report.md)
   - [sync-users](technical/sync-users.md)
 - [CLI reference](technical/cli-reference.md)
+- [Signed delivery](technical/signed-delivery.md)
+  - [Client implementation](technical/signed-delivery-client.md)
 - [Cleanup](technical/cleanup.md)
 - [Development](technical/development.md)
 - [Releases](technical/releases.md)

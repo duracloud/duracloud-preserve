@@ -67,6 +67,115 @@ variable "cloudfront_web_acl_id" {
   default     = null
 }
 
+variable "cloudfront_signed_enabled" {
+  description = "Require CloudFront signed URLs for objects under cloudfront_signed_base_path"
+  type        = bool
+  default     = false
+
+  validation {
+    condition = !var.cloudfront_signed_enabled || (
+      var.cloudfront_enabled && length(var.cloudfront_signed_public_keys) > 0
+    )
+    error_message = "cloudfront_signed_enabled requires cloudfront_enabled and at least one cloudfront_signed_public_keys entry."
+  }
+}
+
+variable "cloudfront_signed_base_path" {
+  description = "Path prefix that requires signed URLs (leading and trailing slash, e.g. '/restricted/')"
+  type        = string
+  default     = "/restricted/"
+
+  validation {
+    condition     = can(regex("^/([A-Za-z0-9_-]+/)+$", var.cloudfront_signed_base_path))
+    error_message = "cloudfront_signed_base_path must be one or more path segments of letters, digits, '-' or '_', with leading and trailing '/' (e.g. '/restricted/')."
+  }
+}
+
+variable "cloudfront_signed_public_keys" {
+  description = "Trusted signer public keys (name => public PEM), up to 5 for rotation. Can be set before enabling"
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition     = length(var.cloudfront_signed_public_keys) <= 5
+    error_message = "cloudfront_signed_public_keys allows at most 5 keys."
+  }
+
+  validation {
+    condition = alltrue([
+      for name in keys(var.cloudfront_signed_public_keys) : can(regex("^[A-Za-z0-9_-]{1,64}$", name))
+    ])
+    error_message = "cloudfront_signed_public_keys names must be 1-64 letters, digits, '-' or '_'."
+  }
+
+  validation {
+    condition = alltrue([
+      for pem in values(var.cloudfront_signed_public_keys) :
+      strcontains(pem, "BEGIN PUBLIC KEY") && !strcontains(pem, "PRIVATE KEY")
+    ])
+    error_message = "cloudfront_signed_public_keys values must be public key PEMs; never supply a private key."
+  }
+
+  validation {
+    condition     = length(var.cloudfront_signed_public_keys) == 0 || var.cloudfront_enabled
+    error_message = "cloudfront_signed_public_keys requires cloudfront_enabled."
+  }
+}
+
+variable "cloudfront_cors_allowed_origins_by_path" {
+  description = "CORS allowed origins per path prefix (e.g. '/open-hls/' => ['https://client.edu']). Paths not listed get no CORS headers"
+  type        = map(set(string))
+  default     = {}
+
+  validation {
+    condition = alltrue([
+      for path in keys(var.cloudfront_cors_allowed_origins_by_path) : can(regex("^/([A-Za-z0-9_-]+/)+$", path))
+    ])
+    error_message = "cloudfront_cors_allowed_origins_by_path keys must be one or more path segments of letters, digits, '-' or '_', with leading and trailing '/' (e.g. '/open-hls/')."
+  }
+
+  # No nesting, so CloudFront's first-match behavior order never matters
+  validation {
+    condition = alltrue(flatten([
+      for a in keys(var.cloudfront_cors_allowed_origins_by_path) : [
+        for b in keys(var.cloudfront_cors_allowed_origins_by_path) : a == b || !startswith(b, a)
+      ]
+    ]))
+    error_message = "cloudfront_cors_allowed_origins_by_path paths must not be nested inside each other."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for origins in values(var.cloudfront_cors_allowed_origins_by_path) : concat([length(origins) > 0], [
+        for origin in origins :
+        can(regex("^https://[a-z0-9.-]+(:[0-9]+)?$", origin)) || can(regex("^http://(localhost|127\\.0\\.0\\.1):[0-9]+$", origin))
+      ])
+    ]))
+    error_message = "cloudfront_cors_allowed_origins_by_path origins must be non-empty sets of exact origins: https://host[:port], or http://localhost:port / http://127.0.0.1:port for local testing."
+  }
+
+  validation {
+    condition     = length(var.cloudfront_cors_allowed_origins_by_path) == 0 || var.cloudfront_enabled
+    error_message = "cloudfront_cors_allowed_origins_by_path requires cloudfront_enabled."
+  }
+
+  # An entry equal to the signed base path supplies the signed behavior's CORS
+  validation {
+    condition = alltrue([
+      for path in keys(var.cloudfront_cors_allowed_origins_by_path) :
+      path == var.cloudfront_signed_base_path || !var.cloudfront_signed_enabled || (
+        !startswith(path, var.cloudfront_signed_base_path) && !startswith(var.cloudfront_signed_base_path, path)
+      )
+    ])
+    error_message = "cloudfront_cors_allowed_origins_by_path paths must not contain or be nested under cloudfront_signed_base_path."
+  }
+
+  validation {
+    condition     = var.cloudfront_signed_enabled || !contains(keys(var.cloudfront_cors_allowed_origins_by_path), var.cloudfront_signed_base_path)
+    error_message = "A cloudfront_cors_allowed_origins_by_path entry for cloudfront_signed_base_path requires cloudfront_signed_enabled."
+  }
+}
+
 variable "deploy_functions" {
   description = "Enable to deploy functions"
   type        = bool
